@@ -23,7 +23,7 @@ from dataclasses import MISSING, dataclass, fields, is_dataclass
 from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeVar
 
-from .motif import Motif
+from .motif import Motif, SupportsBuild
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
@@ -297,7 +297,7 @@ def name_for(cls: type) -> str | None:
     return None
 
 
-def spec(motif: Motif) -> Mapping[str, object]:
+def spec(motif: SupportsBuild) -> Mapping[str, object]:
     """Return a reproducible description of ``motif``, for :attr:`Design.meta`.
 
     The result is the motif's registered name under ``"motif"`` plus every
@@ -307,7 +307,7 @@ def spec(motif: Motif) -> Mapping[str, object]:
 
     Parameters
     ----------
-    motif : Motif
+    motif : Motif or any object with ``build()``
         The motif to describe. Usually a dataclass; anything else reports
         just its name, since there is nothing to introspect.
 

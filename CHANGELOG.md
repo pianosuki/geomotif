@@ -170,6 +170,26 @@ history reads honestly.
   closes on the page. That is why the staircase's four flights cannot all be
   the same length, and the tests assert the closure error rather than the
   picture.
+- **Specs** (`geomotif.io.spec`) — `to_spec`, `from_spec`, `save_spec` and
+  `load_spec` serialize the *motif and its parameters* rather than the points
+  they produced. A mandala's recipe is 1.5 KB against 330 KB of coordinates,
+  it survives a change of point count, and it is a file you can edit by hand.
+  A parameter that is itself a motif — the composers take one — nests as the
+  same `{"motif": ..., "params": ...}` object, so a spec needs no second
+  notation to describe a mandala's rings; a value dataclass such as `Bounds`
+  becomes a `{"$type": ...}` object naming its class. All 146 motifs
+  round-trip exactly bar the two whose parameter *is* a Python function,
+  which are defined by code rather than data and refuse by name. Loading a
+  spec will not import a module the file names, only value types from
+  packages that already provide motifs — a spec is data, and data does not
+  get to choose what a process imports.
+- **`save_design` / `load_design`** (`geomotif.io.points`) — the multi-path
+  writer, for when the strokes matter and not only the coordinates: CSV grows
+  a `path` column naming the stroke each point belongs to (empty for a design's
+  loose points, which belong to none), TXT separates strokes with the blank
+  line every plotter toolchain already reads as "lift the pen", and JSON keeps
+  the whole structure including the recipe. `save_points` is unchanged and
+  still flattens — the two now differ by exactly one thing.
 - **Voronoi & Delaunay** (`geomotif.motifs.voronoi`, `[scipy]` extra) —
   `Delaunay`, `Voronoi` (the diagram as borders, each drawn once, chainable
   with `merge=True`), `VoronoiCells` (the same map as closed regions, with an
@@ -258,6 +278,12 @@ history reads honestly.
 
 ### Changed
 
+- `geomotif.io` is now a package rather than a module, split into
+  `io.points` (coordinates and designs) and `io.spec` (recipes). Everything
+  it exported is re-exported unchanged, so `from geomotif import save_points`
+  and `from geomotif.io import save_points` both still work.
+- `registry.spec()` accepts anything with `build()` rather than only a
+  `Motif` subclass, matching the rest of the library's structural stance.
 - Renamed the package `spiralgen` → `geomotif`, ahead of the rework from a
   single-purpose spiral generator into a general geometric design library.
   Import name, source tree, distribution name and console script all move

@@ -93,7 +93,16 @@ from .core.transform import (
     tile,
 )
 from .core.types import Bounds, Design, Path, Point
-from .io import PointFormat, save_points
+from .io import (
+    PointFormat,
+    from_spec,
+    load_design,
+    load_spec,
+    save_design,
+    save_points,
+    save_spec,
+    to_spec,
+)
 
 __version__ = "0.1.0"
 
@@ -137,8 +146,11 @@ __all__ = [
     "coerce_spacing",
     "densify",
     "fit_to",
+    "from_spec",
     "jitter",
     "layer",
+    "load_design",
+    "load_spec",
     "mirror_axis",
     "offset_path",
     "radial_repeat",
@@ -146,7 +158,10 @@ __all__ = [
     "resample",
     "resample_path",
     "samples_for_turns",
+    "save_design",
     "save_points",
+    "save_spec",
     "symmetry_group",
     "tile",
+    "to_spec",
 ]

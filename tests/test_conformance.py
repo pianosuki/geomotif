@@ -14,7 +14,7 @@ import math
 
 import pytest
 
-from geomotif import Design, save_points
+from geomotif import Design, load_design, load_spec, save_design, save_points, save_spec
 from geomotif.core import registry
 
 NAMES = registry.names()
@@ -144,6 +144,32 @@ def test_the_design_exports(name, tmp_path):
     out = tmp_path / "points.csv"
     save_points(design, out)
     assert out.read_text().startswith("x,y")
+
+
+@pytest.mark.parametrize("name", CASES)
+def test_the_design_survives_a_design_file(name, tmp_path):
+    _, design = build(name)
+    reloaded = load_design(save_design(design, tmp_path / "design.json", meta=False))
+    assert [(p.points, p.closed) for p in reloaded.paths] == [
+        (p.points, p.closed) for p in design.paths
+    ]
+    assert reloaded.points == design.points
+
+
+@pytest.mark.parametrize("name", CASES)
+def test_the_motif_survives_a_spec_file(name, tmp_path):
+    motif = registry.create(name, **registry.describe(name).example)
+    try:
+        written = save_spec(motif, tmp_path / "spec.json")
+    except TypeError as exc:
+        # A motif whose parameter *is* a Python function is defined by code
+        # rather than by data; there is nothing to write. Skipping rather than
+        # asserting keeps the reason visible in the report.
+        pytest.skip(f"{name} has no spec: {exc}")
+    rebuilt = load_spec(written).build()
+    original = motif.build()
+    assert [p.points for p in rebuilt.paths] == [p.points for p in original.paths]
+    assert rebuilt.points == original.points
 
 
 @pytest.mark.parametrize("name", CASES)

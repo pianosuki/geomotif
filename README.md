@@ -307,7 +307,7 @@ loose = jitter(design, 0.5, seed=7)  # reproducible irregularity
 `Affine` composes with `@` — `(m @ n)(p) == m(n(p))`, so the right-hand
 transform applies first.
 
-## Exporting points
+## Exporting
 
 Send the coordinates to any other tool — editors, plotters, spreadsheets,
 game map formats — with `save_points`:
@@ -323,6 +323,52 @@ save_points(design, "points.json", precision=2)  # JSON array of [x, y] pairs
 The format is inferred from the file suffix (`.csv`, `.txt`/`.tsv`,
 `.json`) or forced with `fmt=`. `precision` rounds coordinates;
 `precision=0` writes whole integers.
+
+`save_points` flattens everything to one list. When the *strokes* matter —
+where a plotter lifts the pen — use `save_design`, which keeps them apart:
+
+```python
+from geomotif import save_design, load_design
+
+save_design(design, "design.csv")  # path,x,y — each row names its stroke
+save_design(design, "design.txt")  # blank line between strokes
+save_design(design, "design.json")  # structured, and the only one that reads back
+
+design = load_design("design.json")
+```
+
+### Specs: the recipe, not the points
+
+A **spec** records the motif and its parameters rather than the geometry they
+produced. It survives a change of point count, it is a file you can edit by
+hand, and it is a great deal smaller — a mandala's recipe is 1.5 KB against
+330 KB of coordinates:
+
+```python
+from geomotif import save_spec, load_spec
+
+save_spec(motif, "design.json")
+motif = load_spec("design.json")
+design = motif.generate(2000)  # ...at whatever resolution you want today
+```
+
+```json
+{
+  "geomotif": "0.1.0",
+  "motif": "spiral.fibonacci",
+  "params": {
+    "quarters": 9,
+    "size": 10.0
+  }
+}
+```
+
+A parameter that is itself a motif — the composers take one — nests as the
+same object, so a mandala's rings serialize without a second notation. Every
+motif in the catalogue round-trips exactly, bar the two whose parameter *is* a
+Python function: those are defined by code, not data, and say so when asked.
+Loading a spec never imports a module the file names, only value types from
+packages that already provide motifs here.
 
 ## Plotting
 

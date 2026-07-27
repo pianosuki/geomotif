@@ -3,7 +3,7 @@
 Run with the package installed (``pip install -e .`` from the repo root).
 """
 
-from geomotif import PowerSpacing, save_points
+from geomotif import PowerSpacing, save_points, save_spec
 from geomotif.motifs import SpiralBetween
 
 # 16 points spiraling in toward the origin, gaps easing gradually wider.
@@ -16,4 +16,8 @@ for i, (x, y) in enumerate(design, start=1):
 # Export for use in other tools; precision=0 writes whole integers.
 save_points(design, "points.csv", precision=1)
 save_points(design, "points.txt", precision=0)
-print("wrote points.csv and points.txt")
+
+# The recipe rather than the points: a few hundred bytes, and it can be
+# regenerated at any resolution later with load_spec("spiral.json").
+save_spec(spiral, "spiral.json")
+print("wrote points.csv, points.txt and spiral.json")
