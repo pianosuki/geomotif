@@ -134,6 +134,39 @@ history reads honestly.
   `ModularMultiplication`: circle string art and the times table are the same
   construction, so it is one class under two names rather than two classes
   drawing one picture.
+- **Tilings** (`geomotif.motifs.tilings`) — eight periodic ones stamped on a
+  lattice (`SquareTiling`, `TriangularTiling`, `HexagonalTiling`,
+  `RhombilleTiling`, `CairoPentagonal`, `TruncatedSquare`, `SnubSquare` and
+  `HerringboneTiling`, which works at any brick proportion rather than only
+  two-to-one), the two aperiodic Penrose tilings, and `AmmannBeenker`.
+  `PenroseP3` and `PenroseP2` are built from the same two Robinson triangles
+  and differ only in where the seam runs: along the base gives the thin and
+  thick rhombs, along a leg gives the kite and the dart. `AmmannBeenker` is a
+  plain `Motif` rather than a substitution, built by de Bruijn's multigrid —
+  four families of parallel lines laid across each other, one tile per
+  crossing — because the line arrangement is checkable directly where the
+  eightfold inflation rule is only checkable by eye. `TruchetTiling` places
+  its own cells, since one cell stamped everywhere is exactly what a random
+  tiling is not.
+- **Sacred geometry** (`geomotif.motifs.sacred`) — `VesicaPiscis`,
+  `SeedOfLife`, `FlowerOfLife`, `FruitOfLife` and `MetatronsCube`, which are
+  one construction carried five steps further each time, plus `SriYantra` and
+  `GoldenRectangle`.
+- **Guilloché** (`geomotif.motifs.guilloche`) — `GuillocheRosette`,
+  `GuillocheBand` and `GuillochePattern`, the engine-turned line work of
+  banknotes and watch dials. Each stroke is the sum of two waves running
+  opposite ways, which is what makes a phase shift change a curve's shape
+  instead of sliding it sideways.
+- **Composers** (`geomotif.compose`) — motifs made of other motifs:
+  `Mandala` and its `Ring`, `Kaleidoscope`, `Snowflake`, `SpokePattern` and
+  `LayeredRings`. Their unit is anything with a `build()` method, so a
+  composed figure can itself be the unit of another composition. The
+  parameter is called `unit` rather than `motif` because `motif` is the key
+  `spec()` reserves for a design's own name.
+- **`registry.NAME_KEY`** and a guard that goes with it: registering a motif
+  with a parameter called `motif` now raises, instead of silently
+  overwriting the design's own name in `Design.meta` and leaving a spec that
+  cannot be rebuilt.
 - **`registry.spec()`** — a motif's registered name plus its resolved
   parameters, which is what the bases attach to every design they build. A
   design can therefore say what made it, and be rebuilt from that.

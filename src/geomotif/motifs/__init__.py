@@ -32,7 +32,15 @@ Module        Contents
               times-table cardioid of :class:`~.graphs.ModularMultiplication`
 `stringart`   Straight threads whose envelope is a curve: the strung
               corner, the strung polygon, and the general engine
+`tilings`     Periodic tilings on a lattice, both Penrose tilings, the
+              Ammann-Beenker quasicrystal and Truchet's tossed tiles
+`sacred`      Circles on a hexagonal grid: the vesica, the seed, the
+              flower, Metatron's cube, the Sri Yantra
+`guilloche`   The woven line work of banknotes and watch dials
 ============  ==========================================================
+
+Composed figures -- mandalas, kaleidoscopes, snowflakes -- are motifs made
+out of these, and live in :mod:`geomotif.compose`.
 """
 
 from .curves import (
@@ -91,6 +99,7 @@ from .graphs import (
     ModularMultiplication,
     PrimeChords,
 )
+from .guilloche import GuillocheBand, GuillochePattern, GuillocheRosette
 from .polar import (
     GOLDEN_ANGLE,
     Harmonic,
@@ -129,6 +138,15 @@ from .roulettes import (
     Hypotrochoid,
     Spirograph,
 )
+from .sacred import (
+    FlowerOfLife,
+    FruitOfLife,
+    GoldenRectangle,
+    MetatronsCube,
+    SeedOfLife,
+    SriYantra,
+    VesicaPiscis,
+)
 from .spirals import (
     PHI,
     ArchimedeanSpiral,
@@ -150,10 +168,27 @@ from .stringart import (
     StringArtEnvelope,
     StringArtPolygon,
 )
+from .tilings import (
+    AmmannBeenker,
+    CairoPentagonal,
+    HerringboneTiling,
+    HexagonalTiling,
+    PenroseP2,
+    PenroseP3,
+    PenroseTiling,
+    RhombilleTiling,
+    RobinsonTriangle,
+    SnubSquare,
+    SquareTiling,
+    TriangularTiling,
+    TruchetTiling,
+    TruncatedSquare,
+)
 
 __all__ = [
     "GOLDEN_ANGLE",
     "PHI",
+    "AmmannBeenker",
     "ApollonianGasket",
     "Arc",
     "ArchimedeanSpiral",
@@ -162,6 +197,7 @@ __all__ = [
     "BipartiteGraph",
     "BowCurve",
     "Butterfly",
+    "CairoPentagonal",
     "CantorSet",
     "Cardioid",
     "CassiniOval",
@@ -184,14 +220,22 @@ __all__ = [
     "FermatSpiral",
     "FibonacciSpiral",
     "FishCurve",
+    "FlowerOfLife",
     "Folium",
+    "FruitOfLife",
+    "GoldenRectangle",
     "GoldenSpiral",
     "GosperCurve",
+    "GuillocheBand",
+    "GuillochePattern",
+    "GuillocheRosette",
     "HTree",
     "Harmonic",
     "Harmonograph",
     "Heart",
     "HeartForm",
+    "HerringboneTiling",
+    "HexagonalTiling",
     "HilbertCurve",
     "HyperbolicSpiral",
     "Hypocycloid",
@@ -210,6 +254,7 @@ __all__ = [
     "Lituus",
     "LogarithmicSpiral",
     "MaurerRose",
+    "MetatronsCube",
     "MinkowskiIsland",
     "MinkowskiSausage",
     "ModularAddition",
@@ -218,6 +263,9 @@ __all__ = [
     "Nephroid",
     "PeanoCurve",
     "Pendulum",
+    "PenroseP2",
+    "PenroseP3",
+    "PenroseTiling",
     "Phyllotaxis",
     "PointGrid",
     "PoissonDiscPoints",
@@ -227,16 +275,22 @@ __all__ = [
     "Rectangle",
     "RegularPolygon",
     "ReuleauxPolygon",
+    "RhombilleTiling",
+    "RobinsonTriangle",
     "Rose",
     "RoundedRectangle",
     "Sector",
+    "SeedOfLife",
     "SierpinskiArrowhead",
     "SierpinskiCarpet",
     "SierpinskiTriangle",
+    "SnubSquare",
     "SpiralBase",
     "SpiralBetween",
     "Spirograph",
+    "SquareTiling",
     "Squircle",
+    "SriYantra",
     "Star",
     "StarPolygon",
     "StringArtCircle",
@@ -246,8 +300,12 @@ __all__ = [
     "Superellipse",
     "Terdragon",
     "TheodorusSpiral",
+    "TriangularTiling",
     "Trochoid",
+    "TruchetTiling",
+    "TruncatedSquare",
     "TwinDragon",
+    "VesicaPiscis",
     "VicsekFractal",
     "VogelSpiral",
     "Witch",

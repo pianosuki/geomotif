@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "ENTRY_POINT_GROUP",
+    "NAME_KEY",
     "MotifInfo",
     "ParamInfo",
     "create",
@@ -42,6 +43,12 @@ __all__ = [
 ]
 
 ENTRY_POINT_GROUP = "geomotif.motifs"
+
+#: The key under which :func:`spec` records a design's motif name. Reserved:
+#: a motif with a parameter of this name is refused at registration, because
+#: the parameter would overwrite the name and the design could no longer be
+#: rebuilt from its own metadata.
+NAME_KEY = "motif"
 
 MotifT = TypeVar("MotifT", bound=Motif)
 
@@ -85,6 +92,16 @@ class MotifInfo:
     example: Mapping[str, object]
 
 
+def _reserves_the_name_key(cls: type) -> bool:
+    """Return whether ``cls`` declares a parameter named :data:`NAME_KEY`.
+
+    Typed as a bare ``type`` for the same reason as :func:`_params_for`: mypy
+    cannot intersect an abstract motif class with the dataclass protocol, and
+    written inline the check reads as unreachable.
+    """
+    return is_dataclass(cls) and any(field.name == NAME_KEY for field in fields(cls))
+
+
 def _derive_name(cls: type) -> str:
     """Turn ``GoldenSpiral`` into ``golden-spiral``."""
     return _CAMEL_BOUNDARY.sub("-", cls.__name__).lower()
@@ -101,6 +118,9 @@ def _load_motifs() -> None:
     Imported here rather than at module scope because the motif modules
     import this one; by the time anything reads the registry, both are fully
     loaded and the cycle is harmless.
+
+    Two packages, in order: the catalogue, then the composers, which are
+    motifs too and which build on the catalogue.
     """
     global _motifs_loaded
     if _motifs_loaded:
@@ -109,6 +129,7 @@ def _load_motifs() -> None:
     # error once, not on every subsequent registry call.
     _motifs_loaded = True
     importlib.import_module("geomotif.motifs")
+    importlib.import_module("geomotif.compose")
     for entry_point in importlib.metadata.entry_points(group=ENTRY_POINT_GROUP):
         try:
             register_all = entry_point.load()
@@ -163,6 +184,14 @@ def register(
                 f"motif name {key!r} is already registered to "
                 f"{existing.cls.__module__}.{existing.cls.__qualname__}; "
                 f"pass a different name to @register"
+            )
+        if _reserves_the_name_key(cls):
+            raise ValueError(
+                f"{cls.__qualname__} has a parameter called {NAME_KEY!r}, which is "
+                f"the key spec() reserves for a design's own registered name. The "
+                f"two would collide in Design.meta and the design could not be "
+                f"rebuilt from it -- rename the parameter; the composers in "
+                f"geomotif.compose call theirs 'unit'"
             )
         _REGISTRY[key] = _Entry(cls, family, requires, MappingProxyType(dict(example or {})))
         return cls
@@ -271,7 +300,7 @@ def spec(motif: Motif) -> Mapping[str, object]:
         reconstructible -- register it to get a round-trippable spec.
     """
     name = name_for(type(motif)) or type(motif).__qualname__
-    return MappingProxyType({"motif": name, **_field_values(motif)})
+    return MappingProxyType({NAME_KEY: name, **_field_values(motif)})
 
 
 def _field_values(obj: object) -> dict[str, object]:

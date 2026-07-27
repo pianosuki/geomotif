@@ -22,11 +22,12 @@ Zero dependencies for the core; matplotlib is an optional extra for
 visualization. Requires Python 3.12+.
 
 > **Status:** the engine, the data model and the motif bases are complete, and
-> the catalogue is filling in — 91 motifs today: the spirals, the primitives,
+> the catalogue is filling in — 118 motifs today: the spirals, the primitives,
 > the named curves, the roulettes, the polar/harmonic family, the fractals,
-> the graph and number art, and string art. Tilings, sacred geometry, girih,
-> knots and the rest are next. Everything below already works for all of them,
-> and for yours.
+> the graph and number art, string art, the tilings, sacred geometry,
+> guilloché and the mandala composers. Girih, Celtic knots, polyhedra and
+> Voronoi are next. Everything below already works for all of them, and for
+> yours.
 
 ## Install
 
@@ -71,7 +72,8 @@ fixed and the count falls out of the geometry.
 ## What's in the box
 
 ```python
-from geomotif.motifs import BarnsleyFern, GosperCurve, MaurerRose, Spirograph
+from geomotif.motifs import GosperCurve, PenroseP3, Spirograph, VesicaPiscis
+from geomotif.compose import Mandala, Ring
 ```
 
 **Spirals** (`geomotif.motifs.spirals`) — `ArchimedeanSpiral` (evenly spaced
@@ -131,13 +133,39 @@ cardioid — join `i` to `2i` around a circle and a cardioid appears),
 "point `i` on this curve to point `rule(i)` on that one" engine the rest are
 special cases of.
 
+**Tilings** (`geomotif.motifs.tilings`) — periodic ones stamped on a lattice:
+`SquareTiling`, `TriangularTiling`, `HexagonalTiling`, `RhombilleTiling` (the
+tumbling blocks), `CairoPentagonal`, `TruncatedSquare`, `SnubSquare` and
+`HerringboneTiling` (at any brick proportion, not only two-to-one). Aperiodic
+ones that never repeat: `PenroseP3` (the rhombs) and `PenroseP2` (the kite and
+dart), which are the same two Robinson triangles glued along the base and
+along a leg respectively, plus `AmmannBeenker`, the eightfold quasicrystal,
+built by laying four families of parallel lines across each other. And
+`TruchetTiling`, which tosses a coin per cell.
+
+**Sacred geometry** (`geomotif.motifs.sacred`) — one construction, five
+figures: `VesicaPiscis` → `SeedOfLife` → `FlowerOfLife` → `FruitOfLife` →
+`MetatronsCube`. Plus `SriYantra` and `GoldenRectangle`, whose nested squares
+are the frame the Fibonacci spiral is drawn in.
+
+**Guilloché** (`geomotif.motifs.guilloche`) — the engine-turned line work of
+banknotes and watch dials: `GuillocheRosette`, `GuillocheBand` and
+`GuillochePattern`. Two frequencies running opposite ways, so shifting the
+phase changes each stroke's shape rather than sliding it sideways.
+
+**Composers** (`geomotif.compose`) — motifs made of other motifs: `Mandala`
+(rings of a repeated unit), `Kaleidoscope` (one unit under a `Cn` or `Dn`
+symmetry group), `Snowflake` (six arms, mirrored, grown from a seed),
+`SpokePattern` and `LayeredRings`. Their unit is any object with a `build()`
+method, so a composed figure can itself be the unit of another composition.
+
 Anything registered is also reachable by name, with its parameters
 introspectable:
 
 ```python
 from geomotif.core import registry
 
-registry.families()  # ('curve', 'fractal', 'graph', 'harmonic', 'polar', ...)
+registry.families()  # ('curve', 'fractal', 'graph', 'guilloche', 'mandala', ...)
 registry.names(family="spiral")  # ('spiral.archimedean', 'spiral.between', ...)
 registry.create("polygon.star", points=7, step=3)
 registry.describe("egg").params  # name, type, default, help for each

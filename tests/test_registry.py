@@ -250,3 +250,23 @@ def test_builtins_register_without_importing_their_module():
         check=True,
     )
     assert "spiral.between" in result.stdout
+
+
+def test_composers_register_too():
+    assert "mandala" in registry.names()
+    assert "snowflake" in registry.describe("snowflake").name
+
+
+def test_a_parameter_called_motif_is_refused():
+    # It would overwrite the design's own name in Design.meta, and the spec
+    # could then no longer be rebuilt -- a silent corruption worth catching
+    # at import rather than at round-trip.
+    with pytest.raises(ValueError, match="reserves"):
+
+        @registry.register("collides")
+        @dataclass(frozen=True)
+        class Collides(Motif):
+            motif: int = 0
+
+            def build(self) -> Design:
+                return Design()
