@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from os import PathLike
 
-    from .generator import Point
+    from .core.types import Point
 
 __all__ = ["PointFormat", "save_points"]
 
@@ -41,8 +41,8 @@ def save_points(
     Parameters
     ----------
     points : iterable of (float, float)
-        The points to export, e.g. the output of
-        :func:`geomotif.generate_spiral`.
+        The points to export. A :class:`~geomotif.Design` is itself an
+        iterable of points, so it can be passed directly.
     path : str or path-like
         Destination file.
     fmt : {"csv", "txt", "json"}, optional

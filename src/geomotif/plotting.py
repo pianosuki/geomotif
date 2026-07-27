@@ -1,7 +1,7 @@
-"""Matplotlib helpers for visualizing generated spiral points.
+"""Matplotlib helpers for visualizing generated points.
 
-Kept separate from the core generator so :func:`geomotif.generate_spiral`
-stays dependency-free; only importing this module requires matplotlib
+Kept separate from the core so the engine stays dependency-free; only
+importing this module requires matplotlib
 (``pip install 'geomotif[plot]'``).
 """
 
@@ -15,7 +15,7 @@ except ImportError:  # pragma: no cover
         "geomotif.plotting requires matplotlib. Install it with: pip install 'geomotif[plot]'"
     ) from None
 
-from .generator import Point
+from .core.types import Point
 
 __all__ = ["plot_spiral", "plot_spiral_grid"]
 
@@ -62,7 +62,7 @@ def plot_spiral(
     Parameters
     ----------
     points : list[tuple[float, float]]
-        Output of :func:`geomotif.generate_spiral`.
+        The points to draw, e.g. ``list(motif.generate(120))``.
     ax : matplotlib.axes.Axes, optional
         Target axes; a new styled figure is created when omitted.
     title : str, optional

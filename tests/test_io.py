@@ -2,7 +2,8 @@ import json
 
 import pytest
 
-from geomotif import generate_spiral, save_points
+from geomotif import save_points
+from geomotif.motifs import SpiralBetween
 
 POINTS = [(1.25, -2.5), (0.0, 3.14159), (100.0, 200.0)]
 
@@ -54,7 +55,8 @@ def test_unknown_suffix_rejected(tmp_path):
         save_points(POINTS, tmp_path / "points.xyz")
 
 
-def test_export_generated_spiral(tmp_path):
-    points = generate_spiral((200, 0), (20, 0), 16, turns=1)
-    out = save_points(points, tmp_path / "spiral.csv", precision=1)
+def test_export_generated_design(tmp_path):
+    # A Design is itself an iterable of points, so it needs no unwrapping.
+    design = SpiralBetween((200, 0), (20, 0), turns=1).generate(16)
+    out = save_points(design, tmp_path / "spiral.csv", precision=1)
     assert len(out.read_text().splitlines()) == 17

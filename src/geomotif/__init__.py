@@ -1,46 +1,129 @@
-"""geomotif -- generate precisely spaced points along arbitrary spirals.
+"""geomotif -- generate and plot geometric designs.
 
-Public API::
+A **motif** is a parameterized recipe for geometry; applying a **transform**
+to what it produced gives a **design**, which is what you plot or export.
+That is the whole mental model::
 
-    from geomotif import generate_spiral, PowerSpacing
+    from geomotif import PowerSpacing
+    from geomotif.motifs import SpiralBetween
 
-    points = generate_spiral(start=(456, 192), end=(276, 192),
-                             num_points=200, turns=3,
-                             spacing=PowerSpacing(2.5))
+    design = SpiralBetween((200, 0), (20, 0), turns=3).generate(
+        120, spacing=PowerSpacing(2.5)
+    )
+
+    for x, y in design:
+        ...
+
+Point placement is **arc-length exact**: equal spacing means the same real
+x,y distance between every consecutive pair of points, however tightly the
+curve winds. Because resampling is generic over polylines, that applies to
+every motif -- yours included.
+
+Writing your own takes one method::
+
+    from dataclasses import dataclass
+    from geomotif import Design, Motif, Path, register
+
+    @register("my-shape")
+    @dataclass(frozen=True, slots=True)
+    class MyShape(Motif):
+        def build(self) -> Design:
+            return Design((Path(((0.0, 0.0), (10.0, 10.0))),))
+
+Motif classes live in :mod:`geomotif.motifs`, not here: the catalogue is far
+too large for a flat namespace. This module exports the core model, the
+spacing curves, the transform layer and the registry -- the things you build
+*with*. See :mod:`geomotif.core.registry` for lookup by name.
 
 Plotting helpers (require matplotlib, ``pip install 'geomotif[plot]'``)
 live in :mod:`geomotif.plotting`.
 """
 
-from .curves import (
+from .core.motif import Distribution, Motif, SupportsBuild
+from .core.registry import register
+from .core.sampling import (
+    ArcTable,
+    Placement,
+    densify,
+    resample,
+    resample_path,
+    samples_for_turns,
+)
+from .core.spacing import (
     CircularSpacing,
+    CompositeSpacing,
     CubicSpacing,
     ExponentialSpacing,
     LinearSpacing,
+    Mode,
     PowerSpacing,
     QuadraticSpacing,
+    ReversedSpacing,
     SineSpacing,
     SmoothstepSpacing,
     SpacingCurve,
+    SpacingLike,
+    TableSpacing,
+    coerce_spacing,
 )
-from .generator import Point, generate_spiral
+from .core.transform import (
+    Affine,
+    clip_to,
+    fit_to,
+    jitter,
+    layer,
+    mirror_axis,
+    offset_path,
+    radial_repeat,
+    symmetry_group,
+    tile,
+)
+from .core.types import Bounds, Design, Path, Point
 from .io import PointFormat, save_points
 
 __version__ = "0.1.0"
 
 __all__ = [
+    "Affine",
+    "ArcTable",
+    "Bounds",
     "CircularSpacing",
+    "CompositeSpacing",
     "CubicSpacing",
+    "Design",
+    "Distribution",
     "ExponentialSpacing",
     "LinearSpacing",
+    "Mode",
+    "Motif",
+    "Path",
+    "Placement",
     "Point",
     "PointFormat",
     "PowerSpacing",
     "QuadraticSpacing",
+    "ReversedSpacing",
     "SineSpacing",
     "SmoothstepSpacing",
     "SpacingCurve",
+    "SpacingLike",
+    "SupportsBuild",
+    "TableSpacing",
     "__version__",
-    "generate_spiral",
+    "clip_to",
+    "coerce_spacing",
+    "densify",
+    "fit_to",
+    "jitter",
+    "layer",
+    "mirror_axis",
+    "offset_path",
+    "radial_repeat",
+    "register",
+    "resample",
+    "resample_path",
+    "samples_for_turns",
     "save_points",
+    "symmetry_group",
+    "tile",
 ]

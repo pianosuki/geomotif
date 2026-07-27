@@ -1,0 +1,182 @@
+import subprocess
+import sys
+from dataclasses import dataclass, field
+
+import pytest
+
+from geomotif import Design, Motif, Path
+from geomotif.core import registry
+
+
+@pytest.fixture(autouse=True)
+def isolated_registry():
+    """Keep test registrations out of the real registry."""
+    # Force the lazy load first, so the snapshot includes the builtins and
+    # restoring it cannot strip them back out for later tests.
+    registry.names()
+    saved = dict(registry._REGISTRY)
+    yield
+    registry._REGISTRY.clear()
+    registry._REGISTRY.update(saved)
+
+
+@dataclass(frozen=True, slots=True)
+class Dot(Motif):
+    """A single dot.
+
+    The second paragraph is not part of the summary.
+    """
+
+    x: float = 0.0
+    y: float = 0.0
+    label: str = field(default="dot", metadata={"help": "what to call it"})
+
+    def build(self) -> Design:
+        return Design(points=((self.x, self.y),))
+
+
+def test_register_and_get():
+    registry.register("dot")(Dot)
+    assert registry.get("dot") is Dot
+
+
+def test_register_returns_the_class_unchanged():
+    assert registry.register("dot")(Dot) is Dot
+
+
+def test_name_is_derived_from_camel_case():
+    @registry.register()
+    @dataclass(frozen=True, slots=True)
+    class GoldenSpiral(Motif):
+        def build(self) -> Design:
+            return Design((Path(((0.0, 0.0), (1.0, 1.0))),))
+
+    assert "golden-spiral" in registry.names()
+
+
+def test_names_are_sorted():
+    registry.register("zebra")(Dot)
+    registry.register("aardvark", family="animals")(Dot)
+    listed = registry.names()
+    assert listed.index("aardvark") < listed.index("zebra")
+
+
+def test_names_can_filter_by_family():
+    registry.register("a", family="one")(Dot)
+    registry.register("b", family="two")(Dot)
+    assert registry.names(family="one") == ("a",)
+
+
+def test_families_lists_only_populated_families():
+    registry.register("a", family="one")(Dot)
+    assert "one" in registry.families()
+
+
+def test_duplicate_name_rejected():
+    registry.register("dot")(Dot)
+
+    @dataclass(frozen=True, slots=True)
+    class Other(Motif):
+        def build(self) -> Design:
+            return Design()
+
+    with pytest.raises(ValueError):
+        registry.register("dot")(Other)
+
+
+def test_re_registering_the_same_class_is_allowed():
+    registry.register("dot")(Dot)
+    registry.register("dot")(Dot)
+
+
+def test_unknown_name_raises_with_a_hint():
+    registry.register("widget.large")(Dot)
+    with pytest.raises(KeyError, match=r"widget\.large"):
+        registry.get("widget")
+
+
+def test_create_instantiates_with_parameters():
+    registry.register("dot")(Dot)
+    motif = registry.create("dot", x=3.0, y=4.0)
+    assert isinstance(motif, Dot)
+    assert motif.build().points == ((3.0, 4.0),)
+
+
+def test_create_uses_defaults():
+    registry.register("dot")(Dot)
+    assert registry.create("dot").build().points == ((0.0, 0.0),)
+
+
+def test_create_rejects_unknown_parameters():
+    registry.register("dot")(Dot)
+    with pytest.raises(TypeError):
+        registry.create("dot", nonsense=1)
+
+
+def test_describe_reports_docs_and_parameters():
+    registry.register("dot", family="primitive")(Dot)
+    info = registry.describe("dot")
+    assert info.name == "dot"
+    assert info.cls is Dot
+    assert info.family == "primitive"
+    assert info.summary == "A single dot."
+    assert "second paragraph" in info.doc
+    assert [p.name for p in info.params] == ["x", "y", "label"]
+
+
+def test_describe_exposes_defaults_and_help_metadata():
+    registry.register("dot")(Dot)
+    label = registry.describe("dot").params[2]
+    assert label.default == "dot"
+    assert label.required is False
+    assert label.description == "what to call it"
+
+
+def test_describe_marks_parameters_without_defaults_as_required():
+    @registry.register("needy")
+    @dataclass(frozen=True, slots=True)
+    class Needy(Motif):
+        """Needs a radius."""
+
+        radius: float
+
+        def build(self) -> Design:
+            return Design(points=((self.radius, 0.0),))
+
+    assert registry.describe("needy").params[0].required is True
+
+
+def test_describe_records_optional_dependencies():
+    registry.register("dot", requires="scipy")(Dot)
+    assert registry.describe("dot").requires == "scipy"
+
+
+def test_describe_handles_non_dataclass_motifs():
+    @registry.register("plain")
+    class Plain(Motif):
+        """Not a dataclass."""
+
+        def build(self) -> Design:
+            return Design()
+
+    assert registry.describe("plain").params == ()
+
+
+def test_builtin_spiral_is_registered():
+    assert "spiral.between" in registry.names()
+    assert registry.describe("spiral.between").family == "spiral"
+
+
+def test_builtins_register_without_importing_their_module():
+    # Motifs register as an import side effect, so a lookup must import the
+    # catalogue itself rather than reporting whatever the caller happened to
+    # import first. Needs a fresh interpreter: within this session another
+    # test has already imported geomotif.motifs, which would mask the bug.
+    source = "from geomotif.core import registry; print(registry.names())"
+    result = subprocess.run(
+        [sys.executable, "-c", source],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "spiral.between" in result.stdout

@@ -13,52 +13,33 @@ Usage::
 import sys
 from typing import Any
 
-from .curves import ExponentialSpacing, PowerSpacing, SmoothstepSpacing
-from .generator import generate_spiral
+from .core.spacing import ExponentialSpacing, PowerSpacing, SmoothstepSpacing, SpacingLike
+from .motifs.spirals import SpiralBetween
 
-CENTER = (0, 0)
+CENTER = (0.0, 0.0)
 
-# Each entry's kwargs dict mixes tuples/int/bool/callables, so it's typed
-# loosely as Any -- these are just **-unpacked straight into generate_spiral.
-EXAMPLES: list[tuple[str, dict[str, Any], dict[str, Any]]] = [
+# Each entry pairs a motif with the spacing curve to sample it by -- the two
+# halves of the library's headline idea, shown side by side.
+EXAMPLES: list[tuple[str, SpiralBetween, SpacingLike | None]] = [
     (
         "Equal spacing — 3 turns inward, clockwise",
-        {"start": (200, 0), "end": (20, 0), "num_points": 120, "turns": 3},
-        {},
+        SpiralBetween((200, 0), (20, 0), center=CENTER, turns=3),
+        None,
     ),
     (
         "PowerSpacing(2.5, 'in') — spacing gradually increases",
-        {
-            "start": (200, 0),
-            "end": (20, 0),
-            "num_points": 120,
-            "turns": 3,
-            "spacing": PowerSpacing(2.5, mode="in"),
-        },
-        {},
+        SpiralBetween((200, 0), (20, 0), center=CENTER, turns=3),
+        PowerSpacing(2.5, mode="in"),
     ),
     (
         "ExponentialSpacing('out') — dense finish, counter-clockwise",
-        {
-            "start": (0, 150),
-            "end": (0, 20),
-            "num_points": 120,
-            "turns": 4,
-            "clockwise": False,
-            "spacing": ExponentialSpacing(mode="out", strength=6),
-        },
-        {},
+        SpiralBetween((0, 150), (0, 20), center=CENTER, turns=4, clockwise=False),
+        ExponentialSpacing(mode="out", strength=6),
     ),
     (
         "SmoothstepSpacing — outward, dense at both ends",
-        {
-            "start": (20, 0),
-            "end": (-160, 160),
-            "num_points": 120,
-            "turns": 2,
-            "spacing": SmoothstepSpacing(),
-        },
-        {},
+        SpiralBetween((20, 0), (-160, 160), center=CENTER, turns=2),
+        SmoothstepSpacing(),
     ),
 ]
 
@@ -71,16 +52,13 @@ def main(argv: list[str] | None = None) -> None:
 
     args = sys.argv[1:] if argv is None else argv
 
-    panels = []
-    for title, spiral_kwargs, plot_kwargs in EXAMPLES:
-        spiral_kwargs.setdefault("center", CENTER)
-        points = generate_spiral(**spiral_kwargs)
+    panels: list[tuple[str, list[Any], dict[str, Any]]] = []
+    for title, motif, spacing in EXAMPLES:
+        points = list(motif.generate(120, spacing=spacing))
         # Dense equal-spaced copy of the same geometry, drawn as the smooth
         # guide line under the actual sample points.
-        guide = generate_spiral(**{**spiral_kwargs, "num_points": 800, "spacing": None})
-        plot_kwargs.setdefault("center", spiral_kwargs["center"])
-        plot_kwargs.setdefault("path", guide)
-        panels.append((title, points, plot_kwargs))
+        guide = list(motif.generate(800))
+        panels.append((title, points, {"center": motif.center, "path": guide}))
 
     fig = plot_spiral_grid(panels, ncols=2, suptitle="geomotif demo")
 
