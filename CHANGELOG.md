@@ -74,6 +74,32 @@ history reads honestly.
   `ReuleauxPolygon`, `Egg`, `PointGrid` and `PoissonDiscPoints`. The point
   fields seed a private `random.Random`, so a design is reproducible from its
   metadata and building one never disturbs the global random stream.
+- **The named curves** (`geomotif.motifs.curves`) — `Heart` (the valentine
+  and the cardioid form), `Cardioid`, `Lemniscate`, `LemniscateOfGerono`,
+  `CassiniOval`, `Limacon`, `Butterfly`, `FishCurve`, `BowCurve`, `Astroid`,
+  `Deltoid`, `Nephroid`, `Folium`, `Cochleoid`, `Cycloid`, `Trochoid`,
+  `Witch` and `Cornoid`. Two conventions hold across the module: `size` is
+  the curve's largest extent, so curves composed at the same `size` come out
+  the same size, and `center` is the curve's own origin — a cardioid's cusp,
+  a lemniscate's crossing point — rather than the middle of its bounding
+  box. `CassiniOval` handles its topology change explicitly: below the focal
+  separation it returns two strokes, one per lobe, and it refuses the
+  degenerate case in favour of `Lemniscate`, which draws it in one.
+- **The roulettes** (`geomotif.motifs.roulettes`) — `Hypotrochoid`,
+  `Epitrochoid`, `Hypocycloid`, `Epicycloid`, `Spirograph` (ring teeth,
+  wheel teeth and which hole the pen goes in) and `Epicycles`, which stacks
+  any number of `(radius, frequency, phase)` arms and plots the tip. Two
+  arms give every trochoid, several dozen give a Fourier series. The ring
+  and wheel radii are whole numbers because the ratio has to be rational for
+  the curve to close at all; the classes work out how many revolutions that
+  takes rather than making you say.
+- **Roses, harmonics and the sunflower** (`geomotif.motifs.polar`) — `Rose`
+  with the petal count actually right (`n` petals when `n*d` is odd and
+  `2*n` when it is even, swept exactly to closure so no petal is traced
+  twice), `MaurerRose`, `Lissajous`, `Harmonic`, `Harmonograph` with its
+  `Pendulum` value type, `Phyllotaxis` / `VogelSpiral`, and
+  `PolarExpression` for a radius function that does not deserve a class.
+  `GOLDEN_ANGLE` is exported alongside them.
 - **`registry.spec()`** — a motif's registered name plus its resolved
   parameters, which is what the bases attach to every design they build. A
   design can therefore say what made it, and be rebuilt from that.

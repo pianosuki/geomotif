@@ -22,9 +22,10 @@ Zero dependencies for the core; matplotlib is an optional extra for
 visualization. Requires Python 3.12+.
 
 > **Status:** the engine, the data model and the motif bases are complete, and
-> the catalogue is filling in — 27 motifs today: the full spiral family and
-> the primitives. Named curves, roulettes, fractals, tilings and the rest are
-> next. Everything below already works for all of them, and for yours.
+> the catalogue is filling in — 58 motifs today: the spirals, the primitives,
+> the named curves, the roulettes and the polar/harmonic family. Fractals,
+> tilings, string art, knots and the rest are next. Everything below already
+> works for all of them, and for yours.
 
 ## Install
 
@@ -69,7 +70,7 @@ fixed and the count falls out of the geometry.
 ## What's in the box
 
 ```python
-from geomotif.motifs import GoldenSpiral, ReuleauxPolygon, StarPolygon
+from geomotif.motifs import GoldenSpiral, MaurerRose, Spirograph
 ```
 
 **Spirals** (`geomotif.motifs.spirals`) — `ArchimedeanSpiral` (evenly spaced
@@ -85,12 +86,34 @@ via stdlib Fresnel integrals), `CircleInvolute` and `SpiralBetween`.
 triangles), `Star`, `Superellipse`, `Squircle`, `ReuleauxPolygon` (constant
 width), `Egg`, `PointGrid` and `PoissonDiscPoints`.
 
+**Named curves** (`geomotif.motifs.curves`) — `Heart` (both the valentine and
+the cardioid form), `Cardioid`, `Lemniscate`, `LemniscateOfGerono`,
+`CassiniOval` (which comes back as two strokes when it really is two lobes),
+`Limacon`, `Butterfly`, `FishCurve`, `BowCurve`, `Astroid`, `Deltoid`,
+`Nephroid`, `Folium`, `Cochleoid`, `Cycloid`, `Trochoid`, `Witch` and
+`Cornoid`. Anything with one free scale takes `size`, which is the largest
+extent of its bounding box — so a heart and a butterfly at the same `size`
+come out the same size.
+
+**Roulettes** (`geomotif.motifs.roulettes`) — `Hypotrochoid`, `Epitrochoid`,
+`Hypocycloid`, `Epicycloid`, `Spirograph` (in the toy's own terms: ring teeth,
+wheel teeth and which hole the pen goes in) and `Epicycles`, which stacks any
+number of rotating arms and plots the tip. Two arms is a trochoid, a few is a
+planetary orbit, several dozen is a Fourier series.
+
+**Polar and harmonic** (`geomotif.motifs.polar`) — `Rose` (with the petal
+count right: `n` petals or `2n`, depending on a parity rule most
+implementations get wrong), `MaurerRose`, `Lissajous`, `Harmonic`,
+`Harmonograph`, `Phyllotaxis`/`VogelSpiral` (the sunflower seed head) and
+`PolarExpression` for a one-off radius function.
+
 Anything registered is also reachable by name, with its parameters
 introspectable:
 
 ```python
 from geomotif.core import registry
 
+registry.families()  # ('curve', 'harmonic', 'polar', 'primitive', 'roulette', 'spiral')
 registry.names(family="spiral")  # ('spiral.archimedean', 'spiral.between', ...)
 registry.create("polygon.star", points=7, step=3)
 registry.describe("egg").params  # name, type, default, help for each

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..core.types import Point
 
-__all__ = ["arc_points", "arc_segments", "ring_points"]
+__all__ = ["arc_points", "arc_segments", "polar_point", "ring_points"]
 
 #: Segments per full revolution for an arc drawn as part of a larger outline.
 #: Matches the density :func:`~geomotif.samples_for_turns` uses per turn, but
@@ -66,6 +66,19 @@ def arc_points(
         )
         for i in range(count + 1)
     )
+
+
+def polar_point(theta: float, radius: float, *, center: Point = (0.0, 0.0)) -> Point:
+    """Return the cartesian point at ``radius`` along the ray ``theta``.
+
+    A negative radius **reflects**: the point lands on the opposite ray, at
+    ``theta + pi``. That falls out of the conversion rather than being imposed
+    on it, and it is what makes a rose's petal count and a limacon's inner
+    loop come out right -- see :class:`~geomotif.PolarMotif`, which uses the
+    same convention.
+    """
+    cx, cy = center
+    return (cx + radius * math.cos(theta), cy + radius * math.sin(theta))
 
 
 def ring_points(
