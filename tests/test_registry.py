@@ -334,3 +334,47 @@ def test_a_plugin_that_fails_to_load_says_which_one(monkeypatch):
 
     with pytest.raises(RuntimeError, match="broken"):
         registry.names()
+
+
+@dataclass(frozen=True)
+class Plumbing(Motif):
+    """A base with the boring fields on it."""
+
+    resolution: int = 100
+    label: str = "base"
+
+    def build(self) -> Design:
+        return Design()
+
+
+@dataclass(frozen=True)
+class Interesting(Plumbing):
+    """The motif someone actually asked for."""
+
+    petals: int = 5
+    label: str = "mine"
+
+
+def test_a_motifs_own_parameters_come_before_the_ones_it_inherits():
+    # dataclasses.fields() puts base-class fields first because __init__ needs
+    # them there, but that is the wrong order to read: `geomotif show rose`
+    # would open with --resolution and bury the petal count.
+    registry.register("interesting")(Interesting)
+    assert [p.name for p in registry.describe("interesting").params] == [
+        "petals",
+        "label",
+        "resolution",
+    ]
+
+
+def test_a_redeclared_parameter_is_listed_where_the_subclass_put_it():
+    # `label` is declared twice; the subclass is the one that meant it.
+    registry.register("interesting")(Interesting)
+    names = [p.name for p in registry.describe("interesting").params]
+    assert names.index("label") < names.index("resolution")
+    assert registry.describe("interesting").params[1].default == "mine"
+
+
+def test_a_builtins_own_parameters_lead():
+    assert [p.name for p in registry.describe("rose").params][:2] == ["n", "d"]
+    assert registry.describe("rose").params[-1].name == "resolution"

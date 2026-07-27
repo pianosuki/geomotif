@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import importlib.metadata
 import importlib.util
+import inspect
 import re
 from dataclasses import MISSING, dataclass, fields, is_dataclass
 from types import MappingProxyType
@@ -264,7 +265,9 @@ def describe(name: str) -> MotifInfo:
 
     Parameters come from :func:`dataclasses.fields`, which is why every
     builtin motif is a dataclass: one declaration drives the CLI flags, the
-    docs, the gallery and spec round-tripping.
+    docs, the gallery and spec round-tripping. They are listed motif-first --
+    a motif's own parameters, then the ones it inherits -- which is the
+    opposite of the order ``__init__`` needs and the right one to read.
     """
     _load_motifs()
     cls = get(name)
@@ -337,6 +340,14 @@ def _field_values(obj: object) -> dict[str, object]:
 def _params_for(cls: type) -> tuple[ParamInfo, ...]:
     """Extract constructor parameters from a dataclass motif, if it is one.
 
+    The motif's own parameters come first, then the ones it inherits, most
+    recently declared first. :func:`dataclasses.fields` gives the opposite
+    order -- base classes lead, because that is what the generated
+    ``__init__`` needs -- and the opposite order is the wrong one to read:
+    ``geomotif show rose`` would open with ``--resolution`` and a tiling's
+    would open with ``--region``, burying the parameter the motif is actually
+    about. Construction is unaffected; this is only how the list is read.
+
     Typed as a bare ``type`` rather than ``type[Motif]`` deliberately: mypy
     cannot intersect an abstract base with the dataclass protocol and rules
     the whole branch unreachable, so the narrowing has to happen where the
@@ -344,10 +355,10 @@ def _params_for(cls: type) -> tuple[ParamInfo, ...]:
     """
     if not is_dataclass(cls):
         return ()
+    declared = {field.name: field for field in fields(cls) if field.init}
     params: list[ParamInfo] = []
-    for field in fields(cls):
-        if not field.init:
-            continue
+    for name in _declaration_order(cls, declared):
+        field = declared[name]
         has_default = field.default is not MISSING or field.default_factory is not MISSING
         default = field.default if field.default is not MISSING else None
         params.append(
@@ -360,3 +371,24 @@ def _params_for(cls: type) -> tuple[ParamInfo, ...]:
             )
         )
     return tuple(params)
+
+
+def _declaration_order(cls: type, declared: Mapping[str, object]) -> list[str]:
+    """Return field names most-derived first, in the order each class wrote them.
+
+    A field redeclared by a subclass -- overriding an inherited default -- is
+    listed where the subclass put it, since that is the class that meant it.
+    """
+    order: list[str] = []
+    for klass in cls.__mro__:
+        # get_annotations reads only the class's own annotations, not what it
+        # inherited, which is exactly the split needed here. It also works
+        # under both the string annotations of 3.12 and the deferred ones of
+        # 3.14, where reaching into __dict__ would not.
+        for name in inspect.get_annotations(klass):
+            if name in declared and name not in order:
+                order.append(name)
+    # A field with no annotation on any class in the MRO cannot happen for a
+    # dataclass, but leaving one out silently would be worse than a stray tail.
+    order.extend(name for name in declared if name not in order)
+    return order

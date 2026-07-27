@@ -327,6 +327,13 @@ history reads honestly.
 
 ### Changed
 
+- `describe().params` now lists a motif's own parameters before the ones it
+  inherits. `dataclasses.fields()` gives the opposite order because that is
+  what the generated `__init__` needs, but it is the wrong order to read:
+  `describe("rose").params` used to open with `resolution` and
+  `describe("tiling.square").params` with `region`, burying the parameter the
+  motif is actually about. `geomotif show rose` now leads with `--n`.
+  Construction is unaffected.
 - The console script is now `geomotif`, and the showcase moved under it as
   `geomotif demo`; `python -m geomotif` routes to the same command line.
   `geomotif-demo` is gone.
