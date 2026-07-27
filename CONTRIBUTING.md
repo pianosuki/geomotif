@@ -46,8 +46,7 @@ class MyShape(PolarMotif):
 
     k: float = 7.0
 
-    def radius(self, theta: float) -> float:
-        ...
+    def radius(self, theta: float) -> float: ...
 ```
 
 The field declaration is the constructor, the `describe()` output, the

@@ -72,7 +72,6 @@ docs = [
 ]
 
 [project.urls]
-# TODO: update these once the repository is published
 Homepage = "https://github.com/pianosuki/geomotif"
 Issues = "https://github.com/pianosuki/geomotif/issues"
 Changelog = "https://github.com/pianosuki/geomotif/blob/main/CHANGELOG.md"
@@ -96,10 +95,6 @@ pythonpath = ["tools"]
 target-version = "py312"
 line-length = 100
 src = ["src", "tests", "examples", "tools"]
-# ruff formats Python blocks inside Markdown; the refactor plan's snippets are
-# illustrative pseudocode (bare `...` bodies, signatures without implementations)
-# and are meant to read as prose, not to survive a formatter.
-extend-exclude = ["REFACTOR_PLAN.md"]
 
 [tool.ruff.lint]
 select = [

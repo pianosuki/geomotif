@@ -19,16 +19,19 @@ from geomotif.core import registry
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 
-#: Every builtin renders on a machine with the optional extras; on one without
-#: them the catalogue gains "(needs scipy)" notes and the comparison below is
-#: measuring the environment rather than the code.
-needs_every_extra = pytest.mark.skipif(
-    not all(registry.describe(name).available for name in registry.names()),
-    reason="an optional extra is missing, so the generated text would differ",
+#: The committed catalogue describes this repository's own motifs on a machine
+#: that can build all of them. Without the optional extras it would gain
+#: "(needs scipy)" notes, and with a plugin installed it would gain that
+#: plugin's motifs -- in either case the comparison below would be measuring
+#: the environment rather than the code.
+_INFOS = [registry.describe(name) for name in registry.names()]
+describes_this_repository = pytest.mark.skipif(
+    not all(info.available and info.cls.__module__.startswith("geomotif.") for info in _INFOS),
+    reason="the registry here is not the builtin catalogue: an extra is missing, or a plugin is installed",
 )
 
 
-@needs_every_extra
+@describes_this_repository
 def test_the_committed_catalogue_is_up_to_date(tmp_path):
     fresh = tmp_path / "catalogue.md"
     list(gendocs._catalogue(fresh))

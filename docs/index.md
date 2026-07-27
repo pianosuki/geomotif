@@ -113,6 +113,18 @@ protocol and is accepted everywhere a motif is.
 
 [Extending geomotif →](extending.md){ .md-button }
 
+## What geomotif is not
+
+Worth saying plainly, so you can tell quickly whether it is the wrong tool:
+
+- **Not a rendering engine.** No fills, gradients, shading or rasterization
+  beyond the matplotlib helper. It produces geometry; something else colours it
+  in.
+- **Not a CAD kernel.** No booleans, no constraint solving, and no offsetting
+  beyond a simple parallel stroke.
+- **Not a vector-graphics I/O library.** SVG and DXF *out*, not in.
+- **Not 3D.** The polyhedra are projected to 2D, and that is the extent of it.
+
 ## Where to go next
 
 - **[Where the points land](guide/points.md)** — arc length, spacing curves,

@@ -9,7 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 migration path to document — the lineage is recorded here only so the early
 history reads honestly.
 
-## [Unreleased]
+## [1.0.0] — 2026-07-27
+
+The first release, and the whole of the rework from `spiralgen` in one entry.
+
+**Why 1.0.0 rather than 0.1.0.** The library is complete against what it set
+out to be: the arc-length engine generalized from one curve to every polyline,
+a data model, eight motif base classes, 146 motifs across 18 families, a
+transform layer, five export formats plus a spec format, a command line,
+third-party plugins, and a conformance suite that holds all of it — builtin and
+third-party alike — to one contract. There is nothing here waiting to be
+finished before the public API can be relied on, and pretending otherwise with
+a leading zero would only make the version number less informative. What 1.0.0
+promises is written down in
+[the API policy](https://pianosuki.github.io/geomotif/api-policy/).
 
 ### Added
 
@@ -312,6 +325,34 @@ history reads honestly.
   arithmetic spiral, preserving the old generator's exact geometry. Also
   reachable as `ArchimedeanSpiral.between(...)`, since it is that same curve
   parameterized by where it has to start and stop.
+- **A documentation site** — MkDocs Material with an API reference generated
+  from the docstrings by mkdocstrings, guides to the arc-length engine, the
+  data model, the five export formats, plotting and the command line, plus
+  `docs/extending.md` (the three tiers, the conformance contract, publishing a
+  plugin) and `docs/api-policy.md`, which writes down what the version number
+  is a promise about.
+- **A generated gallery** — every registered motif rendered to SVG at its
+  registered example, beside the Python, the command line and the spec that
+  reproduce exactly that file. `tools/gendocs.py` writes it, along with the
+  reference pages and `docs/catalogue.md`, and doubles as the mkdocs `hooks:`
+  entry so a build is never a step behind the registry. The gallery and the
+  reference are rebuilt every time and never committed; the catalogue and the
+  six images the README leads with are committed, because GitHub renders a
+  README without running mkdocs — and are therefore drift-checked by
+  `make docs-check`, by CI, and by `tests/test_gendocs.py`.
+- **The README's numbers are tested.** `tests/test_readme.py` parses the family
+  table and checks every count against the registry, that the table covers each
+  family exactly once, and that the totals and the spec example's version are
+  the real ones. The count was wrong within an hour of being written, which is
+  the argument for the test.
+- **Release automation** — a Pages workflow that rebuilds and deploys the site
+  on every push to main, and a PyPI workflow that publishes on a `v*` tag
+  through trusted publishing, with no API token in the repository. It refuses
+  to build when the tag and `__version__` disagree.
+- **Repository documentation** — `CONTRIBUTING.md` (how to add a motif, and the
+  house style that until now only existed in the code), `SECURITY.md`,
+  `CODE_OF_CONDUCT.md`, issue and pull-request templates, and Dependabot on the
+  Actions.
 
 ### Removed
 
@@ -370,7 +411,10 @@ history reads honestly.
   Previously `names()` reported only the motifs whose modules the caller had
   already imported, so a fresh interpreter saw an empty registry.
 
-## [0.1.0] — unreleased
+## 0.1.0 — never released, as `spiralgen`
+
+Recorded so the early history reads honestly. Nothing was ever published under
+this name or number; `geomotif` 1.0.0 is the first release of anything.
 
 ### Added
 
@@ -388,3 +432,5 @@ history reads honestly.
   `SmoothstepSpacing`, all built on the `SpacingCurve` ABC.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
+
+[1.0.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.0.0
