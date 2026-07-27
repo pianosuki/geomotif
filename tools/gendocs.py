@@ -43,7 +43,7 @@ from geomotif.core import registry
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from geomotif.core.registry import MotifInfo
+    from geomotif.core.registry import MotifInfo, ParamInfo
 
 __all__ = ["generate", "main", "on_config"]
 
@@ -58,6 +58,15 @@ GALLERY_SIZE = 320
 #: Canvas for the images the README leads with, which sit several to a row.
 HERO_SIZE = 200
 
+#: Stroke for a gallery image. Near-black, and the dark theme inverts the whole
+#: image rather than shipping a second copy of every file.
+GALLERY_INK = "#0b0b0b"
+
+#: Stroke for a README image. A README has no stylesheet to invert it and no
+#: way to know which theme it is being read on, so these are drawn in a grey
+#: that stays legible on a white page and on a black one alike.
+HERO_INK = "#808080"
+
 #: The motifs the README leads with. Chosen for variety rather than rank: a
 #: spiral, a polar figure, a fractal, an aperiodic tiling, a knot and a
 #: composition, so the strip shows the range instead of six of one thing.
@@ -69,6 +78,10 @@ HERO = (
     "knot.celtic-grid",
     "mandala",
 )
+
+#: How long a generated constructor call may get before the gallery falls back
+#: to building the motif through the registry instead.
+_CALL_WIDTH = 110
 
 #: Where a module lands in the reference nav, in reading order: what the library
 #: *is*, then what you extend, then what it ships, then the surfaces around it.
@@ -332,13 +345,20 @@ def _python(info: MotifInfo) -> str:
 
 
 def _call(info: MotifInfo) -> str | None:
-    """Return the constructor call for a motif's example, or ``None`` if it needs objects."""
+    """Return the constructor call for a motif's example, or ``None`` if it needs objects.
+
+    Length is a reason to give up as well as type. A Voronoi diagram's example
+    is a scatter of three dozen points: perfectly sayable, and a line of code
+    nobody would read. Past ``_CALL_WIDTH`` the registry form says the same
+    thing in one line.
+    """
     arguments: list[str] = []
     for name, value in info.example.items():
         if not _sayable(value):
             return None
         arguments.append(f"{name}={value!r}")
-    return f"{info.cls.__name__}({', '.join(arguments)})"
+    call = f"{info.cls.__name__}({', '.join(arguments)})"
+    return None if len(call) > _CALL_WIDTH else call
 
 
 def _sayable(value: object) -> bool:
@@ -387,15 +407,29 @@ def _parameters(info: MotifInfo) -> list[str]:
     header = "| Name | Type | Default |" + (" Notes |" if described else "")
     rule = "|---|---|---|" + ("---|" if described else "")
     rows = [
-        f"    | `{param.name}` | {_code(param.annotation)} | "
-        f"{'*required*' if param.required else _code(repr(param.default))} |"
+        f"    | `{param.name}` | {_code(param.annotation)} | {_default(param)} |"
         + (f" {_md(param.description or '')} |" if described else "")
         for param in info.params
     ]
     return ['??? abstract "Parameters"', "", f"    {header}", f"    {rule}", *rows, ""]
 
 
-def _image(out: Path, info: MotifInfo, size: int) -> Iterator[Path]:
+def _default(param: ParamInfo) -> str:
+    """Render a parameter's default for a table cell, stably.
+
+    A default that is a function reprs with its address in it, which would make
+    this page differ between two runs of the same code and turn the drift check
+    into a coin toss. What matters about such a default is that it is a
+    function, and it says that.
+    """
+    if param.required:
+        return "*required*"
+    if _sayable(param.default):
+        return _code(repr(param.default))
+    return f"a {type(param.default).__name__}"
+
+
+def _image(out: Path, info: MotifInfo, size: int, stroke: str = GALLERY_INK) -> Iterator[Path]:
     """Render one motif to SVG, if this machine has what it needs to build it."""
     if not info.available:
         return
@@ -405,7 +439,7 @@ def _image(out: Path, info: MotifInfo, size: int) -> Iterator[Path]:
     # pixel, and dropping it takes about a tenth off the file.
     yield from _write(
         out / f"{info.name}.svg",
-        to_svg(design, width=size, height=size, precision=2, title=info.name),
+        to_svg(design, width=size, height=size, precision=2, stroke=stroke, title=info.name),
     )
 
 
@@ -453,7 +487,7 @@ def _hero(out: Path) -> Iterator[Path]:
     writer, so the bytes are deterministic and a diff here is a real signal.
     """
     for name in HERO:
-        yield from _image(out, registry.describe(name), HERO_SIZE)
+        yield from _image(out, registry.describe(name), HERO_SIZE, stroke=HERO_INK)
     yield from _prune(out, {f"{name}.svg" for name in HERO})
 
 

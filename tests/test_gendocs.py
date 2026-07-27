@@ -111,6 +111,12 @@ def test_a_motif_whose_example_is_plain_data_gets_a_constructor_call():
     assert "motif = Rose(" in page
 
 
+def test_an_unreadably_long_example_falls_back_to_the_registry():
+    # voronoi.cells is parameterized by three dozen scattered points: sayable,
+    # and a line of code nobody would read.
+    assert gendocs._call(registry.describe("voronoi.cells")) is None
+
+
 def test_a_motif_whose_example_holds_objects_falls_back_to_the_registry():
     page = gendocs._python(registry.describe("mandala"))
     assert "registry.create" in page
@@ -119,3 +125,19 @@ def test_a_motif_whose_example_holds_objects_falls_back_to_the_registry():
 
 def test_a_motif_that_cannot_be_serialized_says_so_instead_of_raising():
     assert "no spec" in gendocs._spec(registry.describe("polar.expression"))
+
+
+def test_a_function_default_does_not_carry_its_address():
+    # A function reprs as `<function _ripple at 0x7f...>`; putting that in a
+    # table would make the page differ between two runs of the same code.
+    page = gendocs._family_page("string-art", [registry.describe("string-art.envelope")])
+    assert "0x" not in page
+    assert "a function" in page
+
+
+def test_two_runs_of_the_generator_write_the_same_bytes(tmp_path):
+    first = tmp_path / "a"
+    second = tmp_path / "b"
+    list(gendocs._catalogue(first / "catalogue.md"))
+    list(gendocs._catalogue(second / "catalogue.md"))
+    assert (first / "catalogue.md").read_text() == (second / "catalogue.md").read_text()

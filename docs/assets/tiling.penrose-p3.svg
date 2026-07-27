@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
   <title>tiling.penrose-p3</title>
-  <g fill="none" stroke="#0b0b0b" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke="#808080" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
     <path d="M 166.84 86.58 L 166.84 100 174.73 89.14"/>
     <path d="M 166.84 100 L 166.84 86.58 154.08 82.43"/>
     <path d="M 187.5 71.57 L 174.73 75.72 174.73 89.14"/>

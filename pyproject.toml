@@ -65,9 +65,10 @@ docs = [
     "mkdocs-material>=9.5",
     "mkdocstrings[python]>=0.27",
     "mkdocs-literate-nav>=0.6",
-    # The gallery renders every motif, including the four that need scipy;
-    # without it those four would document themselves as unavailable.
-    "geomotif[all]",
+    # The optional extras are not listed here: the gallery renders every motif,
+    # including the four that need scipy, but the dev group already supplies
+    # both and uv includes it by default. A docs build without them still
+    # succeeds -- those four pages say they were not rendered.
 ]
 
 [project.urls]

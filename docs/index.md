@@ -67,7 +67,7 @@ including the ones with no closed-form parametrization at all, and to yours.
 
 ## What is in the box
 
-[146 motifs](catalogue.md) across 19 families: the spirals, the primitives, the
+[146 motifs](catalogue.md) across 18 families: the spirals, the primitives, the
 named curves, the roulettes, the polar and harmonic family, the fractals, the
 graph and number art, string art, the tilings — periodic and aperiodic — sacred
 geometry, guilloché, Islamic strapwork, Celtic knotwork, the polyhedra, the

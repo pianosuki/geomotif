@@ -371,7 +371,6 @@ dev = [
     { name = "scipy" },
 ]
 docs = [
-    { name = "geomotif", extra = ["all"] },
     { name = "mkdocs" },
     { name = "mkdocs-literate-nav" },
     { name = "mkdocs-material" },
@@ -397,7 +396,6 @@ dev = [
     { name = "scipy", specifier = ">=1.14" },
 ]
 docs = [
-    { name = "geomotif", extras = ["all"] },
     { name = "mkdocs", specifier = ">=1.6,<2" },
     { name = "mkdocs-literate-nav", specifier = ">=0.6" },
     { name = "mkdocs-material", specifier = ">=9.5" },

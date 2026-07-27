@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="200" height="200" viewBox="0 0 200 200">
   <title>knot.celtic-grid</title>
-  <g fill="none" stroke="#0b0b0b" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
+  <g fill="none" stroke="#808080" stroke-width="1" stroke-linecap="round" stroke-linejoin="round">
     <path d="M 80.57 70.98 L 114.8 36.75 118.57 33.73 122.34 32.22 126.11 32.22 129.88 33.73 133.65 36.75 143.65 46.75"/>
     <path d="M 153.25 56.35 L 187.48 90.58 190.49 94.35 192 98.12 192 101.88 190.49 105.65 187.48 109.42 177.47 119.43"/>
     <path d="M 167.88 129.02 L 133.65 163.25 129.88 166.27 126.11 167.78 122.34 167.78 118.57 166.27 114.8 163.25 104.8 153.25"/>
