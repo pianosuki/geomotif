@@ -122,3 +122,6 @@ nav:
   - Gallery: gallery/
   - Reference: reference/
   - Changelog: changelog.md
+  # Linked out rather than included: it is written for someone with the
+  # repository open, and its links are relative to the repository root.
+  - Contributing: https://github.com/pianosuki/geomotif/blob/main/CONTRIBUTING.md

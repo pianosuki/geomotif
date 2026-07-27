@@ -1,0 +1,16 @@
+version: 2
+
+updates:
+  # Actions only. The package has no runtime dependencies to update, and the
+  # dev and docs groups are floor-pinned rather than locked, so a bot PR there
+  # would be noise. A pinned action that quietly goes unmaintained is the real
+  # supply-chain risk in this repository.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"

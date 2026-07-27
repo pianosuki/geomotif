@@ -1,0 +1,67 @@
+name: Publish
+
+# Tag push publishes to PyPI through trusted publishing: PyPI verifies the
+# workflow's OIDC identity directly, so there is no API token in this
+# repository's secrets to leak, rotate or forget.
+#
+# Configure it once at https://pypi.org/manage/project/geomotif/settings/publishing/
+# with owner `pianosuki`, repository `geomotif`, workflow `publish.yml` and
+# environment `pypi`.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: The tag and the package agree about the version
+        # A tag is easy to push before the bump and impossible to move after
+        # PyPI has accepted the file it names.
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          python - <<'PY'
+          import os, pathlib, re, sys
+          tag = os.environ["GITHUB_REF_NAME"].removeprefix("v")
+          source = pathlib.Path("src/geomotif/__init__.py").read_text()
+          version = re.search(r'^__version__ = "([^"]+)"', source, re.M).group(1)
+          if tag != version:
+              sys.exit(f"tag {tag!r} does not match __version__ {version!r}")
+          print(f"publishing {version}")
+          PY
+
+      - run: pip install build twine
+      - run: python -m build
+      - run: twine check --strict dist/*
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/geomotif
+    permissions:
+      # The whole point: this is what PyPI checks instead of a token.
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@release/v1
