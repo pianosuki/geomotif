@@ -170,6 +170,26 @@ history reads honestly.
   closes on the page. That is why the staircase's four flights cannot all be
   the same length, and the tests assert the closure error rather than the
   picture.
+- **The `geomotif` command line** (`geomotif.cli`) — `list`, `show`, `render`,
+  `gallery` and `demo`, in pure `argparse`. A motif's flags are generated from
+  its dataclass fields, which is what every builtin motif being a dataclass
+  has been buying all along: one declaration drives `describe()`, the spec
+  format and now the CLI. `--merge/--no-merge` for booleans, `choices` for a
+  `Literal` parameter (resolved through a named type alias where there is
+  one), and `--center 0,0` / `--region -60,-60,60,60` for the geometric ones.
+  A parameter the command line cannot express — a function, another motif, a
+  point set — takes its value from the motif's registered example, so every
+  one of the 146 renders. `geomotif gallery` writes all of them to SVG with a
+  manifest whose entries are specs, in about two seconds.
+- **`plot_design`, `plot_grid`, `plot_comparison`** (`geomotif.plotting`) —
+  the plotting helpers, generalized from spirals to designs. `plot_design`
+  draws each stroke as a line, closing the closed ones, and always draws the
+  loose points, since a scatter motif has nothing else to show; stroke
+  *vertices* are opt-in, because a four-thousand-vertex fractal with markers
+  is a smear. `plot_comparison` is the library's premise in one image: one
+  motif, one point count, several spacing curves. Colours moved into a
+  `Palette` value with `LIGHT` and `DARK`, so a dark-mode figure is a
+  different argument rather than a different code path.
 - **SVG** (`geomotif.io.svg`) — `to_svg` and `save_svg`, pure standard
   library. The design is fitted into the canvas before anything is written
   rather than scaled by a `viewBox`, so `stroke_width` means one unit of the
@@ -296,6 +316,12 @@ history reads honestly.
 
 ### Changed
 
+- The console script is now `geomotif`, and the showcase moved under it as
+  `geomotif demo`; `python -m geomotif` routes to the same command line.
+  `geomotif-demo` is gone.
+- `plot_spiral` and `plot_spiral_grid` became `plot_design` and `plot_grid`,
+  taking a `Design` rather than a list of points -- which is what lets them
+  draw a closed path closed and a scatter motif at all.
 - `geomotif.io` is now a package rather than a module, split into
   `io.points` (coordinates and designs) and `io.spec` (recipes). Everything
   it exported is re-exported unchanged, so `from geomotif import save_points`

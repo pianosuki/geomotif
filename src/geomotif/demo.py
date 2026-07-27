@@ -11,7 +11,6 @@ Usage::
 """
 
 import sys
-from typing import Any
 
 from .core.spacing import ExponentialSpacing, PowerSpacing, SmoothstepSpacing, SpacingLike
 from .motifs.spirals import SpiralBetween
@@ -47,21 +46,26 @@ EXAMPLES: list[tuple[str, SpiralBetween, SpacingLike | None]] = [
 def main(argv: list[str] | None = None) -> None:
     """Plot the showcase grid, or save it to the file named on the command line."""
     try:
-        from .plotting import plot_spiral_grid
+        from .plotting import Panel, plot_grid
     except ImportError:
         raise SystemExit("The demo needs matplotlib: pip install 'geomotif[plot]'") from None
 
     args = sys.argv[1:] if argv is None else argv
 
-    panels: list[tuple[str, list[Any], dict[str, Any]]] = []
+    panels: list[Panel] = []
     for title, motif, spacing in EXAMPLES:
-        points = list(motif.generate(120, spacing=spacing))
-        # Dense equal-spaced copy of the same geometry, drawn as the smooth
-        # guide line under the actual sample points.
-        guide = list(motif.generate(800))
-        panels.append((title, points, {"center": motif.center, "path": guide}))
+        # A dense equal-spaced copy of the same geometry is drawn as the
+        # smooth guide line under the sample points.
+        extra = {"center": motif.center, "guide": motif.generate(800)}
+        panels.append((title, motif.generate(120, spacing=spacing), extra))
 
-    fig = plot_spiral_grid(panels, ncols=2, suptitle="geomotif demo")
+    fig = plot_grid(
+        panels,
+        ncols=2,
+        suptitle="geomotif demo",
+        show_points=True,
+        label_endpoints=True,
+    )
 
     if args:
         out = args[0]

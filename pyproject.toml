@@ -65,8 +65,7 @@ Issues = "https://github.com/pianosuki/geomotif/issues"
 Changelog = "https://github.com/pianosuki/geomotif/blob/main/CHANGELOG.md"
 
 [project.scripts]
-# Becomes `geomotif = "geomotif.cli:main"` once the real CLI lands.
-geomotif-demo = "geomotif.demo:main"
+geomotif = "geomotif.cli:main"
 
 [tool.hatch.version]
 path = "src/geomotif/__init__.py"

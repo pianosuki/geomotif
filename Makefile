@@ -53,7 +53,7 @@ build: ## Build the sdist and wheel into dist/
 
 .PHONY: demo
 demo: ## Run the geomotif demo (requires the plot extra)
-	$(UV) run --group dev geomotif-demo
+	$(UV) run --group dev geomotif demo
 
 .PHONY: precommit-install
 precommit-install: ## Install the pre-commit git hook

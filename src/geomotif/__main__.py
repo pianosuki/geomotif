@@ -1,6 +1,8 @@
-"""Allow ``python -m geomotif`` to run the demo."""
+"""Let ``python -m geomotif`` run the same command line as ``geomotif``."""
 
-from .demo import main
+import sys
+
+from .cli import main
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

@@ -28,7 +28,8 @@ Requires Python 3.12+.
 > guilloché, the mandala composers, Islamic strapwork, Celtic knotwork, the
 > polyhedra, the optical illusions and the Voronoi family. Designs export to
 > SVG, DXF, CSV, TXT and JSON, and to a spec file that records the recipe
-> rather than the points. Next up is the CLI and plugin packaging. Everything
+> rather than the points; there is a `geomotif` command line for all of it.
+> Next up is plugin packaging, then the docs site and gallery. Everything
 > below already works for every motif, and for yours.
 
 ## Install
@@ -402,24 +403,69 @@ Python function: those are defined by code, not data, and say so when asked.
 Loading a spec never imports a module the file names, only value types from
 packages that already provide motifs here.
 
+## Command line
+
+Pure `argparse`, so the core stays dependency-free:
+
+```bash
+geomotif list                                   # every motif, grouped by family
+geomotif list --family fractal
+geomotif show rose                              # docs, parameters, defaults
+geomotif render rose --n 5 --samples 400 --out rose.svg
+geomotif render spiral.golden --samples 300 --ease power:2.5 --out s.csv
+geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
+geomotif render --spec my-design.json --out out.svg
+geomotif gallery --out docs/gallery             # all 146, plus a manifest
+geomotif demo
+```
+
+A motif's flags come from its dataclass fields — `--n`, `--depth`,
+`--center 0,0`, `--merge/--no-merge` — the same declaration that drives
+`describe()` and the spec format. `geomotif show NAME` or
+`geomotif render NAME --help` lists them.
+
+Two consequences worth knowing:
+
+- **Not every parameter can be said on a command line.** A motif taking a
+  Python function, another motif, or a point set has no sensible flag; those
+  take their value from the motif's registered example, so all 146 render.
+  `geomotif render voronoi.cells --inset 0.2` works — the point set is the
+  example's, and the inset is yours.
+- **The sampling options are `--samples`, `--stride` and `--ease`**, not the
+  more obvious words: `points`, `count`, `step` and `spacing` are all motif
+  parameter names already, and argparse has one namespace.
+
+Without `--out` the points go to stdout as CSV, so the command pipes.
+`--fit 800x600` scales onto a canvas; `--ease` takes `linear`, `power:2.5`,
+`exp:out:6`, `smoothstep` and the rest.
+
 ## Plotting
 
 To see the points on a graph (requires the `plot` extra):
 
 ```python
 import matplotlib.pyplot as plt
-from geomotif.plotting import plot_spiral
+from geomotif.plotting import plot_design, plot_comparison, DARK
 
-plot_spiral(list(design), center=(0, 0), title="my spiral")
+plot_design(design, show_points=True, center=(0, 0), title="my spiral")
 plt.show()
 ```
 
-Or run the built-in showcase:
+`plot_comparison` is the library's premise in one figure — one motif, one
+point count, several spacing curves:
 
-```bash
-geomotif-demo             # interactive window (or python -m geomotif)
-geomotif-demo demo.png    # save to a file instead
+```python
+from geomotif import PowerSpacing, ExponentialSpacing, SmoothstepSpacing
+
+fig = plot_comparison(
+    spiral,
+    [None, PowerSpacing(2.5), ExponentialSpacing(mode="out", strength=6), SmoothstepSpacing()],
+)
 ```
+
+`plot_grid` draws several designs side by side, and every function takes a
+`palette=` — `LIGHT` or `DARK` — so a dark-mode figure is a different
+argument rather than a different code path.
 
 ## Spacing curves
 
