@@ -30,15 +30,28 @@ Writing your own takes one method::
         def build(self) -> Design:
             return Design((Path(((0.0, 0.0), (10.0, 10.0))),))
 
+or none at all, if one of the bases in :mod:`geomotif.bases` already describes
+the kind of thing you are drawing -- then you write the maths and nothing else.
+
 Motif classes live in :mod:`geomotif.motifs`, not here: the catalogue is far
-too large for a flat namespace. This module exports the core model, the
-spacing curves, the transform layer and the registry -- the things you build
-*with*. See :mod:`geomotif.core.registry` for lookup by name.
+too large for a flat namespace. This module exports the core model, the motif
+bases, the spacing curves, the transform layer and the registry -- the things
+you build *with*. See :mod:`geomotif.core.registry` for lookup by name.
 
 Plotting helpers (require matplotlib, ``pip install 'geomotif[plot]'``)
 live in :mod:`geomotif.plotting`.
 """
 
+from .bases import (
+    Curve,
+    LatticeTiling,
+    LSystemMotif,
+    MultiCurveMotif,
+    ParametricMotif,
+    PolarMotif,
+    SegmentMotif,
+    SubstitutionTiling,
+)
 from .core.motif import Distribution, Motif, SupportsBuild
 from .core.registry import register
 from .core.sampling import (
@@ -90,23 +103,31 @@ __all__ = [
     "CircularSpacing",
     "CompositeSpacing",
     "CubicSpacing",
+    "Curve",
     "Design",
     "Distribution",
     "ExponentialSpacing",
+    "LSystemMotif",
+    "LatticeTiling",
     "LinearSpacing",
     "Mode",
     "Motif",
+    "MultiCurveMotif",
+    "ParametricMotif",
     "Path",
     "Placement",
     "Point",
     "PointFormat",
+    "PolarMotif",
     "PowerSpacing",
     "QuadraticSpacing",
     "ReversedSpacing",
+    "SegmentMotif",
     "SineSpacing",
     "SmoothstepSpacing",
     "SpacingCurve",
     "SpacingLike",
+    "SubstitutionTiling",
     "SupportsBuild",
     "TableSpacing",
     "__version__",

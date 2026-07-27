@@ -45,6 +45,7 @@ EXAMPLES: list[tuple[str, SpiralBetween, SpacingLike | None]] = [
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Plot the showcase grid, or save it to the file named on the command line."""
     try:
         from .plotting import plot_spiral_grid
     except ImportError:

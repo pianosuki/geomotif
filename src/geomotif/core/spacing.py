@@ -57,12 +57,14 @@ class SpacingCurve(ABC):
     """
 
     def __call__(self, t: float) -> float:
+        """Return ``ease(t)``, rejecting a ``t`` outside [0, 1]."""
         if not 0.0 <= t <= 1.0:
             raise ValueError(f"t must be in [0, 1], got {t}")
         return self.ease(t)
 
     @abstractmethod
-    def ease(self, t: float) -> float: ...
+    def ease(self, t: float) -> float:
+        """Map a fraction of the way along the curve to a fraction of its length."""
 
     def __repr__(self) -> str:
         return f"{type(self).__name__}()"

@@ -21,8 +21,10 @@ placement, particle layouts, UI motion paths.
 Zero dependencies for the core; matplotlib is an optional extra for
 visualization. Requires Python 3.12+.
 
-> **Status:** the engine and the data model are complete; the motif catalogue
-> is being filled in. `SpiralBetween` is the only motif shipping today.
+> **Status:** the engine, the data model and the motif base classes are
+> complete; the motif catalogue is being filled in. `SpiralBetween` is the
+> only motif shipping today — but writing your own is now a few lines, and
+> everything below already works for it.
 
 ## Install
 
@@ -66,11 +68,45 @@ fixed and the count falls out of the geometry.
 
 ## Write your own motif
 
-One method. That is the whole contract:
+Usually it is the maths and nothing else. Pick the base that matches how your
+design is *defined* and write the one method it asks for:
 
 ```python
+import math
 from dataclasses import dataclass
 
+from geomotif import PolarMotif, register
+
+
+@register("my-flower", family="polar")
+@dataclass(frozen=True, slots=True)
+class MyFlower(PolarMotif):
+    """A seven-lobed flower with a ripple on it."""
+
+    k: float = 7.0
+
+    def radius(self, theta: float) -> float:
+        return math.sin(self.k * theta) + 0.4 * math.cos(17 * theta)
+```
+
+That class now has arc-length resampling, every spacing curve, the transform
+layer, export, plotting and lookup by name — `MyFlower(k=5).generate(400)`
+just works, and so does `registry.create("my-flower", k=5)`.
+
+| Base | You implement |
+|---|---|
+| `ParametricMotif` | `position(u) -> Point` |
+| `PolarMotif` | `radius(theta) -> float` |
+| `MultiCurveMotif` | `curves() -> Iterable[Curve]` |
+| `LSystemMotif` | an axiom, rewrite rules and a turn angle |
+| `SegmentMotif` | `nodes()` and `edges()` |
+| `LatticeTiling` | `cell()` and `basis()` |
+| `SubstitutionTiling` | `seed()`, `subdivide()` and `outline()` |
+
+If none of them fits, subclass `Motif` and write `build()` by hand — one
+method, returning a `Design`:
+
+```python
 from geomotif import Design, Motif, Path, register
 
 
@@ -87,10 +123,9 @@ class Zigzag(Motif):
         return Design((Path(points),))
 ```
 
-`Zigzag(teeth=9).generate(200, spacing=SmoothstepSpacing())` now works, along
-with transforms, export and registry lookup by name. You are not required to
-inherit: anything with a `build() -> Design` method satisfies the
-`SupportsBuild` protocol and is accepted everywhere a motif is.
+You are not required to inherit at all: anything with a `build() -> Design`
+method satisfies the `SupportsBuild` protocol and is accepted everywhere a
+motif is.
 
 ## Designs, paths and points
 

@@ -58,10 +58,12 @@ class Affine:
 
     @classmethod
     def identity(cls) -> Self:
+        """Return the transform that changes nothing."""
         return cls()
 
     @classmethod
     def translate(cls, dx: float, dy: float) -> Self:
+        """Move by ``dx`` horizontally and ``dy`` vertically."""
         return cls(e=dx, f=dy)
 
     @classmethod
@@ -102,6 +104,7 @@ class Affine:
 
     @classmethod
     def shear(cls, kx: float, ky: float = 0.0) -> Self:
+        """Slant by ``kx`` along x per unit y, and ``ky`` along y per unit x."""
         return cls(c=kx, b=ky)
 
     def __matmul__(self, other: Affine) -> Affine:
@@ -118,11 +121,13 @@ class Affine:
         )
 
     def __call__(self, p: Point) -> Point:
+        """Return ``p`` mapped through this transform."""
         x, y = p
         return (self.a * x + self.c * y + self.e, self.b * x + self.d * y + self.f)
 
     @property
     def determinant(self) -> float:
+        """Signed area scale factor; negative when the transform reflects."""
         return self.a * self.d - self.b * self.c
 
     def inverse(self) -> Affine:

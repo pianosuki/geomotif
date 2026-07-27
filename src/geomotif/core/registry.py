@@ -19,12 +19,13 @@ from __future__ import annotations
 import importlib.metadata
 import re
 from dataclasses import MISSING, dataclass, fields, is_dataclass
+from types import MappingProxyType
 from typing import TYPE_CHECKING, TypeVar
 
 from .motif import Motif
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Mapping
 
 __all__ = [
     "ENTRY_POINT_GROUP",
@@ -34,8 +35,10 @@ __all__ = [
     "describe",
     "families",
     "get",
+    "name_for",
     "names",
     "register",
+    "spec",
 ]
 
 ENTRY_POINT_GROUP = "geomotif.motifs"
@@ -50,6 +53,7 @@ class _Entry:
     cls: type[Motif]
     family: str | None
     requires: str | None
+    example: Mapping[str, object]
 
 
 _REGISTRY: dict[str, _Entry] = {}
@@ -78,6 +82,7 @@ class MotifInfo:
     summary: str
     doc: str
     params: tuple[ParamInfo, ...]
+    example: Mapping[str, object]
 
 
 def _derive_name(cls: type) -> str:
@@ -120,6 +125,7 @@ def register(
     *,
     family: str | None = None,
     requires: str | None = None,
+    example: Mapping[str, object] | None = None,
 ) -> Callable[[type[MotifT]], type[MotifT]]:
     """Register a motif class under ``name``, returning it unchanged.
 
@@ -134,12 +140,17 @@ def register(
         Name of an optional dependency the motif needs, e.g. ``"scipy"``.
         Listings report such motifs as unavailable rather than failing to
         import when the extra is missing.
+    example : mapping, optional
+        Constructor arguments producing a representative instance -- what
+        the gallery renders and what the conformance suite exercises.
+        Required for motifs with parameters that have no default, since
+        those cannot be instantiated any other way.
 
     Examples
     --------
     ::
 
-        @register("rose", family="polar")
+        @register("rose", family="polar", example={"k": 5})
         @dataclass(frozen=True, slots=True)
         class Rose(PolarMotif): ...
     """
@@ -153,7 +164,7 @@ def register(
                 f"{existing.cls.__module__}.{existing.cls.__qualname__}; "
                 f"pass a different name to @register"
             )
-        _REGISTRY[key] = _Entry(cls, family, requires)
+        _REGISTRY[key] = _Entry(cls, family, requires, MappingProxyType(dict(example or {})))
         return cls
 
     return decorate
@@ -221,7 +232,58 @@ def describe(name: str) -> MotifInfo:
         summary=summary,
         doc=doc,
         params=_params_for(cls),
+        example=entry.example,
     )
+
+
+def name_for(cls: type) -> str | None:
+    """Return the name ``cls`` is registered under, or ``None`` if it is not.
+
+    Unlike the other lookups this one does not trigger a load: if an instance
+    of the class exists, its module has already been imported, so anything
+    the load would find is either present already or irrelevant.
+    """
+    for key, entry in _REGISTRY.items():
+        if entry.cls is cls:
+            return key
+    return None
+
+
+def spec(motif: Motif) -> Mapping[str, object]:
+    """Return a reproducible description of ``motif``, for :attr:`Design.meta`.
+
+    The result is the motif's registered name under ``"motif"`` plus every
+    constructor parameter and its resolved value -- including any resolved
+    random seed -- which is exactly what is needed to rebuild the design
+    later via :func:`create`.
+
+    Parameters
+    ----------
+    motif : Motif
+        The motif to describe. Usually a dataclass; anything else reports
+        just its name, since there is nothing to introspect.
+
+    Returns
+    -------
+    Mapping[str, object]
+        Read-only, so it is safe to hand straight to :class:`Design`. An
+        unregistered motif reports its class name, which is honest but not
+        reconstructible -- register it to get a round-trippable spec.
+    """
+    name = name_for(type(motif)) or type(motif).__qualname__
+    return MappingProxyType({"motif": name, **_field_values(motif)})
+
+
+def _field_values(obj: object) -> dict[str, object]:
+    """Return an instance's constructor field values, or ``{}`` if not a dataclass.
+
+    Typed as ``object`` for the same reason as :func:`_params_for`: mypy
+    cannot intersect :class:`Motif` with the dataclass protocol and would
+    rule the body unreachable.
+    """
+    if not is_dataclass(obj) or isinstance(obj, type):
+        return {}
+    return {field.name: getattr(obj, field.name) for field in fields(obj) if field.init}
 
 
 def _params_for(cls: type) -> tuple[ParamInfo, ...]:

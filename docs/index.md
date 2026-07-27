@@ -12,6 +12,6 @@ current reference.
 
 | Page | Contents |
 |---|---|
-| `extending.md` | Writing your own motif: the three tiers (polar → parametric → full `Motif`), and how to publish one as a plugin |
+| `extending.md` | Writing your own motif: choosing a base from `geomotif.bases`, the conformance contract every registered motif must meet, and how to publish one as a plugin |
 | `api-policy.md` | The public-vs-internal boundary, and what `__all__` does and does not promise |
 | `gallery/` | Every registered motif, rendered to SVG with its source snippet (generated; not committed) |

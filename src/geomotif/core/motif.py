@@ -39,7 +39,9 @@ class SupportsBuild(Protocol):
     accepted wherever a motif is, so nobody is ever *forced* to inherit.
     """
 
-    def build(self) -> Design: ...
+    def build(self) -> Design:
+        """Return the design at its natural resolution."""
+        ...
 
 
 class Motif(ABC):
@@ -49,6 +51,11 @@ class Motif(ABC):
     police the type -- see :class:`SupportsBuild` if you would rather not
     inherit at all.
     """
+
+    # Empty slots so that ``@dataclass(frozen=True, slots=True)`` on a motif
+    # actually takes effect: one non-slotted class anywhere in the MRO gives
+    # every instance a ``__dict__`` back, silently undoing it.
+    __slots__ = ()
 
     @abstractmethod
     def build(self) -> Design:

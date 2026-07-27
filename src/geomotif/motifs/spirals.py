@@ -11,11 +11,10 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from types import MappingProxyType
 from typing import TYPE_CHECKING, override
 
 from ..core.motif import Motif
-from ..core.registry import register
+from ..core.registry import register, spec
 from ..core.sampling import densify, samples_for_turns
 from ..core.types import Design, Path
 
@@ -25,7 +24,11 @@ if TYPE_CHECKING:
 __all__ = ["SpiralBetween"]
 
 
-@register("spiral.between", family="spiral")
+@register(
+    "spiral.between",
+    family="spiral",
+    example={"start": (100.0, 0.0), "end": (10.0, 0.0), "turns": 2},
+)
 @dataclass(frozen=True, slots=True)
 class SpiralBetween(Motif):
     """The endpoint-constrained arithmetic spiral: ``r = a + b*theta``.
@@ -109,14 +112,4 @@ class SpiralBetween(Motif):
             return (cx + radius * math.cos(angle), cy + radius * math.sin(angle))
 
         samples = self.resolution or samples_for_turns(abs(sweep) / math.tau)
-        meta = MappingProxyType(
-            {
-                "motif": "spiral.between",
-                "start": self.start,
-                "end": self.end,
-                "center": self.center,
-                "clockwise": self.clockwise,
-                "turns": self.turns,
-            }
-        )
-        return Design((Path(densify(position, samples=samples)),), meta=meta)
+        return Design((Path(densify(position, samples=samples)),), meta=spec(self))

@@ -38,6 +38,28 @@ history reads honestly.
   `get`, `create` and `describe`, with parameter introspection derived from
   dataclass fields and lazy third-party discovery via the
   `geomotif.motifs` entry-point group.
+- **Motif base classes** (`geomotif.bases`) — the extensibility story, and
+  most of the catalogue's implementation. Pick the base that matches how your
+  design is defined and write the one method it asks for:
+  `ParametricMotif` (`position(u)`), `PolarMotif` (`radius(theta)`),
+  `MultiCurveMotif` (several strands at once), `LSystemMotif` (an axiom,
+  rewrite rules and a turn angle, drawn with a turtle that branches),
+  `SegmentMotif` (nodes and edges, optionally chained into polylines) and the
+  two tiling bases, `LatticeTiling` (a cell repeated on basis vectors and
+  clipped to a region) and `SubstitutionTiling` (seed tiles subdivided to a
+  depth, generic over your own tile type).
+- **`registry.spec()`** — a motif's registered name plus its resolved
+  parameters, which is what the bases attach to every design they build. A
+  design can therefore say what made it, and be rebuilt from that.
+- **`@register(example=...)`** — constructor arguments producing a
+  representative instance. The gallery will render it; the conformance suite
+  exercises it today, and requires one from any motif whose parameters have
+  no defaults.
+- **Registry-driven conformance suite** — one contract, checked against every
+  registered motif automatically: it builds, it is finite, it has extent, it
+  resamples to exactly the count asked for, it is reproducible, its metadata
+  round-trips back through the registry, it exports, and it is documented.
+  Adding a motif from here on costs no test-writing effort.
 - **Spacing curves** — `ReversedSpacing` (mirror any curve, including plain
   callables), `CompositeSpacing` (chain eases), `TableSpacing` (draw the
   curve by hand from control points), and `coerce_spacing`, one place that
@@ -63,6 +85,11 @@ history reads honestly.
   single-purpose spiral generator into a general geometric design library.
   Import name, source tree, distribution name and console script all move
   together; the demo command is now `geomotif-demo`.
+- `Motif` declares empty `__slots__`, so `@dataclass(frozen=True,
+  slots=True)` on a motif now actually takes effect. A single class without
+  slots anywhere in the MRO silently hands every instance a `__dict__` back.
+- Ruff gains `D` (pydocstyle, numpy convention), `ARG`, `RSE` and `A`, as
+  planned for the point where the public surface grew.
 - Lowered the Python floor from 3.14 to **3.12**, now tested on 3.12, 3.13
   and 3.14 across Linux, macOS and Windows. Every modern-syntax flourish in
   the codebase (PEP 695 `type` aliases, `@override`, `match`) is 3.12-safe,

@@ -100,15 +100,28 @@ select = [
     "PERF",   # perflint
     "TC",     # flake8-type-checking
     "RET",    # flake8-return
+    "D",      # pydocstyle (numpy convention, configured below)
+    "ARG",    # unused arguments -- easy to leave behind when generalizing
+    "RSE",    # no redundant parentheses on bare raises
+    "A",      # shadowed builtins
 ]
 ignore = [
     "E501",   # line length is enforced by the formatter, not worth duplicating
+    "D105",   # magic methods are named by their contract; __len__ needs no prose
+    "D107",   # __init__ is documented in the class docstring, per numpy style
 ]
 
 [tool.ruff.lint.per-file-ignores]
 # PT011: pinning every ValueError to a match= string is brittle busywork
 # for input-validation tests where the type alone is the contract.
-"tests/*" = ["PT011"]
+# D: a test's name is its docstring, and 350 of them do not need prose.
+# ARG: test motifs are stub implementations of an abstract signature, and
+# ignoring an argument the contract requires them to accept is the norm.
+"tests/*" = ["PT011", "D", "ARG"]
+"examples/*" = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
 
 [tool.ruff.lint.isort]
 known-first-party = ["geomotif"]

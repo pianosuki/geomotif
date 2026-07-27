@@ -93,14 +93,17 @@ class Bounds:
 
     @property
     def width(self) -> float:
+        """Horizontal extent."""
         return self.max_x - self.min_x
 
     @property
     def height(self) -> float:
+        """Vertical extent."""
         return self.max_y - self.min_y
 
     @property
     def center(self) -> Point:
+        """Midpoint of the rectangle."""
         return ((self.min_x + self.max_x) / 2.0, (self.min_y + self.max_y) / 2.0)
 
     def __contains__(self, point: Point) -> bool:
@@ -165,6 +168,7 @@ class Path:
 
     @property
     def bounds(self) -> Bounds:
+        """Tightest rectangle containing every vertex."""
         return Bounds.from_points(self.points)
 
 

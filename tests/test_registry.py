@@ -151,6 +151,21 @@ def test_describe_records_optional_dependencies():
     assert registry.describe("dot").requires == "scipy"
 
 
+def test_describe_skips_fields_that_are_not_constructor_parameters():
+    @registry.register("derived")
+    @dataclass(frozen=True, slots=True)
+    class Derived(Motif):
+        """Has a field the caller never passes."""
+
+        x: float = 0.0
+        computed: float = field(init=False, default=1.0)
+
+        def build(self) -> Design:
+            return Design(points=((self.x, self.computed),))
+
+    assert [p.name for p in registry.describe("derived").params] == ["x"]
+
+
 def test_describe_handles_non_dataclass_motifs():
     @registry.register("plain")
     class Plain(Motif):
@@ -160,6 +175,61 @@ def test_describe_handles_non_dataclass_motifs():
             return Design()
 
     assert registry.describe("plain").params == ()
+
+
+def test_describe_reports_an_empty_example_by_default():
+    registry.register("dot")(Dot)
+    assert registry.describe("dot").example == {}
+
+
+def test_describe_reports_the_registered_example():
+    registry.register("dot", example={"x": 1.0})(Dot)
+    assert registry.describe("dot").example == {"x": 1.0}
+
+
+def test_the_example_cannot_be_mutated_through_the_registry():
+    example = {"x": 1.0}
+    registry.register("dot", example=example)(Dot)
+    example["x"] = 99.0
+    assert registry.describe("dot").example == {"x": 1.0}
+
+
+def test_name_for_finds_a_registered_class():
+    registry.register("dot")(Dot)
+    assert registry.name_for(Dot) == "dot"
+
+
+def test_name_for_returns_none_for_a_stranger():
+    assert registry.name_for(int) is None
+
+
+def test_spec_records_the_name_and_every_parameter():
+    registry.register("dot")(Dot)
+    assert dict(registry.spec(Dot(x=1.0, y=2.0))) == {
+        "motif": "dot",
+        "x": 1.0,
+        "y": 2.0,
+        "label": "dot",
+    }
+
+
+def test_spec_falls_back_to_the_class_name_when_unregistered():
+    assert registry.spec(Dot())["motif"] == "Dot"
+
+
+def test_spec_is_read_only():
+    with pytest.raises(TypeError):
+        registry.spec(Dot())["motif"] = "other"  # type: ignore[index]
+
+
+def test_spec_of_a_non_dataclass_is_just_its_name():
+    class Plain(Motif):
+        def build(self) -> Design:
+            return Design()
+
+    # Nothing to introspect, so the spec is the name alone -- qualified here
+    # only because the class is defined inside this function.
+    assert dict(registry.spec(Plain())) == {"motif": Plain.__qualname__}
 
 
 def test_builtin_spiral_is_registered():
