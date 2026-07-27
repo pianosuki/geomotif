@@ -48,6 +48,32 @@ history reads honestly.
   two tiling bases, `LatticeTiling` (a cell repeated on basis vectors and
   clipped to a region) and `SubstitutionTiling` (seed tiles subdivided to a
   depth, generic over your own tile type).
+- **`PolygonMotif`** (`geomotif.bases`) — the base for shapes defined by
+  their corners rather than by a formula. Kept separate from
+  `ParametricMotif` because sampling a polygon at evenly spaced parameters
+  rounds its corners off unless a sample happens to land on each one; a
+  pentagon here costs five points rather than five hundred. `outlines()` is
+  plural so that a figure made of several loops — the star polygon `{6/2}` is
+  two overlaid triangles — comes back as several strokes rather than one
+  path with an invented edge between them.
+- **`PolarMotif.with_turns()`** — the sweep said in revolutions rather than
+  radians, which is how a wound curve is actually described:
+  `LogarithmicSpiral(b=0.2).with_turns(5, clockwise=True)`.
+- **The spiral family** (`geomotif.motifs.spirals`) — `ArchimedeanSpiral`,
+  `LogarithmicSpiral`, `GoldenSpiral`, `FibonacciSpiral`, `FermatSpiral`,
+  `HyperbolicSpiral`, `Lituus`, `TheodorusSpiral`, `EulerSpiral`,
+  `CircleInvolute`, joining `SpiralBetween`. The six that are polar functions
+  of theta share a `SpiralBase` and are a single line of maths each; the
+  other four are not polar functions at all and say so by using a different
+  base. `EulerSpiral` brings a dependency-free Fresnel integral, evaluated by
+  power series to machine precision within the range the curve is actually
+  drawn over.
+- **The primitives** (`geomotif.motifs.primitives`) — `Circle`, `Ellipse`,
+  `Arc`, `Sector`, `Line`, `Rectangle`, `RoundedRectangle`,
+  `RegularPolygon`, `StarPolygon`, `Star`, `Superellipse`, `Squircle`,
+  `ReuleauxPolygon`, `Egg`, `PointGrid` and `PoissonDiscPoints`. The point
+  fields seed a private `random.Random`, so a design is reproducible from its
+  metadata and building one never disturbs the global random stream.
 - **`registry.spec()`** — a motif's registered name plus its resolved
   parameters, which is what the bases attach to every design they build. A
   design can therefore say what made it, and be rebuilt from that.
@@ -65,7 +91,9 @@ history reads honestly.
   curve by hand from control points), and `coerce_spacing`, one place that
   decides what counts as a spacing curve.
 - **`SpiralBetween`** (`geomotif.motifs.spirals`) — the endpoint-constrained
-  arithmetic spiral, preserving the old generator's exact geometry.
+  arithmetic spiral, preserving the old generator's exact geometry. Also
+  reachable as `ArchimedeanSpiral.between(...)`, since it is that same curve
+  parameterized by where it has to start and stop.
 
 ### Removed
 

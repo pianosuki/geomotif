@@ -4,11 +4,35 @@ import math
 import pytest
 
 from geomotif import PowerSpacing
-from geomotif.motifs import SpiralBetween
+from geomotif.motifs import (
+    PHI,
+    ArchimedeanSpiral,
+    CircleInvolute,
+    EulerSpiral,
+    FermatSpiral,
+    FibonacciSpiral,
+    GoldenSpiral,
+    HyperbolicSpiral,
+    Lituus,
+    LogarithmicSpiral,
+    SpiralBetween,
+    TheodorusSpiral,
+)
+from geomotif.motifs.spirals import _fresnel
 
 
 def gaps(points):
     return [math.dist(a, b) for a, b in itertools.pairwise(points)]
+
+
+def only_path(motif):
+    design = motif.build()
+    assert len(design.paths) == 1
+    return design.paths[0]
+
+
+def first_point(motif):
+    return only_path(motif).points[0]
 
 
 def test_endpoints_exact():
@@ -156,3 +180,245 @@ def test_invalid_args_rejected():
         SpiralBetween((0, 0), (1, 1)).generate(1)
     with pytest.raises(TypeError):
         SpiralBetween((0, 0), (1, 1)).generate(10, spacing="linear")  # type: ignore[arg-type]
+
+
+# --- the polar spiral family ------------------------------------------------
+
+
+def test_a_spiral_sweeps_three_turns_by_default():
+    # One revolution of a spiral barely reads as one, so the family default
+    # differs from PolarMotif's.
+    assert ArchimedeanSpiral().theta_span == pytest.approx(3 * math.tau)
+
+
+def test_with_turns_sets_the_sweep_in_revolutions():
+    assert LogarithmicSpiral().with_turns(5).theta_span == pytest.approx(5 * math.tau)
+
+
+def test_with_turns_clockwise_reverses_the_sweep():
+    assert LogarithmicSpiral().with_turns(5, clockwise=True).theta_span == pytest.approx(
+        -5 * math.tau
+    )
+
+
+def test_a_clockwise_spiral_mirrors_its_counter_clockwise_twin():
+    # Mirrored in x rather than y: a negative angle gives r = b*theta a
+    # negative radius, and PolarMotif places a negative radius on the
+    # opposite ray. The curve still winds the other way, which is the point.
+    right = list(ArchimedeanSpiral().with_turns(2).build())
+    left = list(ArchimedeanSpiral().with_turns(2, clockwise=True).build())
+    assert [(-x, y) for x, y in right] == pytest.approx(left)
+
+
+def test_with_turns_keeps_every_other_parameter():
+    spiral = ArchimedeanSpiral(a=3.0, b=7.0, center=(1.0, 2.0)).with_turns(4)
+    assert (spiral.a, spiral.b, spiral.center) == (3.0, 7.0, (1.0, 2.0))
+
+
+def test_successive_archimedean_turns_are_evenly_spaced():
+    # The defining property: r = a + b*theta puts every winding the same
+    # radial distance from the last.
+    spiral = ArchimedeanSpiral(a=5.0, b=2.0)
+    for theta in (0.5, 3.0, 11.0):
+        gap = spiral.radius(theta + math.tau) - spiral.radius(theta)
+        assert gap == pytest.approx(2.0 * math.tau)
+
+
+def test_an_archimedean_spiral_starts_at_its_inner_radius():
+    assert first_point(ArchimedeanSpiral(a=5.0, b=2.0)) == pytest.approx((5.0, 0.0))
+
+
+def test_successive_logarithmic_turns_grow_by_a_constant_factor():
+    spiral = LogarithmicSpiral(a=1.0, b=0.3)
+    ratios = [spiral.radius(t + math.tau) / spiral.radius(t) for t in (0.0, 2.0, 9.0)]
+    assert ratios == pytest.approx([math.exp(0.3 * math.tau)] * 3)
+
+
+def test_a_logarithmic_spiral_with_no_growth_is_a_circle():
+    points = list(LogarithmicSpiral(a=10.0, b=0.0).build())
+    assert all(math.dist((0.0, 0.0), p) == pytest.approx(10.0) for p in points)
+
+
+def test_the_golden_spiral_widens_by_phi_every_quarter_turn():
+    spiral = GoldenSpiral(a=1.0)
+    for theta in (0.0, 1.0, 5.0):
+        ratio = spiral.radius(theta + math.pi / 2) / spiral.radius(theta)
+        assert ratio == pytest.approx(PHI)
+
+
+def test_the_golden_spiral_is_a_logarithmic_spiral_with_a_fixed_growth():
+    golden = GoldenSpiral(a=2.0).build()
+    same = LogarithmicSpiral(a=2.0, b=GoldenSpiral.GROWTH).with_turns(2).build()
+    assert list(golden) == pytest.approx(list(same))
+
+
+def test_fermat_squares_its_radius_against_the_angle():
+    spiral = FermatSpiral(a=4.0)
+    for theta in (0.5, 3.0, 15.0):
+        assert spiral.radius(theta) ** 2 == pytest.approx(16.0 * theta)
+
+
+def test_fermat_draws_both_arms_by_default():
+    assert len(FermatSpiral().build().paths) == 2
+
+
+def test_the_second_fermat_arm_is_the_first_reflected_through_the_center():
+    design = FermatSpiral(center=(5.0, -3.0)).build()
+    first, second = design.paths
+    mirrored = [(10.0 - x, -6.0 - y) for x, y in first.points]
+    assert list(second.points) == pytest.approx(mirrored)
+
+
+def test_one_fermat_arm_can_be_asked_for():
+    assert len(FermatSpiral(both_branches=False).build().paths) == 1
+
+
+def test_fermat_rejects_a_sweep_into_negative_angles():
+    with pytest.raises(ValueError, match="square root"):
+        FermatSpiral(theta_start=-1.0)
+
+
+def test_the_hyperbolic_spiral_keeps_radius_times_angle_constant():
+    spiral = HyperbolicSpiral(a=50.0)
+    for theta in (0.2, 4.0, 18.0):
+        assert spiral.radius(theta) * theta == pytest.approx(50.0)
+
+
+def test_the_lituus_keeps_radius_squared_times_angle_constant():
+    spiral = Lituus(a=50.0)
+    for theta in (0.2, 4.0, 18.0):
+        assert spiral.radius(theta) ** 2 * theta == pytest.approx(2500.0)
+
+
+@pytest.mark.parametrize("cls", [HyperbolicSpiral, Lituus])
+def test_a_spiral_with_a_pole_refuses_to_sweep_through_zero(cls):
+    with pytest.raises(ValueError, match="pole"):
+        cls(theta_start=0.0)
+
+
+@pytest.mark.parametrize("cls", [HyperbolicSpiral, Lituus])
+def test_a_spiral_with_a_pole_refuses_a_sweep_that_straddles_it(cls):
+    with pytest.raises(ValueError, match="pole"):
+        cls(theta_start=-1.0, theta_span=2.0)
+
+
+def test_the_lituus_refuses_a_sweep_below_the_pole():
+    # Unlike the hyperbolic spiral it cannot take the negative branch at all:
+    # its radius is a square root, so there is nothing there to draw.
+    with pytest.raises(ValueError, match="square root"):
+        Lituus(theta_start=-1.0, theta_span=-5.0)
+
+
+def test_a_hyperbolic_spiral_may_sweep_entirely_below_the_pole():
+    # Negative angles are a perfectly good branch; only crossing zero is not.
+    assert len(HyperbolicSpiral(theta_start=-1.0, theta_span=-5.0).build()) > 0
+
+
+# --- the spirals that are not polar functions -------------------------------
+
+
+def test_theodorus_puts_its_nth_vertex_at_the_root_of_n():
+    corners = only_path(TheodorusSpiral(triangles=12, size=3.0)).points
+    for index, point in enumerate(corners):
+        assert math.dist((0.0, 0.0), point) == pytest.approx(3.0 * math.sqrt(index + 1))
+
+
+def test_every_theodorus_triangle_adds_a_leg_of_the_same_length():
+    corners = only_path(TheodorusSpiral(triangles=12, size=3.0)).points
+    assert gaps(corners) == pytest.approx([3.0] * 12)
+
+
+def test_theodorus_is_drawn_as_an_open_chain():
+    assert not only_path(TheodorusSpiral()).closed
+
+
+def test_theodorus_needs_at_least_one_triangle():
+    with pytest.raises(ValueError, match="triangles"):
+        TheodorusSpiral(triangles=0)
+
+
+def test_the_fibonacci_spiral_uses_fibonacci_radii():
+    assert FibonacciSpiral(quarters=8, size=2.0)._radii() == [2, 2, 4, 6, 10, 16, 26, 42]
+
+
+def test_the_fibonacci_arcs_join_without_a_jump():
+    # Each arc's center is shifted so the next starts exactly where the last
+    # ended. A sign error there leaves a gap, and the polyline gets longer
+    # than the arcs it is supposed to be made of.
+    spiral = FibonacciSpiral(quarters=9, size=10.0)
+    expected = math.pi / 2.0 * sum(spiral._radii())
+    assert only_path(spiral).length == pytest.approx(expected, rel=1e-3)
+
+
+def test_the_fibonacci_spiral_needs_at_least_one_quarter():
+    with pytest.raises(ValueError, match="quarters"):
+        FibonacciSpiral(quarters=0)
+
+
+def test_an_involute_unwinds_a_string_of_the_right_length():
+    # The taut string from the tangent point is exactly the arc it came off,
+    # so the distance to the center is radius * sqrt(1 + t**2).
+    involute = CircleInvolute(radius=4.0, turns=2.0)
+    for u in (0.0, 0.25, 0.5, 1.0):
+        t = math.tau * 2.0 * u
+        distance = math.dist((0.0, 0.0), involute.position(u))
+        assert distance == pytest.approx(4.0 * math.sqrt(1.0 + t * t))
+
+
+def test_an_involute_starts_on_the_circle_it_unwinds_from():
+    assert first_point(CircleInvolute(radius=4.0)) == pytest.approx((4.0, 0.0))
+
+
+def test_an_involute_needs_a_positive_turn_count():
+    with pytest.raises(ValueError, match="turns"):
+        CircleInvolute(turns=0.0)
+
+
+@pytest.mark.parametrize(
+    ("z", "expected"),
+    [
+        (0.0, (0.0, 0.0)),
+        (0.5, (0.49234422, 0.06473243)),
+        (1.0, (0.77989340, 0.43825915)),
+        (2.0, (0.48825340, 0.34341568)),
+        (3.0, (0.60572079, 0.49631300)),
+    ],
+)
+def test_the_fresnel_integrals_match_their_published_values(z, expected):
+    assert _fresnel(z) == pytest.approx(expected, abs=1e-8)
+
+
+def test_the_fresnel_integrals_are_odd():
+    assert _fresnel(-1.7) == pytest.approx([-v for v in _fresnel(1.7)])
+
+
+def test_the_fresnel_approximations_agree_where_they_hand_over():
+    # The series stops being trustworthy past this point and a rational
+    # approximation takes over; the seam must not be a visible kink.
+    series = _fresnel(4.0)
+    rational = _fresnel(4.0 + 1e-9)
+    assert rational == pytest.approx(series, abs=2e-3)
+
+
+def test_the_euler_spiral_passes_through_its_center_halfway():
+    assert EulerSpiral(center=(7.0, -2.0)).position(0.5) == pytest.approx((7.0, -2.0))
+
+
+def test_the_euler_spiral_is_symmetric_about_its_center():
+    spiral = EulerSpiral(scale=100.0, extent=2.0)
+    for u in (0.0, 0.1, 0.37):
+        near = spiral.position(u)
+        far = spiral.position(1.0 - u)
+        assert (near[0] + far[0], near[1] + far[1]) == pytest.approx((0.0, 0.0))
+
+
+def test_the_euler_spiral_needs_a_positive_extent():
+    with pytest.raises(ValueError, match="extent"):
+        EulerSpiral(extent=0.0)
+
+
+def test_archimedean_between_builds_the_endpoint_constrained_spiral():
+    direct = SpiralBetween((200, 0), (20, 0), turns=2)
+    via_class = ArchimedeanSpiral.between((200, 0), (20, 0), turns=2)
+    assert isinstance(via_class, SpiralBetween)
+    assert list(via_class.build()) == list(direct.build())

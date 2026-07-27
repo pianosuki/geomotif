@@ -17,8 +17,8 @@ from __future__ import annotations
 
 import math
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, ClassVar, override
+from dataclasses import dataclass, field, replace
+from typing import TYPE_CHECKING, ClassVar, Self, override
 
 from ..core.motif import Motif
 from ..core.registry import spec
@@ -182,6 +182,12 @@ class PolarMotif(ParametricMotif, ABC):
     it is the convention every plot of ``r = cos(k*theta)`` assumes, and it is
     what makes the petal count of a rose come out right. Clip the radius
     yourself in :meth:`radius` if you want the other convention.
+
+    The hook is named ``radius``, so a subclass cannot also have a field
+    called ``radius`` -- the two would collide in the class body. In practice
+    that never bites: a shape whose radius is a constant parameter rather
+    than a function of ``theta`` is a circle or an arc, and those are
+    parametric rather than polar for exactly this reason.
     """
 
     #: Point the curve is drawn around.
@@ -194,6 +200,25 @@ class PolarMotif(ParametricMotif, ABC):
     @abstractmethod
     def radius(self, theta: float) -> float:
         """Return the radius at angle ``theta``, in radians."""
+
+    def with_turns(self, turns: float, *, clockwise: bool = False) -> Self:
+        """Return a copy sweeping ``turns`` revolutions in the given direction.
+
+        The same thing as setting :attr:`theta_span` to ``turns * tau``, said
+        the way a wound curve is usually described::
+
+            LogarithmicSpiral(b=0.15).with_turns(5, clockwise=True)
+
+        Parameters
+        ----------
+        turns : float
+            Revolutions to sweep. Fractional turns are fine.
+        clockwise : bool, optional
+            Sweep direction. Counter-clockwise by default, matching the
+            standard math convention the rest of the library uses.
+        """
+        span = math.tau * turns
+        return replace(self, theta_span=-span if clockwise else span)
 
     @override
     def position(self, u: float) -> Point:

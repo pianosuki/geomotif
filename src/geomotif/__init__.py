@@ -49,6 +49,7 @@ from .bases import (
     MultiCurveMotif,
     ParametricMotif,
     PolarMotif,
+    PolygonMotif,
     SegmentMotif,
     SubstitutionTiling,
 )
@@ -119,6 +120,7 @@ __all__ = [
     "Point",
     "PointFormat",
     "PolarMotif",
+    "PolygonMotif",
     "PowerSpacing",
     "QuadraticSpacing",
     "ReversedSpacing",

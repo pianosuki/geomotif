@@ -21,10 +21,10 @@ placement, particle layouts, UI motion paths.
 Zero dependencies for the core; matplotlib is an optional extra for
 visualization. Requires Python 3.12+.
 
-> **Status:** the engine, the data model and the motif base classes are
-> complete; the motif catalogue is being filled in. `SpiralBetween` is the
-> only motif shipping today — but writing your own is now a few lines, and
-> everything below already works for it.
+> **Status:** the engine, the data model and the motif bases are complete, and
+> the catalogue is filling in — 27 motifs today: the full spiral family and
+> the primitives. Named curves, roulettes, fractals, tilings and the rest are
+> next. Everything below already works for all of them, and for yours.
 
 ## Install
 
@@ -66,6 +66,36 @@ spiral.generate(100, by="parameter")  # parametric instead of arc-length
 `step=` is the mode you want for plotter output and dot placement: the gap is
 fixed and the count falls out of the geometry.
 
+## What's in the box
+
+```python
+from geomotif.motifs import GoldenSpiral, ReuleauxPolygon, StarPolygon
+```
+
+**Spirals** (`geomotif.motifs.spirals`) — `ArchimedeanSpiral` (evenly spaced
+windings), `LogarithmicSpiral` (constant growth *ratio*), `GoldenSpiral`,
+`FibonacciSpiral` (the quarter-arc approximation everyone actually draws —
+both are here because they are not the same curve), `FermatSpiral`,
+`HyperbolicSpiral`, `Lituus`, `TheodorusSpiral`, `EulerSpiral` (the clothoid,
+via stdlib Fresnel integrals), `CircleInvolute` and `SpiralBetween`.
+
+**Primitives** (`geomotif.motifs.primitives`) — `Circle`, `Ellipse`, `Arc`,
+`Sector`, `Line`, `Rectangle`, `RoundedRectangle`, `RegularPolygon`,
+`StarPolygon` (the `{n/k}` family — `{6/2}` correctly comes back as two
+triangles), `Star`, `Superellipse`, `Squircle`, `ReuleauxPolygon` (constant
+width), `Egg`, `PointGrid` and `PoissonDiscPoints`.
+
+Anything registered is also reachable by name, with its parameters
+introspectable:
+
+```python
+from geomotif.core import registry
+
+registry.names(family="spiral")  # ('spiral.archimedean', 'spiral.between', ...)
+registry.create("polygon.star", points=7, step=3)
+registry.describe("egg").params  # name, type, default, help for each
+```
+
 ## Write your own motif
 
 Usually it is the maths and nothing else. Pick the base that matches how your
@@ -98,10 +128,16 @@ just works, and so does `registry.create("my-flower", k=5)`.
 | `ParametricMotif` | `position(u) -> Point` |
 | `PolarMotif` | `radius(theta) -> float` |
 | `MultiCurveMotif` | `curves() -> Iterable[Curve]` |
+| `PolygonMotif` | `outlines() -> Iterable[Sequence[Point]]` |
 | `LSystemMotif` | an axiom, rewrite rules and a turn angle |
 | `SegmentMotif` | `nodes()` and `edges()` |
 | `LatticeTiling` | `cell()` and `basis()` |
 | `SubstitutionTiling` | `seed()`, `subdivide()` and `outline()` |
+
+The one distinction worth getting right is `ParametricMotif` vs
+`PolygonMotif`: a curve is *measured* at evenly spaced parameters, a polygon
+is *listed*. Measuring a pentagon at 512 samples rounds all five of its
+corners off, so shapes defined by their corners list them instead.
 
 If none of them fits, subclass `Motif` and write `build()` by hand — one
 method, returning a `Design`:
