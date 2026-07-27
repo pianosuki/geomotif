@@ -1,0 +1,126 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "spiralgen"
+dynamic = ["version"]
+description = "Generate precisely spaced points along arbitrary spirals, with pluggable spacing curves and true arc-length positioning"
+readme = "README.md"
+requires-python = ">=3.14"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Scott Weer", email = "pianosuki@protonmail.com" },
+]
+keywords = [
+    "spiral",
+    "points",
+    "geometry",
+    "easing",
+    "arc-length",
+    "generative-art",
+    "plotter",
+    "design",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Other Audience",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.14",
+    "Topic :: Artistic Software",
+    "Topic :: Multimedia :: Graphics",
+    "Topic :: Scientific/Engineering :: Mathematics",
+    "Typing :: Typed",
+]
+dependencies = []
+
+[project.optional-dependencies]
+plot = ["matplotlib>=3.10"]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "pytest-cov>=6",
+    "matplotlib>=3.10",
+    "ruff>=0.16",
+    "mypy>=1.14",
+]
+
+[project.urls]
+# TODO: update these once the repository is published
+Homepage = "https://github.com/pianosuki/spiralgen"
+Issues = "https://github.com/pianosuki/spiralgen/issues"
+Changelog = "https://github.com/pianosuki/spiralgen/blob/main/CHANGELOG.md"
+
+[project.scripts]
+spiralgen-demo = "spiralgen.demo:main"
+
+[tool.hatch.version]
+path = "src/spiralgen/__init__.py"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py314"
+line-length = 100
+src = ["src", "tests", "examples"]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # pyflakes
+    "I",      # isort
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+    "N",      # pep8-naming
+    "RUF",    # ruff-specific rules
+    "PTH",    # prefer pathlib over os.path
+    "PT",     # flake8-pytest-style
+    "PIE",    # misc lint rules
+    "PERF",   # perflint
+    "TC",     # flake8-type-checking
+    "RET",    # flake8-return
+]
+ignore = [
+    "E501",   # line length is enforced by the formatter, not worth duplicating
+]
+
+[tool.ruff.lint.per-file-ignores]
+# PT011: pinning every ValueError to a match= string is brittle busywork
+# for input-validation tests where the type alone is the contract.
+"tests/*" = ["PT011"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["spiralgen"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "lf"
+
+[tool.mypy]
+python_version = "3.14"
+files = ["src", "tests"]
+strict = true
+warn_unreachable = true
+enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
+
+[[tool.mypy.overrides]]
+module = ["matplotlib.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+# Bodies are still checked (check_untyped_defs, inherited from strict) but
+# tests aren't required to annotate every `def test_...(): ...`.
+module = ["tests.*"]
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+disallow_untyped_calls = false
