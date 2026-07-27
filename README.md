@@ -22,10 +22,11 @@ Zero dependencies for the core; matplotlib is an optional extra for
 visualization. Requires Python 3.12+.
 
 > **Status:** the engine, the data model and the motif bases are complete, and
-> the catalogue is filling in — 58 motifs today: the spirals, the primitives,
-> the named curves, the roulettes and the polar/harmonic family. Fractals,
-> tilings, string art, knots and the rest are next. Everything below already
-> works for all of them, and for yours.
+> the catalogue is filling in — 91 motifs today: the spirals, the primitives,
+> the named curves, the roulettes, the polar/harmonic family, the fractals,
+> the graph and number art, and string art. Tilings, sacred geometry, girih,
+> knots and the rest are next. Everything below already works for all of them,
+> and for yours.
 
 ## Install
 
@@ -70,7 +71,7 @@ fixed and the count falls out of the geometry.
 ## What's in the box
 
 ```python
-from geomotif.motifs import GoldenSpiral, MaurerRose, Spirograph
+from geomotif.motifs import BarnsleyFern, GosperCurve, MaurerRose, Spirograph
 ```
 
 **Spirals** (`geomotif.motifs.spirals`) — `ArchimedeanSpiral` (evenly spaced
@@ -107,13 +108,36 @@ implementations get wrong), `MaurerRose`, `Lissajous`, `Harmonic`,
 `Harmonograph`, `Phyllotaxis`/`VogelSpiral` (the sunflower seed head) and
 `PolarExpression` for a one-off radius function.
 
+**Fractals** (`geomotif.motifs.fractals`) — sixteen of them are a grammar and
+nothing else: `KochCurve`, `KochSnowflake`, `KochAntisnowflake`,
+`MinkowskiSausage`, `MinkowskiIsland`, `SierpinskiTriangle`,
+`SierpinskiArrowhead`, `DragonCurve`, `TwinDragon`, `Terdragon`, `LevyCCurve`,
+`HilbertCurve`, `MooreCurve`, `PeanoCurve`, `GosperCurve` and
+`VicsekFractal`. The ones that place smaller copies of themselves rather than
+walk a path are built directly: `SierpinskiCarpet`, `CantorSet`,
+`PythagorasTree`, `HTree` and `ApollonianGasket` (Descartes' circle theorem,
+so the curvatures come out integral). And two arrive by chaos game as loose
+points: `IFSAttractor` and `BarnsleyFern`.
+
+**Graph and number art** (`geomotif.motifs.graphs`) — `CompleteGraph`,
+`CyclicGraph` (the circulant), `BipartiteGraph`, `ChordDiagram` for
+connections that come from data, `ModularMultiplication` (the times-table
+cardioid — join `i` to `2i` around a circle and a cardioid appears),
+`ModularAddition` and `PrimeChords`.
+
+**String art** (`geomotif.motifs.stringart`) — straight threads whose
+*envelope* is a curve: `StringArtCorner` (the parabola everybody has made),
+`StringArtPolygon`, `StringArtCircle` and `StringArtEnvelope`, the general
+"point `i` on this curve to point `rule(i)` on that one" engine the rest are
+special cases of.
+
 Anything registered is also reachable by name, with its parameters
 introspectable:
 
 ```python
 from geomotif.core import registry
 
-registry.families()  # ('curve', 'harmonic', 'polar', 'primitive', 'roulette', 'spiral')
+registry.families()  # ('curve', 'fractal', 'graph', 'harmonic', 'polar', ...)
 registry.names(family="spiral")  # ('spiral.archimedean', 'spiral.between', ...)
 registry.create("polygon.star", points=7, step=3)
 registry.describe("egg").params  # name, type, default, help for each

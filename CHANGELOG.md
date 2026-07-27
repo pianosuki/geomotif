@@ -100,6 +100,40 @@ history reads honestly.
   `Pendulum` value type, `Phyllotaxis` / `VogelSpiral`, and
   `PolarExpression` for a radius function that does not deserve a class.
   `GOLDEN_ANGLE` is exported alongside them.
+- **The fractals** (`geomotif.motifs.fractals`) — reached three ways, because
+  the difference is worth seeing. Sixteen are an axiom, a rewrite rule and a
+  turn angle drawn with a turtle: `KochCurve`, `KochSnowflake`,
+  `KochAntisnowflake`, `MinkowskiSausage`, `MinkowskiIsland`,
+  `SierpinskiTriangle`, `SierpinskiArrowhead`, `DragonCurve`, `TwinDragon`,
+  `Terdragon`, `LevyCCurve`, `HilbertCurve`, `MooreCurve`, `PeanoCurve`,
+  `GosperCurve` and `VicsekFractal`. Five place smaller copies of themselves
+  rather than walk a path, which is a statement about squares and circles
+  instead of about a stroke, so they are built directly: `SierpinskiCarpet`,
+  `CantorSet`, `PythagorasTree` (Bosman's squares, whose children's areas add
+  up to their parent's at every lean — the theorem, drawn), `HTree` and
+  `ApollonianGasket`, generated through Descartes' circle theorem so the
+  curvatures of the default packing come out integral. Two arrive by chaos
+  game as loose points: `IFSAttractor`, with its `IFSMap` value type, and
+  `BarnsleyFern`. Both seed a private generator and normalize their cloud to
+  the `size` asked for, since an attractor's own coordinates are an artefact
+  of whichever numbers the maps happen to contain.
+- **Graph and number art** (`geomotif.motifs.graphs`) — `CompleteGraph`,
+  `CyclicGraph` (the circulant, so several step sizes overlay into a rosette),
+  `BipartiteGraph`, `ChordDiagram` for connections that come from data rather
+  than from arithmetic, `ModularMultiplication` — the times table drawn as
+  chords, whose envelope is a cardioid for the two times table and an
+  epicycloid with one fewer cusp than the factor after that — plus
+  `ModularAddition` and `PrimeChords`, which joins two numbers whenever they
+  add up to a prime.
+- **String art** (`geomotif.motifs.stringart`) — straight threads whose
+  envelope is a curve. `StringArtCorner` (two arms and the parabola between
+  them), `StringArtPolygon` (that corner at every corner of a polygon) and
+  `StringArtEnvelope`, the general "nail `i` on one curve to nail `rule(i)` on
+  another" engine that the rest of the module and the whole of `graphs` are
+  special cases of. `StringArtCircle` is an alias for
+  `ModularMultiplication`: circle string art and the times table are the same
+  construction, so it is one class under two names rather than two classes
+  drawing one picture.
 - **`registry.spec()`** — a motif's registered name plus its resolved
   parameters, which is what the bases attach to every design they build. A
   design can therefore say what made it, and be rebuilt from that.
