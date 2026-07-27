@@ -1,13 +1,13 @@
 """Demo entry point: generate a few spirals and plot them with matplotlib.
 
-Installed as the ``spiralgen-demo`` console command; also runnable as
-``python -m spiralgen``. Requires the plotting extra
-(``pip install 'spiralgen[plot]'``).
+Installed as the ``geomotif-demo`` console command; also runnable as
+``python -m geomotif``. Requires the plotting extra
+(``pip install 'geomotif[plot]'``).
 
 Usage::
 
-    spiralgen-demo             # open an interactive plot window
-    spiralgen-demo out.png     # save the figure to a file instead
+    geomotif-demo             # open an interactive plot window
+    geomotif-demo out.png     # save the figure to a file instead
 """
 
 import sys
@@ -67,7 +67,7 @@ def main(argv: list[str] | None = None) -> None:
     try:
         from .plotting import plot_spiral_grid
     except ImportError:
-        raise SystemExit("The demo needs matplotlib: pip install 'spiralgen[plot]'") from None
+        raise SystemExit("The demo needs matplotlib: pip install 'geomotif[plot]'") from None
 
     args = sys.argv[1:] if argv is None else argv
 
@@ -82,7 +82,7 @@ def main(argv: list[str] | None = None) -> None:
         plot_kwargs.setdefault("path", guide)
         panels.append((title, points, plot_kwargs))
 
-    fig = plot_spiral_grid(panels, ncols=2, suptitle="spiralgen demo")
+    fig = plot_spiral_grid(panels, ncols=2, suptitle="geomotif demo")
 
     if args:
         out = args[0]

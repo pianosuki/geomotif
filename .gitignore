@@ -23,3 +23,7 @@ htmlcov/
 
 # Demo output
 spiral-demo.png
+
+# Generated gallery output (rebuilt by `geomotif gallery`; never hand-edited)
+docs/gallery/
+site/

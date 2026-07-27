@@ -1,8 +1,12 @@
-# spiralgen
+# geomotif
 
-[![PyPI](https://img.shields.io/pypi/v/spiralgen)](https://pypi.org/project/spiralgen/)
-[![Python](https://img.shields.io/pypi/pyversions/spiralgen)](https://pypi.org/project/spiralgen/)
+[![PyPI](https://img.shields.io/pypi/v/geomotif)](https://pypi.org/project/geomotif/)
+[![Python](https://img.shields.io/pypi/pyversions/geomotif)](https://pypi.org/project/geomotif/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+A library for generating and plotting geometric designs. The spiral is the
+first motif it ships; the point-placement engine underneath is the part that
+generalizes.
 
 Generate precisely spaced points along arbitrary spirals — between any start
 and end point, around any center, in either direction, with any number of
@@ -16,19 +20,19 @@ between points is what matters — generative art, plotter art, game object
 placement, particle layouts, UI motion paths.
 
 Zero dependencies for the core; matplotlib is an optional extra for
-visualization. Requires Python 3.14+.
+visualization. Requires Python 3.12+.
 
 ## Install
 
 ```bash
-pip install spiralgen           # core (no dependencies)
-pip install 'spiralgen[plot]'   # with matplotlib plotting helpers
+pip install geomotif           # core (no dependencies)
+pip install 'geomotif[plot]'   # with matplotlib plotting helpers
 ```
 
 ## Quickstart
 
 ```python
-from spiralgen import generate_spiral, PowerSpacing
+from geomotif import generate_spiral, PowerSpacing
 
 points = generate_spiral(
     start=(200, 0),  # required — first point (always included)
@@ -54,7 +58,7 @@ Send the coordinates to any other tool — editors, plotters, spreadsheets,
 game map formats — with `save_points`:
 
 ```python
-from spiralgen import save_points
+from geomotif import save_points
 
 save_points(points, "points.csv")  # x,y header + one row per point
 save_points(points, "points.txt", precision=0)  # tab-separated whole integers
@@ -71,7 +75,7 @@ To see the points on a graph (requires the `plot` extra):
 
 ```python
 import matplotlib.pyplot as plt
-from spiralgen.plotting import plot_spiral
+from geomotif.plotting import plot_spiral
 
 plot_spiral(points, center=(0, 0), title="my spiral")
 plt.show()
@@ -80,8 +84,8 @@ plt.show()
 Or run the built-in showcase:
 
 ```bash
-spiralgen-demo             # interactive window (or python -m spiralgen)
-spiralgen-demo demo.png    # save to a file instead
+geomotif-demo             # interactive window (or python -m geomotif)
+geomotif-demo demo.png    # save to a file instead
 ```
 
 ## Spacing curves
@@ -122,7 +126,7 @@ All curves subclass `SpacingCurve` — implement `ease(t)` mapping
 ## Development
 
 ```bash
-git clone <repo-url> && cd spiralgen
+git clone <repo-url> && cd geomotif
 pip install -e . --group dev    # editable install + pytest + matplotlib
 pytest                          # run the test suite
 ```

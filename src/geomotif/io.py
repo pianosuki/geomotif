@@ -4,6 +4,8 @@ Useful for feeding the coordinates into other tools -- editors, game map
 formats, plotters, spreadsheets -- without writing any glue code.
 """
 
+from __future__ import annotations
+
 import csv
 import json
 from pathlib import Path
@@ -40,7 +42,7 @@ def save_points(
     ----------
     points : iterable of (float, float)
         The points to export, e.g. the output of
-        :func:`spiralgen.generate_spiral`.
+        :func:`geomotif.generate_spiral`.
     path : str or path-like
         Destination file.
     fmt : {"csv", "txt", "json"}, optional

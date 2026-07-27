@@ -3,7 +3,7 @@ import math
 
 import pytest
 
-from spiralgen import PowerSpacing, generate_spiral
+from geomotif import PowerSpacing, generate_spiral
 
 
 def gaps(points):

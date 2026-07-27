@@ -1,8 +1,8 @@
 """Matplotlib helpers for visualizing generated spiral points.
 
-Kept separate from the core generator so :func:`spiralgen.generate_spiral`
+Kept separate from the core generator so :func:`geomotif.generate_spiral`
 stays dependency-free; only importing this module requires matplotlib
-(``pip install 'spiralgen[plot]'``).
+(``pip install 'geomotif[plot]'``).
 """
 
 from collections.abc import Sequence
@@ -12,7 +12,7 @@ try:
     import matplotlib.pyplot as plt
 except ImportError:  # pragma: no cover
     raise ImportError(
-        "spiralgen.plotting requires matplotlib. Install it with: pip install 'spiralgen[plot]'"
+        "geomotif.plotting requires matplotlib. Install it with: pip install 'geomotif[plot]'"
     ) from None
 
 from .generator import Point
@@ -62,7 +62,7 @@ def plot_spiral(
     Parameters
     ----------
     points : list[tuple[float, float]]
-        Output of :func:`spiralgen.generate_spiral`.
+        Output of :func:`geomotif.generate_spiral`.
     ax : matplotlib.axes.Axes, optional
         Target axes; a new styled figure is created when omitted.
     title : str, optional

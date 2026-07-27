@@ -3,7 +3,7 @@
 Run with the package installed (``pip install -e .`` from the repo root).
 """
 
-from spiralgen import PowerSpacing, generate_spiral, save_points
+from geomotif import PowerSpacing, generate_spiral, save_points
 
 # 16 points spiraling in toward the origin, gaps easing gradually wider.
 points = generate_spiral(

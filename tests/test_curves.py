@@ -2,7 +2,7 @@ import itertools
 
 import pytest
 
-from spiralgen import (
+from geomotif import (
     CircularSpacing,
     CubicSpacing,
     ExponentialSpacing,

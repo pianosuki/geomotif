@@ -39,7 +39,7 @@ test: ## Run the test suite
 
 .PHONY: test-cov
 test-cov: ## Run the test suite with a coverage report
-	$(UV) run pytest --cov=spiralgen --cov-report=term-missing
+	$(UV) run pytest --cov=geomotif --cov-report=term-missing
 
 .PHONY: check
 check: lint format-check typecheck test ## Run all checks (lint, format-check, typecheck, test) -- what CI runs
@@ -52,8 +52,8 @@ build: ## Build the sdist and wheel into dist/
 	$(UV) build
 
 .PHONY: demo
-demo: ## Run the spiralgen demo (requires the plot extra)
-	$(UV) run --group dev spiralgen-demo
+demo: ## Run the geomotif demo (requires the plot extra)
+	$(UV) run --group dev geomotif-demo
 
 .PHONY: precommit-install
 precommit-install: ## Install the pre-commit git hook

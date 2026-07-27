@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from spiralgen import generate_spiral, save_points
+from geomotif import generate_spiral, save_points
 
 POINTS = [(1.25, -2.5), (0.0, 3.14159), (100.0, 200.0)]
 

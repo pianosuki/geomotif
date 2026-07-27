@@ -1,15 +1,15 @@
-"""spiralgen -- generate precisely spaced points along arbitrary spirals.
+"""geomotif -- generate precisely spaced points along arbitrary spirals.
 
 Public API::
 
-    from spiralgen import generate_spiral, PowerSpacing
+    from geomotif import generate_spiral, PowerSpacing
 
     points = generate_spiral(start=(456, 192), end=(276, 192),
                              num_points=200, turns=3,
                              spacing=PowerSpacing(2.5))
 
-Plotting helpers (require matplotlib, ``pip install 'spiralgen[plot]'``)
-live in :mod:`spiralgen.plotting`.
+Plotting helpers (require matplotlib, ``pip install 'geomotif[plot]'``)
+live in :mod:`geomotif.plotting`.
 """
 
 from .curves import (

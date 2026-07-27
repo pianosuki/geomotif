@@ -3,24 +3,28 @@ requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
-name = "spiralgen"
+name = "geomotif"
 dynamic = ["version"]
-description = "Generate precisely spaced points along arbitrary spirals, with pluggable spacing curves and true arc-length positioning"
+description = "Generate and plot geometric designs, with true arc-length point placement and pluggable spacing curves"
 readme = "README.md"
-requires-python = ">=3.14"
+requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
 authors = [
     { name = "Scott Weer", email = "pianosuki@protonmail.com" },
 ]
 keywords = [
-    "spiral",
-    "points",
     "geometry",
+    "motif",
+    "pattern",
+    "points",
     "easing",
     "arc-length",
     "generative-art",
+    "creative-coding",
     "plotter",
+    "pen-plotter",
+    "spiral",
     "design",
 ]
 classifiers = [
@@ -29,6 +33,8 @@ classifiers = [
     "Intended Audience :: Other Audience",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
     "Topic :: Artistic Software",
     "Topic :: Multimedia :: Graphics",
@@ -51,23 +57,30 @@ dev = [
 
 [project.urls]
 # TODO: update these once the repository is published
-Homepage = "https://github.com/pianosuki/spiralgen"
-Issues = "https://github.com/pianosuki/spiralgen/issues"
-Changelog = "https://github.com/pianosuki/spiralgen/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/pianosuki/geomotif"
+Issues = "https://github.com/pianosuki/geomotif/issues"
+Changelog = "https://github.com/pianosuki/geomotif/blob/main/CHANGELOG.md"
 
 [project.scripts]
-spiralgen-demo = "spiralgen.demo:main"
+# Becomes `geomotif = "geomotif.cli:main"` once the real CLI lands.
+geomotif-demo = "geomotif.demo:main"
 
 [tool.hatch.version]
-path = "src/spiralgen/__init__.py"
+path = "src/geomotif/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 
 [tool.ruff]
-target-version = "py314"
+# Pinned to the supported floor, not the newest interpreter, so a
+# 3.13-or-later idiom cannot slip in unnoticed.
+target-version = "py312"
 line-length = 100
 src = ["src", "tests", "examples"]
+# ruff formats Python blocks inside Markdown; the refactor plan's snippets are
+# illustrative pseudocode (bare `...` bodies, signatures without implementations)
+# and are meant to read as prose, not to survive a formatter.
+extend-exclude = ["REFACTOR_PLAN.md"]
 
 [tool.ruff.lint]
 select = [
@@ -98,7 +111,7 @@ ignore = [
 "tests/*" = ["PT011"]
 
 [tool.ruff.lint.isort]
-known-first-party = ["spiralgen"]
+known-first-party = ["geomotif"]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -107,7 +120,7 @@ skip-magic-trailing-comma = false
 line-ending = "lf"
 
 [tool.mypy]
-python_version = "3.14"
+python_version = "3.12"
 files = ["src", "tests"]
 strict = true
 warn_unreachable = true

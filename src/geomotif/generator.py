@@ -13,6 +13,8 @@ for the simpler parametric behavior (equal steps of angle/radius progress),
 where spacing compresses as the path tightens toward the center.
 """
 
+from __future__ import annotations
+
 import bisect
 import itertools
 import math
@@ -71,7 +73,7 @@ def generate_spiral(
         direction.
     spacing : SpacingCurve, optional
         Controls the distribution of points along the path. Defaults to
-        :class:`~spiralgen.curves.LinearSpacing` (equal spacing). Any
+        :class:`~geomotif.curves.LinearSpacing` (equal spacing). Any
         callable mapping [0, 1] -> [0, 1] also works.
     arc_length : bool, optional
         When ``True`` (default), spacing fractions are measured in real

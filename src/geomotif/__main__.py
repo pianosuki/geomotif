@@ -1,4 +1,4 @@
-"""Allow ``python -m spiralgen`` to run the demo."""
+"""Allow ``python -m geomotif`` to run the demo."""
 
 from .demo import main
 
