@@ -22,11 +22,12 @@ Zero dependencies for the core; matplotlib is an optional extra for
 visualization. Requires Python 3.12+.
 
 > **Status:** the engine, the data model and the motif bases are complete, and
-> the catalogue is filling in — 118 motifs today: the spirals, the primitives,
+> the catalogue is filling in — 142 motifs today: the spirals, the primitives,
 > the named curves, the roulettes, the polar/harmonic family, the fractals,
 > the graph and number art, string art, the tilings, sacred geometry,
-> guilloché and the mandala composers. Girih, Celtic knots, polyhedra and
-> Voronoi are next. Everything below already works for all of them, and for
+> guilloché, the mandala composers, Islamic strapwork, Celtic knotwork, the
+> polyhedra and the optical illusions. Voronoi and Delaunay are next, behind a
+> `[scipy]` extra. Everything below already works for all of them, and for
 > yours.
 
 ## Install
@@ -72,7 +73,7 @@ fixed and the count falls out of the geometry.
 ## What's in the box
 
 ```python
-from geomotif.motifs import GosperCurve, PenroseP3, Spirograph, VesicaPiscis
+from geomotif.motifs import Icosahedron, PenroseP3, Triquetra, VesicaPiscis
 from geomotif.compose import Mandala, Ring
 ```
 
@@ -153,6 +154,31 @@ banknotes and watch dials: `GuillocheRosette`, `GuillocheBand` and
 `GuillochePattern`. Two frequencies running opposite ways, so shifting the
 phase changes each stroke's shape rather than sliding it sideways.
 
+**Islamic strapwork** (`geomotif.motifs.girih`) — `GirihTile` draws any of the
+five tiles the patterns are built from, all of them the same side long and
+every angle a multiple of 36°. `TenfoldGirih` lays them out; `InterlockingDecagons`
+applies Hankin's rule to the result and the tiles vanish, leaving ten-pointed
+stars. Plus `Rosette` (the shamsa: a star, a blunter star inside it, and so
+on), `RosetteTiling` and `HexStarLattice`.
+
+**Celtic knots** (`geomotif.motifs.knots`) — `Triquetra`, `EndlessKnot`,
+`CircularCelticKnot`, `SquareCelticKnot` and `CelticGrid`, the plait every
+knotwork panel is built on. Over-and-under is worked out rather than declared:
+the crossings are found, two-coloured so that each strand alternates, and the
+under-strand is drawn with a gap in it — which is what a pen plotter can draw.
+
+**Polyhedra** (`geomotif.motifs.solids`) — the five Platonic solids and the
+truncated icosahedron, as wireframes, through an orthographic, isometric or
+perspective `Projection`. Each is a table of corners and one rule: join every
+pair as close together as any pair gets. `Polyhedron` takes your own corners
+and edges.
+
+**Optical illusions** (`geomotif.motifs.illusions`) — `PenroseTriangle`,
+`PenroseStairs`, `ImpossibleCube`, `NeckerCube`, `CafeWall` and
+`MoirePattern`. The two Penrose figures are built in space and then flattened:
+their walks genuinely fail to close, by exactly the amount an isometric view
+cannot show.
+
 **Composers** (`geomotif.compose`) — motifs made of other motifs: `Mandala`
 (rings of a repeated unit), `Kaleidoscope` (one unit under a `Cn` or `Dn`
 symmetry group), `Snowflake` (six arms, mirrored, grown from a seed),
@@ -165,7 +191,7 @@ introspectable:
 ```python
 from geomotif.core import registry
 
-registry.families()  # ('curve', 'fractal', 'graph', 'guilloche', 'mandala', ...)
+registry.families()  # ('curve', 'fractal', 'girih', 'graph', 'guilloche', ...)
 registry.names(family="spiral")  # ('spiral.archimedean', 'spiral.between', ...)
 registry.create("polygon.star", points=7, step=3)
 registry.describe("egg").params  # name, type, default, help for each

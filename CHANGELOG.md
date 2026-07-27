@@ -134,6 +134,42 @@ history reads honestly.
   `ModularMultiplication`: circle string art and the times table are the same
   construction, so it is one class under two names rather than two classes
   drawing one picture.
+- **Islamic strapwork** (`geomotif.motifs.girih`) — `GirihTile` draws any of
+  the five canonical tiles, generated from one table of interior angles since
+  all five share a side and use only multiples of 36 degrees. `TenfoldGirih`
+  lays decagons edge to edge on a rhombic lattice, where the gap between them
+  turns out to be exactly a girih bowtie; `InterlockingDecagons` applies
+  Hankin's rule to that tiling and the tiles disappear, leaving interlocked
+  ten-pointed stars. The rule is implemented as simultaneous growth -- two
+  lines stop only when their tips meet, and carry straight on where they
+  merely cross -- because stopping at the first line met cuts the elongated
+  hexagon's long straps down to stubs. Plus `Rosette`, `RosetteTiling` and
+  `HexStarLattice`.
+- **Celtic knots** (`geomotif.motifs.knots`) — `Triquetra` (three half-circles
+  that join into one strand, which is to say a trefoil), `EndlessKnot`,
+  `CircularCelticKnot`, `SquareCelticKnot` and `CelticGrid`, the plait with
+  barriers that every knotwork panel is built from. Over-and-under is derived
+  rather than declared: the crossings are found geometrically and two-coloured
+  so that each strand alternates and each crossing disagrees with itself, and
+  the under-strand is drawn with a gap in it, which is what a pen plotter can
+  draw. The endless knot's corner joins nest at three corners and swap at the
+  fourth -- nesting all four splits the figure into two separate rings, and
+  the swap is what makes it endless.
+- **Polyhedra** (`geomotif.motifs.solids`) — the five Platonic solids and
+  `TruncatedIcosahedron`, plus `Polyhedron` for a shape of your own and
+  `Projection` for orthographic, isometric or perspective views with yaw,
+  pitch and roll. Every solid in the catalogue is a table of corners and one
+  shared rule: join every pair as close together as any pair gets, which is
+  the edge set of any solid whose corners are all alike. The tests check the
+  tables against Euler's `V - E + F = 2`.
+- **Optical illusions** (`geomotif.motifs.illusions`) — `PenroseTriangle`,
+  `PenroseStairs`, `ImpossibleCube`, `NeckerCube`, `CafeWall` and
+  `MoirePattern`. Both Penrose figures are built in space and then flattened
+  rather than drawn flat and nudged into place: an isometric view sends
+  `(t, t, t)` to nothing, so a walk that fails to close by exactly that much
+  closes on the page. That is why the staircase's four flights cannot all be
+  the same length, and the tests assert the closure error rather than the
+  picture.
 - **Tilings** (`geomotif.motifs.tilings`) — eight periodic ones stamped on a
   lattice (`SquareTiling`, `TriangularTiling`, `HexagonalTiling`,
   `RhombilleTiling`, `CairoPentagonal`, `TruncatedSquare`, `SnubSquare` and

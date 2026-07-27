@@ -37,6 +37,14 @@ Module        Contents
 `sacred`      Circles on a hexagonal grid: the vesica, the seed, the
               flower, Metatron's cube, the Sri Yantra
 `guilloche`   The woven line work of banknotes and watch dials
+`girih`       Islamic strapwork: the five girih tiles, the tenfold
+              tiling they generate, and the star rosette
+`knots`       Celtic knotwork: the triquetra, the endless knot, the
+              circular and square knots and the plait
+`solids`      The Platonic solids and the football, flattened onto the
+              page by a choice of projection
+`illusions`   Impossible figures and interference: the tribar, the
+              endless staircase, the cafe wall, moire
 ============  ==========================================================
 
 Composed figures -- mandalas, kaleidoscopes, snowflakes -- are motifs made
@@ -90,6 +98,16 @@ from .fractals import (
     TwinDragon,
     VicsekFractal,
 )
+from .girih import (
+    GIRIH_CONTACT,
+    GIRIH_SHAPES,
+    GirihTile,
+    HexStarLattice,
+    InterlockingDecagons,
+    Rosette,
+    RosetteTiling,
+    TenfoldGirih,
+)
 from .graphs import (
     BipartiteGraph,
     ChordDiagram,
@@ -100,6 +118,21 @@ from .graphs import (
     PrimeChords,
 )
 from .guilloche import GuillocheBand, GuillochePattern, GuillocheRosette
+from .illusions import (
+    CafeWall,
+    ImpossibleCube,
+    MoirePattern,
+    NeckerCube,
+    PenroseStairs,
+    PenroseTriangle,
+)
+from .knots import (
+    CelticGrid,
+    CircularCelticKnot,
+    EndlessKnot,
+    SquareCelticKnot,
+    Triquetra,
+)
 from .polar import (
     GOLDEN_ANGLE,
     Harmonic,
@@ -147,6 +180,17 @@ from .sacred import (
     SriYantra,
     VesicaPiscis,
 )
+from .solids import (
+    Cube,
+    Dodecahedron,
+    Icosahedron,
+    Octahedron,
+    Polyhedron,
+    PolyhedronBase,
+    Projection,
+    Tetrahedron,
+    TruncatedIcosahedron,
+)
 from .spirals import (
     PHI,
     ArchimedeanSpiral,
@@ -186,6 +230,8 @@ from .tilings import (
 )
 
 __all__ = [
+    "GIRIH_CONTACT",
+    "GIRIH_SHAPES",
     "GOLDEN_ANGLE",
     "PHI",
     "AmmannBeenker",
@@ -197,22 +243,28 @@ __all__ = [
     "BipartiteGraph",
     "BowCurve",
     "Butterfly",
+    "CafeWall",
     "CairoPentagonal",
     "CantorSet",
     "Cardioid",
     "CassiniOval",
+    "CelticGrid",
     "ChordDiagram",
     "Circle",
     "CircleInvolute",
+    "CircularCelticKnot",
     "Cochleoid",
     "CompleteGraph",
     "Cornoid",
+    "Cube",
     "CyclicGraph",
     "Cycloid",
     "Deltoid",
+    "Dodecahedron",
     "DragonCurve",
     "Egg",
     "Ellipse",
+    "EndlessKnot",
     "Epicycles",
     "Epicycloid",
     "Epitrochoid",
@@ -223,6 +275,7 @@ __all__ = [
     "FlowerOfLife",
     "Folium",
     "FruitOfLife",
+    "GirihTile",
     "GoldenRectangle",
     "GoldenSpiral",
     "GosperCurve",
@@ -235,6 +288,7 @@ __all__ = [
     "Heart",
     "HeartForm",
     "HerringboneTiling",
+    "HexStarLattice",
     "HexagonalTiling",
     "HilbertCurve",
     "HyperbolicSpiral",
@@ -242,6 +296,9 @@ __all__ = [
     "Hypotrochoid",
     "IFSAttractor",
     "IFSMap",
+    "Icosahedron",
+    "ImpossibleCube",
+    "InterlockingDecagons",
     "KochAntisnowflake",
     "KochCurve",
     "KochSnowflake",
@@ -259,18 +316,26 @@ __all__ = [
     "MinkowskiSausage",
     "ModularAddition",
     "ModularMultiplication",
+    "MoirePattern",
     "MooreCurve",
+    "NeckerCube",
     "Nephroid",
+    "Octahedron",
     "PeanoCurve",
     "Pendulum",
     "PenroseP2",
     "PenroseP3",
+    "PenroseStairs",
     "PenroseTiling",
+    "PenroseTriangle",
     "Phyllotaxis",
     "PointGrid",
     "PoissonDiscPoints",
     "PolarExpression",
+    "Polyhedron",
+    "PolyhedronBase",
     "PrimeChords",
+    "Projection",
     "PythagorasTree",
     "Rectangle",
     "RegularPolygon",
@@ -278,6 +343,8 @@ __all__ = [
     "RhombilleTiling",
     "RobinsonTriangle",
     "Rose",
+    "Rosette",
+    "RosetteTiling",
     "RoundedRectangle",
     "Sector",
     "SeedOfLife",
@@ -288,6 +355,7 @@ __all__ = [
     "SpiralBase",
     "SpiralBetween",
     "Spirograph",
+    "SquareCelticKnot",
     "SquareTiling",
     "Squircle",
     "SriYantra",
@@ -298,11 +366,15 @@ __all__ = [
     "StringArtEnvelope",
     "StringArtPolygon",
     "Superellipse",
+    "TenfoldGirih",
     "Terdragon",
+    "Tetrahedron",
     "TheodorusSpiral",
     "TriangularTiling",
+    "Triquetra",
     "Trochoid",
     "TruchetTiling",
+    "TruncatedIcosahedron",
     "TruncatedSquare",
     "TwinDragon",
     "VesicaPiscis",
