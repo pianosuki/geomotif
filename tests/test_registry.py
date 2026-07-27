@@ -291,3 +291,46 @@ def test_a_parameter_called_motif_is_refused():
 
             def build(self) -> Design:
                 return Design()
+
+
+def test_a_plugin_is_discovered_through_its_entry_point(monkeypatch):
+    # The whole third-party contract: declare a geomotif.motifs entry point,
+    # geomotif imports what it names and calls it. examples/plugin is the
+    # worked version of this; here it is simulated so the suite does not have
+    # to install a second package to check the mechanism.
+    registered: list[str] = []
+
+    def register_all() -> None:
+        registry.register("from-a-plugin", family="plugin")(Dot)
+        registered.append("called")
+
+    class FakeEntryPoint:
+        name = "example"
+        value = "example.motifs:register_all"
+
+        def load(self):
+            return register_all
+
+    monkeypatch.setattr("importlib.metadata.entry_points", lambda **_: [FakeEntryPoint()])
+    monkeypatch.setattr(registry, "_motifs_loaded", False)
+
+    assert "from-a-plugin" in registry.names()
+    assert registered == ["called"]
+    assert registry.describe("from-a-plugin").family == "plugin"
+    # ...and the builtins are still there, so a plugin adds rather than replaces.
+    assert "spiral.between" in registry.names()
+
+
+def test_a_plugin_that_fails_to_load_says_which_one(monkeypatch):
+    class BrokenEntryPoint:
+        name = "broken"
+        value = "nowhere:register_all"
+
+        def load(self):
+            raise ImportError("no module named 'nowhere'")
+
+    monkeypatch.setattr("importlib.metadata.entry_points", lambda **_: [BrokenEntryPoint()])
+    monkeypatch.setattr(registry, "_motifs_loaded", False)
+
+    with pytest.raises(RuntimeError, match="broken"):
+        registry.names()

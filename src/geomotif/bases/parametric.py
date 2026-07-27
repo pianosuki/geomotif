@@ -78,7 +78,8 @@ class MultiCurveMotif(Motif, ABC):
     argument after a default one" rule.
     """
 
-    #: Samples per strand. ``None`` (default) scales density with the winding.
+    #: Segments per strand -- a strand gets one more point than that, so both
+    #: ends are included. ``None`` (default) scales density with the winding.
     resolution: int | None = field(default=None, kw_only=True)
 
     @abstractmethod

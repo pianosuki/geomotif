@@ -279,6 +279,23 @@ You are not required to inherit at all: anything with a `build() -> Design`
 method satisfies the `SupportsBuild` protocol and is accepted everywhere a
 motif is.
 
+### Shipping it as a plugin
+
+One entry point in your `pyproject.toml` is the whole contract:
+
+```toml
+[project.entry-points."geomotif.motifs"]
+my_motifs = "my_package:register_all"
+```
+
+geomotif reads that group the first time anything touches its registry, so a
+plugin nobody uses costs nothing to have installed. Once yours is installed it
+is indistinguishable from a builtin: `geomotif list` shows it, `geomotif show`
+documents it, `geomotif render` renders it, and it serializes to a spec.
+
+[`examples/plugin/`](examples/plugin) is a complete worked one — Gielis's
+superformula as an installable package, in about forty lines.
+
 ## Designs, paths and points
 
 A `Design` holds stroked `Path` polylines plus loose `points` that carry no

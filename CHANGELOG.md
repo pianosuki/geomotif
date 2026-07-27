@@ -170,6 +170,17 @@ history reads honestly.
   closes on the page. That is why the staircase's four flights cannot all be
   the same length, and the tests assert the closure error rather than the
   picture.
+- **`examples/plugin/`** — a complete third-party motif as an installable
+  package: Gielis's superformula, which geomotif's own catalogue does not
+  have and does not need. One entry point and one `@register` decorator are
+  the whole contract; once installed it is listed, described, rendered,
+  spec'd and CLI-flagged exactly like a builtin, and geomotif never learns it
+  exists. CI installs it and checks that end to end, since the suite can only
+  simulate the discovery half. The motif documents a real wrinkle rather than
+  hiding it: every corner is a corner in the radius too, so a sample has to
+  land on one to reach it — `resolution` counts segments, so any multiple of
+  `m` catches all `m` corners, and exponents below 1 make cusps that no
+  resolution ever resolves.
 - **The `geomotif` command line** (`geomotif.cli`) — `list`, `show`, `render`,
   `gallery` and `demo`, in pure `argparse`. A motif's flags are generated from
   its dataclass fields, which is what every builtin motif being a dataclass

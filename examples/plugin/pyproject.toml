@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "geomotif-superformula"
+version = "0.1.0"
+description = "A third-party geomotif motif, as a worked example"
+readme = "README.md"
+requires-python = ">=3.12"
+license = "MIT"
+dependencies = ["geomotif"]
+
+# This is the whole of the plugin contract. geomotif looks for this group the
+# first time anything reads its registry, imports what each entry names, and
+# calls it. Nothing else has to be configured, and geomotif does not have to
+# know this package exists.
+[project.entry-points."geomotif.motifs"]
+superformula = "geomotif_superformula:register_all"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/geomotif_superformula"]
