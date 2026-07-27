@@ -170,6 +170,26 @@ history reads honestly.
   closes on the page. That is why the staircase's four flights cannot all be
   the same length, and the tests assert the closure error rather than the
   picture.
+- **Voronoi & Delaunay** (`geomotif.motifs.voronoi`, `[scipy]` extra) —
+  `Delaunay`, `Voronoi` (the diagram as borders, each drawn once, chainable
+  with `merge=True`), `VoronoiCells` (the same map as closed regions, with an
+  `inset` for the cracked-mud look) and `LloydRelaxation`. All four come from
+  one construction: a site's cell is the region clipped by the perpendicular
+  bisector against each of its *Delaunay neighbours*, and no other bisector
+  reaches it — which is why one triangulation answers every question the
+  module asks. The tests check that the cells' areas sum to the region's,
+  which fails if a bisector is missed or one that does not belong is used.
+  scipy earns its place on the cocircular case: a plain square grid gives
+  Qhull an arbitrary choice of diagonal, and a hand-rolled triangulator that
+  makes that choice inconsistently contradicts itself.
+- **`requires=` is now honoured** (`geomotif.core.registry`) — `MotifInfo`
+  gained an `available` property, and the motifs behind an extra import their
+  dependency when a design is *built* rather than when their module is
+  imported. A machine without scipy can still list, describe and document the
+  Voronoi family; only building one raises, with the install command in the
+  message. CI gained a job that installs the core with no optional
+  dependencies at all and runs the suite, so the zero-dependency promise is
+  checked rather than asserted.
 - **Tilings** (`geomotif.motifs.tilings`) — eight periodic ones stamped on a
   lattice (`SquareTiling`, `TriangularTiling`, `HexagonalTiling`,
   `RhombilleTiling`, `CairoPentagonal`, `TruncatedSquare`, `SnubSquare` and

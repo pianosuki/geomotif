@@ -151,6 +151,27 @@ def test_describe_records_optional_dependencies():
     assert registry.describe("dot").requires == "scipy"
 
 
+def test_a_motif_that_needs_nothing_is_always_available():
+    registry.register("plain-dot")(Dot)
+    assert registry.describe("plain-dot").available is True
+
+
+def test_a_motif_whose_dependency_is_missing_is_reported_unavailable():
+    # Listing it has to keep working -- that is the whole point of declaring
+    # the dependency instead of importing it at module scope.
+    registry.register("absent-dot", requires="a_package_nobody_has")(Dot)
+    info = registry.describe("absent-dot")
+    assert info.available is False
+    assert info.summary
+
+
+def test_a_dependency_whose_parent_package_is_missing_is_unavailable_too():
+    # Looking this one up raises rather than returning nothing, since the
+    # parent has to be imported before the child can be found.
+    registry.register("nested-dot", requires="a_package_nobody_has.submodule")(Dot)
+    assert registry.describe("nested-dot").available is False
+
+
 def test_describe_skips_fields_that_are_not_constructor_parameters():
     @registry.register("derived")
     @dataclass(frozen=True, slots=True)

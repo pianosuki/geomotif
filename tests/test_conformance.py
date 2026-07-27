@@ -24,6 +24,20 @@ NAMES = registry.names()
 COUNTS = (2, 3, 50, 501)
 
 
+def case(name: str):
+    """Return ``name`` as a parameter, skipped if its optional extra is missing."""
+    info = registry.describe(name)
+    if info.available:
+        return name
+    return pytest.param(name, marks=pytest.mark.skip(reason=f"{name} needs {info.requires}"))
+
+
+#: What the parametrized checks below run over. A motif behind an extra that
+#: is not installed is skipped rather than failed: the whole point of
+#: ``requires=`` is that such a motif is still registered and still described.
+CASES = [case(name) for name in NAMES]
+
+
 def build(name: str) -> tuple[registry.MotifInfo, Design]:
     """Return a motif's registry entry and the design its example builds."""
     info = registry.describe(name)
@@ -36,7 +50,7 @@ def test_the_registry_is_populated():
     assert NAMES
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_the_example_instantiates(name):
     info = registry.describe(name)
     required = [param.name for param in info.params if param.required]
@@ -48,27 +62,27 @@ def test_the_example_instantiates(name):
     assert isinstance(registry.create(name, **info.example), info.cls)
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_build_returns_a_non_empty_design(name):
     _, design = build(name)
     assert isinstance(design, Design)
     assert len(design) > 0
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_every_coordinate_is_finite(name):
     _, design = build(name)
     assert all(math.isfinite(x) and math.isfinite(y) for x, y in design)
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_the_design_has_extent(name):
     _, design = build(name)
     bounds = design.bounds
     assert bounds.width > 0 or bounds.height > 0
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_closed_paths_do_not_repeat_their_seam(name):
     _, design = build(name)
     for path in design.paths:
@@ -76,7 +90,7 @@ def test_closed_paths_do_not_repeat_their_seam(name):
             assert path.points[0] != path.points[-1]
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_generate_returns_exactly_the_requested_count(name):
     motif = registry.create(name, **registry.describe(name).example)
     for count in COUNTS:
@@ -86,7 +100,7 @@ def test_generate_returns_exactly_the_requested_count(name):
         assert sum(len(path) for path in design.paths) == count
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_generate_supports_a_fixed_step(name):
     motif = registry.create(name, **registry.describe(name).example)
     design = motif.build()
@@ -96,7 +110,7 @@ def test_generate_supports_a_fixed_step(name):
     assert len(motif.generate(step=longest / 10.0)) > 0
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_building_twice_gives_identical_output(name):
     # Stochastic motifs must seed their own Random, never the global one, or
     # the same spec would render differently on every run.
@@ -106,7 +120,7 @@ def test_building_twice_gives_identical_output(name):
     assert first.points == second.points
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_meta_round_trips_through_the_registry(name):
     _, design = build(name)
     assert design.meta.get("motif") == name, (
@@ -117,14 +131,14 @@ def test_meta_round_trips_through_the_registry(name):
     assert [p.points for p in rebuilt.build().paths] == [p.points for p in design.paths]
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_the_design_survives_the_common_operations(name):
     _, design = build(name)
     assert design.fit(100.0, 100.0).bounds.max_x <= 100.0 + 1e-9
     assert len(design.flipped_y()) == len(design)
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_the_design_exports(name, tmp_path):
     _, design = build(name)
     out = tmp_path / "points.csv"
@@ -132,14 +146,14 @@ def test_the_design_exports(name, tmp_path):
     assert out.read_text().startswith("x,y")
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_the_motif_is_documented(name):
     info = registry.describe(name)
     assert info.summary, f"{name} needs a docstring: it is what the CLI and gallery show"
     assert not info.summary.endswith(("...", ":"))
 
 
-@pytest.mark.parametrize("name", NAMES)
+@pytest.mark.parametrize("name", CASES)
 def test_the_name_is_well_formed(name):
     assert name == name.lower()
     assert " " not in name

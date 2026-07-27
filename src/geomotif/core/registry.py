@@ -17,6 +17,7 @@ nothing to have installed.
 from __future__ import annotations
 
 import importlib.metadata
+import importlib.util
 import re
 from dataclasses import MISSING, dataclass, fields, is_dataclass
 from types import MappingProxyType
@@ -90,6 +91,24 @@ class MotifInfo:
     doc: str
     params: tuple[ParamInfo, ...]
     example: Mapping[str, object]
+
+    @property
+    def available(self) -> bool:
+        """Whether the optional dependency this motif needs is installed.
+
+        A motif registered with ``requires=`` can be listed, described and
+        documented on a machine that lacks its dependency -- only building
+        one raises. This is what lets a listing say so instead of failing to
+        import, and what the conformance suite checks before it tries.
+        """
+        if self.requires is None:
+            return True
+        try:
+            return importlib.util.find_spec(self.requires) is not None
+        except (ImportError, ValueError):
+            # A namespace package whose parent is missing, or a name that is
+            # not importable at all: either way, not installed.
+            return False
 
 
 def _reserves_the_name_key(cls: type) -> bool:

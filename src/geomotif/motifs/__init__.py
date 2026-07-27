@@ -45,6 +45,8 @@ Module        Contents
               page by a choice of projection
 `illusions`   Impossible figures and interference: the tribar, the
               endless staircase, the cafe wall, moire
+`voronoi`     Nearest-point maps and their dual triangulation, plus
+              Lloyd's relaxation -- the one family needing ``[scipy]``
 ============  ==========================================================
 
 Composed figures -- mandalas, kaleidoscopes, snowflakes -- are motifs made
@@ -228,6 +230,7 @@ from .tilings import (
     TruchetTiling,
     TruncatedSquare,
 )
+from .voronoi import Delaunay, LloydRelaxation, Voronoi, VoronoiCells
 
 __all__ = [
     "GIRIH_CONTACT",
@@ -259,6 +262,7 @@ __all__ = [
     "Cube",
     "CyclicGraph",
     "Cycloid",
+    "Delaunay",
     "Deltoid",
     "Dodecahedron",
     "DragonCurve",
@@ -309,6 +313,7 @@ __all__ = [
     "Line",
     "Lissajous",
     "Lituus",
+    "LloydRelaxation",
     "LogarithmicSpiral",
     "MaurerRose",
     "MetatronsCube",
@@ -380,5 +385,7 @@ __all__ = [
     "VesicaPiscis",
     "VicsekFractal",
     "VogelSpiral",
+    "Voronoi",
+    "VoronoiCells",
     "Witch",
 ]

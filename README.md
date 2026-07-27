@@ -18,23 +18,25 @@ tightly the curve winds. Built for designs where the physical distance
 between points is what matters — generative art, plotter art, game object
 placement, particle layouts, UI motion paths.
 
-Zero dependencies for the core; matplotlib is an optional extra for
-visualization. Requires Python 3.12+.
+Zero dependencies for the core; matplotlib and scipy are optional extras.
+Requires Python 3.12+.
 
 > **Status:** the engine, the data model and the motif bases are complete, and
-> the catalogue is filling in — 142 motifs today: the spirals, the primitives,
+> the catalogue is filling in — 146 motifs today: the spirals, the primitives,
 > the named curves, the roulettes, the polar/harmonic family, the fractals,
 > the graph and number art, string art, the tilings, sacred geometry,
 > guilloché, the mandala composers, Islamic strapwork, Celtic knotwork, the
-> polyhedra and the optical illusions. Voronoi and Delaunay are next, behind a
-> `[scipy]` extra. Everything below already works for all of them, and for
-> yours.
+> polyhedra, the optical illusions and the Voronoi family. Next up is I/O:
+> SVG and DXF writers, and a CLI. Everything below already works for every
+> motif, and for yours.
 
 ## Install
 
 ```bash
 pip install geomotif           # core (no dependencies)
 pip install 'geomotif[plot]'   # with matplotlib plotting helpers
+pip install 'geomotif[scipy]'  # with the Voronoi/Delaunay family
+pip install 'geomotif[all]'    # both
 ```
 
 ## Quickstart
@@ -73,7 +75,7 @@ fixed and the count falls out of the geometry.
 ## What's in the box
 
 ```python
-from geomotif.motifs import Icosahedron, PenroseP3, Triquetra, VesicaPiscis
+from geomotif.motifs import Icosahedron, PenroseP3, Triquetra, VoronoiCells
 from geomotif.compose import Mandala, Ring
 ```
 
@@ -179,6 +181,16 @@ and edges.
 their walks genuinely fail to close, by exactly the amount an isometric view
 cannot show.
 
+**Voronoi & Delaunay** (`geomotif.motifs.voronoi`, needs `[scipy]`) —
+`Delaunay` (the triangulation), `Voronoi` (its dual, drawn as borders, each
+one once), `VoronoiCells` (the same map as closed regions, with an optional
+`inset`) and `LloydRelaxation` (points nudged to the middle of their own
+cells until a clumped scatter comes out even). All four are one construction:
+a cell is the region clipped by the bisector against each Delaunay
+neighbour — no other bisector reaches it. These motifs are the only ones with
+a dependency, and they carry `requires="scipy"`, so a machine without it can
+still list and describe them; only building one raises.
+
 **Composers** (`geomotif.compose`) — motifs made of other motifs: `Mandala`
 (rings of a repeated unit), `Kaleidoscope` (one unit under a `Cn` or `Dn`
 symmetry group), `Snowflake` (six arms, mirrored, grown from a seed),
@@ -195,6 +207,7 @@ registry.families()  # ('curve', 'fractal', 'girih', 'graph', 'guilloche', ...)
 registry.names(family="spiral")  # ('spiral.archimedean', 'spiral.between', ...)
 registry.create("polygon.star", points=7, step=3)
 registry.describe("egg").params  # name, type, default, help for each
+registry.describe("voronoi.diagram").available  # False without the [scipy] extra
 ```
 
 ## Write your own motif
@@ -373,7 +386,7 @@ All curves subclass `SpacingCurve` — implement `ease(t)` mapping
 
 ```bash
 git clone <repo-url> && cd geomotif
-pip install -e . --group dev    # editable install + pytest + matplotlib
+pip install -e . --group dev    # editable install + pytest, matplotlib, scipy
 pytest                          # run the test suite
 ```
 
