@@ -14,8 +14,18 @@ import math
 
 import pytest
 
-from geomotif import Design, load_design, load_spec, save_design, save_points, save_spec
+from geomotif import (
+    Design,
+    load_design,
+    load_spec,
+    save_design,
+    save_points,
+    save_spec,
+    to_dxf,
+    to_svg,
+)
 from geomotif.core import registry
+from tests import readback
 
 NAMES = registry.names()
 
@@ -154,6 +164,24 @@ def test_the_design_survives_a_design_file(name, tmp_path):
         (p.points, p.closed) for p in design.paths
     ]
     assert reloaded.points == design.points
+
+
+@pytest.mark.parametrize("name", CASES)
+def test_the_strokes_survive_a_round_trip_through_svg(name):
+    _, design = build(name)
+    strokes = readback.svg_strokes(to_svg(design))
+    assert [len(points) for points, _ in strokes] == [len(p) for p in design.paths]
+    assert [closed for _, closed in strokes] == [p.closed and len(p) > 2 for p in design.paths]
+    assert len(readback.svg_dots(to_svg(design))) == len(design.points)
+
+
+@pytest.mark.parametrize("name", CASES)
+def test_the_strokes_survive_a_round_trip_through_dxf(name):
+    _, design = build(name)
+    polylines = readback.dxf_polylines(to_dxf(design))
+    assert [len(points) for points, _ in polylines] == [len(p) for p in design.paths]
+    assert [closed for _, closed in polylines] == [p.closed for p in design.paths]
+    assert len(readback.dxf_points(to_dxf(design))) == len(design.points)
 
 
 @pytest.mark.parametrize("name", CASES)

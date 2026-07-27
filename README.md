@@ -26,9 +26,10 @@ Requires Python 3.12+.
 > the named curves, the roulettes, the polar/harmonic family, the fractals,
 > the graph and number art, string art, the tilings, sacred geometry,
 > guilloché, the mandala composers, Islamic strapwork, Celtic knotwork, the
-> polyhedra, the optical illusions and the Voronoi family. Next up is I/O:
-> SVG and DXF writers, and a CLI. Everything below already works for every
-> motif, and for yours.
+> polyhedra, the optical illusions and the Voronoi family. Designs export to
+> SVG, DXF, CSV, TXT and JSON, and to a spec file that records the recipe
+> rather than the points. Next up is the CLI and plugin packaging. Everything
+> below already works for every motif, and for yours.
 
 ## Install
 
@@ -336,6 +337,37 @@ save_design(design, "design.json")  # structured, and the only one that reads ba
 
 design = load_design("design.json")
 ```
+
+### SVG and DXF
+
+Both writers are pure standard library — the core stays dependency-free all
+the way out to the file:
+
+```python
+from geomotif import save_svg, save_dxf
+
+save_svg(design, "design.svg", width=800, background="#fff")
+save_dxf(design, "design.dxf", layer="CUTS")
+```
+
+SVG is for anything that displays; DXF R12 for anything that cuts, mills or
+plots. They disagree about which way y points, and each writer settles that
+rather than leaving it to you: SVG is y-down, so `flip_y=True` is the default
+and a design comes out the way you drew it; DXF is y-up like the motifs
+themselves, so nothing is mirrored and the design keeps its own measurements.
+
+`to_svg` fits the design into the canvas before writing, so `stroke_width`
+means one unit of the file you are looking at whatever the design measured.
+Give `width` and `height` for an exact canvas, one of them to keep the
+proportions, or neither to keep the design's own size plus `padding`. Loose
+points become `<circle>` elements — that is the dot-art path — and the motif's
+name becomes the document `<title>`, so a gallery file labels itself.
+
+`to_dxf` writes `POLYLINE`/`VERTEX` rather than `LWPOLYLINE`, because
+`LWPOLYLINE` arrived with R14 and R12 is the version everything reads. A
+closed path carries the closed flag rather than a repeated final vertex, the
+layer is declared in the file's own layer table, and the header records the
+drawing extents so "zoom to fit" works when it opens.
 
 ### Specs: the recipe, not the points
 

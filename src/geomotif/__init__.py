@@ -99,9 +99,13 @@ from .io import (
     load_design,
     load_spec,
     save_design,
+    save_dxf,
     save_points,
     save_spec,
+    save_svg,
+    to_dxf,
     to_spec,
+    to_svg,
 )
 
 __version__ = "0.1.0"
@@ -159,9 +163,13 @@ __all__ = [
     "resample_path",
     "samples_for_turns",
     "save_design",
+    "save_dxf",
     "save_points",
     "save_spec",
+    "save_svg",
     "symmetry_group",
     "tile",
+    "to_dxf",
     "to_spec",
+    "to_svg",
 ]

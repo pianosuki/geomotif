@@ -170,6 +170,24 @@ history reads honestly.
   closes on the page. That is why the staircase's four flights cannot all be
   the same length, and the tests assert the closure error rather than the
   picture.
+- **SVG** (`geomotif.io.svg`) — `to_svg` and `save_svg`, pure standard
+  library. The design is fitted into the canvas before anything is written
+  rather than scaled by a `viewBox`, so `stroke_width` means one unit of the
+  file you are looking at and rounding to `precision` shrinks the file
+  instead of discarding detail a later scale would magnify. `flip_y` defaults
+  on, because SVG's y grows downward and every motif here is written the other
+  way up. Loose points become `<circle>` elements, the motif's name becomes
+  the document `<title>`, and every attribute is escaped — a colour and a
+  title both come from outside.
+- **DXF** (`geomotif.io.dxf`) — `to_dxf` and `save_dxf`, writing DXF R12,
+  also pure standard library. `POLYLINE`/`VERTEX`/`SEQEND` rather than
+  `LWPOLYLINE`, which arrived with R14 and would give up the compatibility R12
+  was chosen for. A closed path carries the closed flag instead of a repeated
+  final vertex, a named layer is declared in the file's layer table rather
+  than left for the reader to invent, and the header records the drawing
+  extents. DXF is y-up like the motifs themselves, so nothing is mirrored.
+  The output was checked against `ezdxf` and the SVG against `svgelements`;
+  neither is a dependency, and the suite's own readers are stdlib-only.
 - **Specs** (`geomotif.io.spec`) — `to_spec`, `from_spec`, `save_spec` and
   `load_spec` serialize the *motif and its parameters* rather than the points
   they produced. A mandala's recipe is 1.5 KB against 330 KB of coordinates,
