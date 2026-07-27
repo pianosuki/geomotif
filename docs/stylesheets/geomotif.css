@@ -1,0 +1,53 @@
+/* Styling for the generated motif images.
+ *
+ * Every one is monochrome line art on a transparent background, written by
+ * geomotif's own SVG writer with a near-black stroke. That reads correctly on
+ * the light theme and disappears on the dark one, and an <img> cannot inherit
+ * the page's colour -- so dark mode inverts the image instead. For pure black
+ * on transparent, inversion is exactly "draw it in white".
+ */
+
+.motif {
+  display: block;
+  margin: 0 auto;
+  max-width: 320px;
+  width: 100%;
+  height: auto;
+}
+
+.motif.thumb {
+  max-width: 96px;
+  margin: 0;
+}
+
+[data-md-color-scheme="slate"] .motif {
+  filter: invert(1);
+}
+
+/* The gallery's family pages are a long run of picture-then-code. A rule above
+ * each motif's heading keeps them from running together.
+ */
+.md-typeset h2 > code {
+  font-size: inherit;
+}
+
+/* Parameter tables carry types like `int | None`, which are narrow but numerous;
+ * letting them wrap beats a horizontal scrollbar on every motif.
+ */
+.md-typeset table:not([class]) td code {
+  white-space: normal;
+}
+
+/* The README's image strip, reused on the landing page. */
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
+.strip img {
+  width: 140px;
+  height: 140px;
+}

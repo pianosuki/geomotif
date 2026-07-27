@@ -28,7 +28,7 @@ keywords = [
     "design",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
+    "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: Other Audience",
     "Operating System :: OS Independent",
@@ -57,6 +57,18 @@ dev = [
     "ruff>=0.16",
     "mypy>=1.14",
 ]
+docs = [
+    # Pinned below 2.0 deliberately. MkDocs 2.0 removes the plugin system
+    # outright -- mkdocstrings, literate-nav and the Material theme all stop
+    # working -- and it is what `pip install mkdocs` will eventually resolve to.
+    "mkdocs>=1.6,<2",
+    "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.27",
+    "mkdocs-literate-nav>=0.6",
+    # The gallery renders every motif, including the four that need scipy;
+    # without it those four would document themselves as unavailable.
+    "geomotif[all]",
+]
 
 [project.urls]
 # TODO: update these once the repository is published
@@ -72,13 +84,17 @@ path = "src/geomotif/__init__.py"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# tools/ is not a package and is not installed; the docs generator is imported
+# by tests/test_gendocs.py, which is what keeps the committed generated files
+# from drifting away from the code.
+pythonpath = ["tools"]
 
 [tool.ruff]
 # Pinned to the supported floor, not the newest interpreter, so a
 # 3.13-or-later idiom cannot slip in unnoticed.
 target-version = "py312"
 line-length = 100
-src = ["src", "tests", "examples"]
+src = ["src", "tests", "examples", "tools"]
 # ruff formats Python blocks inside Markdown; the refactor plan's snippets are
 # illustrative pseudocode (bare `...` bodies, signatures without implementations)
 # and are meant to read as prose, not to survive a formatter.
@@ -136,7 +152,8 @@ line-ending = "lf"
 
 [tool.mypy]
 python_version = "3.12"
-files = ["src", "tests"]
+files = ["src", "tests", "tools"]
+mypy_path = "tools"
 strict = true
 warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]

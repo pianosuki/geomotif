@@ -24,6 +24,9 @@ htmlcov/
 # Demo output
 spiral-demo.png
 
-# Generated gallery output (rebuilt by `geomotif gallery`; never hand-edited)
+# Documentation regenerated from the code on every build by tools/gendocs.py.
+# docs/catalogue.md and docs/assets/ are deliberately *not* here: GitHub renders
+# the README without running mkdocs, so those two are committed and drift-checked.
 docs/gallery/
+docs/reference/
 site/

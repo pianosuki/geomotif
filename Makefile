@@ -47,6 +47,31 @@ check: lint format-check typecheck test ## Run all checks (lint, format-check, t
 .PHONY: fix
 fix: lint-fix format ## Auto-fix lint issues and formatting in place
 
+.PHONY: docs
+docs: ## Build the documentation site into site/
+	$(UV) run --group docs mkdocs build --strict
+
+.PHONY: docs-serve
+docs-serve: ## Serve the documentation at http://127.0.0.1:8000 with live reload
+	$(UV) run --group docs mkdocs serve
+
+.PHONY: docs-gen
+docs-gen: ## Regenerate the derived docs (reference, gallery, catalogue, README images)
+	$(UV) run --group docs python tools/gendocs.py
+
+.PHONY: docs-check
+docs-check: docs-gen ## Fail if the committed generated docs are out of date
+	@# --porcelain rather than `git diff --exit-code`, so that a *new* generated
+	@# file -- an added motif's image -- counts as drift too.
+	@drift=$$(git status --porcelain -- docs/catalogue.md docs/assets); \
+	if [ -n "$$drift" ]; then \
+		echo "$$drift"; \
+		echo; \
+		echo "The committed documentation is behind the code."; \
+		echo "Run 'make docs-gen' and commit the result."; \
+		exit 1; \
+	fi
+
 .PHONY: build
 build: ## Build the sdist and wheel into dist/
 	$(UV) build

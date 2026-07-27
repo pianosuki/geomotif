@@ -1,0 +1,124 @@
+site_name: geomotif
+site_description: >-
+  Generate and plot geometric designs, with true arc-length point placement
+  and pluggable spacing curves.
+site_author: Scott Weer
+# TODO: update these once the repository is published
+site_url: https://pianosuki.github.io/geomotif/
+repo_url: https://github.com/pianosuki/geomotif
+repo_name: pianosuki/geomotif
+copyright: MIT licensed
+
+# Everything derived from the code -- the API reference, the gallery, the
+# catalogue and the README's images -- is written by this hook before mkdocs
+# reads the file tree, so a docs build is never a step behind the registry.
+hooks:
+  - tools/gendocs.py
+
+# A warning is a broken link, a missing page or an unresolved cross-reference,
+# and every one of those is a bug in the docs. The hook above runs first, so
+# the generated pages exist by the time anything is checked.
+strict: true
+
+theme:
+  name: material
+  icon:
+    logo: material/vector-polyline
+    repo: fontawesome/brands/github
+  font:
+    text: Inter
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - search.suggest
+    - search.highlight
+  palette:
+    # The line art is monochrome, so the site is too; the accent is only ever
+    # on things you can click.
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+
+extra_css:
+  - stylesheets/geomotif.css
+
+plugins:
+  - search
+  # SUMMARY.md files are generated beside the pages they list, so the nav below
+  # never has to name 146 motifs or 30 modules.
+  - literate-nav
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+          options:
+            docstring_style: numpy
+            docstring_section_style: table
+            heading_level: 1
+            show_root_heading: true
+            show_root_full_path: true
+            show_symbol_type_heading: true
+            show_symbol_type_toc: true
+            show_source: true
+            show_if_no_docstring: false
+            members_order: source
+            filters: ["!^_"]
+            merge_init_into_class: true
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true
+            unwrap_annotated: true
+            inherited_members: false
+            summary: true
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: [.]
+      check_paths: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+
+nav:
+  - Home: index.md
+  - Guide:
+      - guide/points.md
+      - guide/designs.md
+      - guide/export.md
+      - guide/plotting.md
+      - guide/cli.md
+  - Extending:
+      - extending.md
+      - api-policy.md
+  - Catalogue: catalogue.md
+  - Gallery: gallery/
+  - Reference: reference/
+  - Changelog: changelog.md
