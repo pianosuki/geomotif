@@ -79,8 +79,8 @@ def to_gif(
         Frames per second. GIF stores a delay in hundredths of a second, so
         the rate is rounded to what the format can actually say.
     loop : int
-        How many times to repeat; ``0`` means forever, which is what everyone
-        expects of a GIF. ``1`` plays it once.
+        How many times to play; ``0`` means forever, which is what everyone
+        expects of a GIF, and is the default. ``1`` plays it once and stops.
     ink, background : str
         Default stroke colour and the colour behind everything. A stroke with
         a style of its own is drawn in that instead.
@@ -133,7 +133,10 @@ def to_gif(
 
     depth = _depth(len(palette))
     parts = [_header(width, height, depth), _colour_table(palette, depth)]
-    if len(rasters) > 1:
+    # loop=1 is the absence of the extension, not a count of one: the block
+    # says how many times to repeat *after* the first play, and there is no
+    # value of it that means "stop after one".
+    if len(rasters) > 1 and loop != 1:
         parts.append(_looping(loop))
     parts.extend(_frame(raster, delay=delay, animated=len(rasters) > 1) for raster in rasters)
     parts.append(b";")
@@ -196,7 +199,12 @@ def _colour_table(palette: Sequence[str], depth: int) -> bytes:
 
 
 def _looping(loop: int) -> bytes:
-    """Return the Netscape application extension: the only way a GIF says "repeat"."""
+    """Return the Netscape application extension: the only way a GIF says "repeat".
+
+    ``loop`` is a number of plays; the block holds a number of *repeats*, and
+    zero in it means forever rather than never. Never is the caller omitting
+    the block, which is why ``loop == 1`` does not reach here.
+    """
     # Nothing about looping is in the GIF specification; this block is a
     # convention from Netscape 2.0 that every reader since has implemented.
     return b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + _short(0 if loop == 0 else loop - 1) + b"\x00"

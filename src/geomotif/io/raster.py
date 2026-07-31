@@ -128,6 +128,8 @@ def rasterize(
         raise ValueError(f"width and height must be >= 1, got {width}x{height}")
     if thickness < 1:
         raise ValueError(f"thickness must be >= 1, got {thickness}")
+    if padding < 0:
+        raise ValueError(f"padding must be >= 0, got {padding}")
 
     entries = (
         tuple(palette)
@@ -169,8 +171,12 @@ def _placement(
     """Return the world-to-pixel mapping: uniform scale, centred, y flipped."""
     extent_x = max(bounds.width, _MIN_EXTENT)
     extent_y = max(bounds.height, _MIN_EXTENT)
-    inner_w = max(width - 2.0 * padding, 1.0)
-    inner_h = max(height - 2.0 * padding, 1.0)
+    # A w-pixel row addresses 0..w-1, so the span a drawing can occupy is one
+    # short of the canvas. Scaling by the full width instead puts the far edge
+    # on index w, which _stamp then discards -- invisible at the default
+    # padding, and the right and bottom edges of the picture at padding=0.
+    inner_w = max(width - 1 - 2.0 * padding, 1.0)
+    inner_h = max(height - 1 - 2.0 * padding, 1.0)
     scale = min(inner_w / extent_x, inner_h / extent_y)
     offset_x = padding + (inner_w - extent_x * scale) / 2.0
     offset_y = padding + (inner_h - extent_y * scale) / 2.0
@@ -180,7 +186,7 @@ def _placement(
         y = offset_y + (point[1] - bounds.min_y) * scale
         # Pixels grow downward and the maths does not, so y is flipped here for
         # the same reason the SVG writer flips it.
-        return (round(x), round(height - y))
+        return (round(x), round(height - 1 - y))
 
     return place
 

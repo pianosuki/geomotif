@@ -10,6 +10,10 @@ from tests.readback import gif
 
 SQUARE = RegularPolygon(sides=4, radius=100.0).build()
 
+#: Axis-aligned, unlike SQUARE, so that "the edge of the drawing" and "the edge
+#: of the canvas" are the same pixels and a clipped border is visible as one.
+BOX = Design(paths=(Path(((0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)), closed=True),))
+
 TWO_STROKES = Design(
     paths=(
         Path(((0.0, 0.0), (100.0, 0.0))),
@@ -20,6 +24,12 @@ TWO_STROKES = Design(
 
 def drawn_length(design):
     return math.fsum(path.length for path in design.paths)
+
+
+def _near(pixel, lit, width):
+    """Is this pixel index lit, or a neighbour of one, in ``lit``?"""
+    row, col = divmod(pixel, width)
+    return any((row + dy) * width + (col + dx) in lit for dy in (-1, 0, 1) for dx in (-1, 0, 1))
 
 
 # --- draw_on ----------------------------------------------------------------
@@ -159,6 +169,33 @@ def test_an_empty_canvas_stays_empty_and_a_drawn_one_does_not():
     assert rasterize(Design(points=((0.0, 0.0),)), width=60, height=60).pixels.count(1) >= 1
 
 
+def test_the_far_edges_of_a_drawing_are_on_the_canvas():
+    # A w-pixel row addresses 0..w-1. Scaling by the full width put the right
+    # and bottom edges on index w, where they were silently dropped -- which
+    # at padding=0 is half the picture.
+    raster = rasterize(BOX, width=12, height=12, padding=0.0)
+    rows = [raster.pixels[y * 12 : (y + 1) * 12] for y in range(12)]
+    assert all(rows[0]), "top row"
+    assert all(rows[-1]), "bottom row"
+    assert all(row[0] for row in rows), "left column"
+    assert all(row[-1] for row in rows), "right column"
+
+
+def test_padding_is_the_border_it_says_it_is():
+    raster = rasterize(BOX, width=12, height=12, padding=2.0)
+    rows = [raster.pixels[y * 12 : (y + 1) * 12] for y in range(12)]
+    assert not any(any(row) for row in rows[:2]), "nothing inside the top margin"
+    assert not any(any(row) for row in rows[-2:]), "nothing inside the bottom margin"
+    assert all(not any(row[:2]) and not any(row[-2:]) for row in rows), "nor the side margins"
+    # And the drawing starts exactly where the margin ends, on both axes.
+    assert list(rows[2]) == [0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0]
+
+
+def test_a_negative_margin_is_refused_rather_than_drawn_off_canvas():
+    with pytest.raises(ValueError):
+        rasterize(BOX, width=20, height=20, padding=-4.0)
+
+
 def test_a_styled_stroke_rasterizes_in_its_own_palette_entry():
     design = layer(styled(SQUARE, stroke="#ff0000"), styled(TWO_STROKES, stroke="#0000ff"))
     raster = rasterize(design, width=80, height=80)
@@ -173,10 +210,12 @@ def test_frames_share_one_canvas_so_the_drawing_does_not_swim():
     decoded = gif(to_gif(frames, width=60, height=60))
     finished = decoded.frames[-1].pixels
     assert all(len(frame.pixels) == len(finished) for frame in decoded.frames)
-    # The last stroke drawn must land on pixels the earlier frames left blank,
-    # not on pixels they had already used for something else.
     lit = [{i for i, p in enumerate(frame.pixels) if p} for frame in decoded.frames]
-    assert lit[0] < lit[-1]
+    assert len(lit[0]) < len(lit[-1]), "the drawing grows"
+    # Every pixel the first frame lit is still drawn on at the end -- give or
+    # take one, because a line stopped part way is a shorter Bresenham run
+    # than the whole of it and may step across a diagonal one pixel sooner.
+    assert all(_near(pixel, lit[-1], 60) for pixel in lit[0]), "and does not move while it does"
 
 
 # --- the GIF itself ---------------------------------------------------------
@@ -214,6 +253,12 @@ def test_the_frame_rate_is_written_in_what_gif_can_say():
 def test_a_gif_loops_forever_unless_told_otherwise():
     assert gif(to_gif(draw_on(SQUARE, 3))).loop == 0
     assert gif(to_gif(draw_on(SQUARE, 3), loop=3)).loop == 2  # stored as repeats after the first
+
+
+def test_playing_once_means_no_looping_block_at_all():
+    # A repeat count of zero is the block's way of saying "forever", so
+    # loop=1 has to be the absence of the block rather than a count in it.
+    assert gif(to_gif(draw_on(SQUARE, 3), loop=1)).loop is None
 
 
 def test_a_single_frame_is_a_plain_still_image():
