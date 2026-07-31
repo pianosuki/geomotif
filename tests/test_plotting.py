@@ -25,6 +25,7 @@ def _close_figures():
     yield
     matplotlib.pyplot.close("all")
 
+
 MIXED = Design(
     paths=(Path(((0.0, 0.0), (10.0, 0.0))), Path(((0.0, 5.0), (10.0, 5.0)))),
     points=((2.0, 8.0), (3.0, 9.0)),

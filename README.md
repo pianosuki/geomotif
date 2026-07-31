@@ -158,7 +158,7 @@ outside the test suite.
 
 ## What's in the box
 
-**146 motifs in 18 families** — the [full catalogue](docs/catalogue.md), and
+**147 motifs in 19 families** — the [full catalogue](docs/catalogue.md), and
 the [gallery](https://pianosuki.github.io/geomotif/gallery/) with a picture of
 every one.
 
@@ -180,6 +180,7 @@ every one.
 | **solid** | 7 | the five Platonic solids and the truncated icosahedron as wireframes, through an orthographic, isometric or perspective projection |
 | **illusion** | 6 | Penrose triangle and stairs, impossible cube, Necker cube, café wall, moiré. The two Penrose figures are built in space and then flattened: their walks genuinely fail to close, by exactly the amount an isometric view cannot show |
 | **voronoi** | 4 | Delaunay, Voronoi, cells with an optional inset, and Lloyd's relaxation. The only motifs with a dependency — they declare `requires="scipy"`, so a machine without it can still list and describe them |
+| **symmetry** | 1 | the experimental one: points constrained to the orbits of a `Cn`/`Dn` group and relaxed until neighbours sit the same distance apart — fifteen points with five-fold mirror symmetry, and the arithmetic that says which counts are possible at all |
 | **mandala** | 5 | the composers: rings of a repeated unit, a kaleidoscope under a `Cn`/`Dn` group, a snowflake grown from a seed, spokes and layered rings — whose unit is *any* object with a `build()` method, including yours |
 
 Anything registered is reachable by name, with its parameters introspectable:

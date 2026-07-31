@@ -57,6 +57,21 @@ A new motif, a new spacing curve, a new keyword argument with a
 behaviour-preserving default, and a new export format are all **minor**
 releases. Anything that would make correct 1.x code stop working is **major**.
 
+## Experimental
+
+A module or class whose docstring says **experimental** is exempt from the
+promises above: its parameters and its output may change in a minor release,
+with the change written down in the changelog either way. It is a small,
+deliberate list rather than a loophole — everything on it is something the
+library is still learning the shape of:
+
+- `geomotif.motifs.symmetry` — the one motif that is *solved for* rather than
+  evaluated. What "evenly spaced" should mean when the symmetry group makes it
+  impossible, and how the solver should be steered, are open questions.
+
+Nothing becomes experimental after the fact. A name that shipped without the
+label keeps every guarantee on this page.
+
 ## What deliberately is not protected
 
 Floating-point output is not bit-stable across versions. A fix to a sampling

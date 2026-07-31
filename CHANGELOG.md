@@ -28,6 +28,23 @@ history reads honestly.
   wrote before.
 - Styles round-trip through `save_design`/`load_design` and through a spec,
   written beside the parameters rather than among them.
+- **`SymmetricPointSet`** (`geomotif.motifs.symmetry`, family `symmetry`) —
+  the first motif that is *solved for* rather than evaluated. Points are laid
+  out in the orbits of a cyclic or dihedral group and then relaxed toward
+  equal nearest-neighbour spacing, which is what makes the awkward cases
+  possible: fifteen points with five-fold mirror symmetry needs one ten-point
+  orbit and one five-point orbit sitting on the mirror lines, and comes out
+  exactly evenly spaced. A count the group cannot arrange is refused with the
+  nearest two it can. Symmetry is preserved by construction — only one
+  representative per orbit moves — so no seed is involved and the result is
+  exactly reproducible. Four rules for joining the points up, including
+  `"equal-distance"`, which draws the edges the relaxation was equalizing.
+  Marked **experimental**; see the API policy.
+
+### Changed
+
+- The API policy now defines what **experimental** means and lists what
+  carries the label.
 
 ## [1.0.0] — 2026-07-27
 
