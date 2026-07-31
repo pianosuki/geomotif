@@ -11,17 +11,17 @@ history reads honestly.
 
 ## [1.1.0] — 2026-07-31
 
-The stretch release: the things 1.0.0 deliberately left until the shape of the
-library was known. Six of them, plus a seventh — snapping — that only became
-obvious once there was plotter output to point at a grid. Not one changes
-anything that already worked: a design with no styles writes the file it always
-did, and every motif in the catalogue builds the geometry it built before.
+The stretch release: colour and layers, symmetric point sets, a faster
+arc-length inversion, animation and a GIF writer, plotter output, an explorable
+gallery, and snapping to a grid. All of it additive — a design with no styles
+writes the file it always did, and every motif in the catalogue builds the
+geometry it built before.
 
-Two of the six ended somewhere other than where they set out. The numpy fast
-path was written, measured, and deleted in favour of a pure-Python one that
-turned out to be faster (see **Changed**); and the symmetric point sets ship
-marked **experimental**, because what "evenly spaced" should mean when the
-symmetry group makes it impossible is still an open question.
+Two of them ended somewhere other than where they set out. The numpy fast path
+was written, measured, and deleted in favour of a pure-Python one that turned
+out to be faster (see **Changed**); and the symmetric point sets ship marked
+**experimental**, because what "evenly spaced" should mean when the symmetry
+group makes it impossible is still an open question.
 
 ### Added
 
@@ -40,6 +40,12 @@ symmetry group makes it impossible is still an open question.
   wrote before.
 - Styles round-trip through `save_design`/`load_design` and through a spec,
   written beside the parameters rather than among them.
+- `select_styles`, `PATH_STYLE_KEY` and `POINT_STYLE_KEY`
+  (`geomotif.core.types`) — the extension-facing half. An operator that drops,
+  splits or reorders strokes hands `select_styles` the source index of each one
+  it kept, and the styles follow the geometry rather than shifting onto the
+  wrong stroke. Operators built out of `+` get this for free. See
+  [extending](https://pianosuki.github.io/geomotif/extending/).
 - **`SymmetricPointSet`** (`geomotif.motifs.symmetry`, family `symmetry`) —
   the first motif that is *solved for* rather than evaluated. Points are laid
   out in the orbits of a cyclic or dihedral group and then relaxed toward
@@ -69,31 +75,37 @@ symmetry group makes it impossible is still an open question.
   in pure standard library. Every frame is drawn against the same world
   rectangle and the same colour table, so a growing drawing stays put and a
   two-pen design animates in two colours. Underneath it,
-  `geomotif.io.raster.rasterize` turns a design into an indexed bitmap, usable
-  on its own.
+  `geomotif.io.raster` turns a design into an indexed bitmap: `rasterize`,
+  the `Raster` it returns, and `colours_in` for the palette a set of designs
+  needs. All three are usable on their own. The GIF writer understands the
+  same colour names the DXF writer does, so a styled design that exports to
+  one exports to the other.
 - `geomotif render NAME --out x.gif` with `--motion draw-on|spin`, `--frames`
-  and `--fps`.
+  and `--fps`. `--fit` doubles as the pixel canvas, which is 480×480 without
+  it, and `draw-on` appends a quarter of `--frames` again as a hold on the
+  finished drawing.
 - `ArcTable.segment` — the part of a polyline between two distances, with the
   ends interpolated and every vertex between them kept.
-
 - **Plotter output** (`geomotif.io.plotter`) — `to_plotter_svg` and
   `save_plotter_svg` write a design at a named paper size in real millimetres
   (`width="210mm"`, not `width="210"`), with `PAPER`, `page_size` and
   `on_page` behind them. `optimize` joins strokes whose ends meet and then
   orders them so the pen travels as little as possible between them, and
-  `pen_up_distance` measures the difference: a Truchet tiling goes from 72
+  `pen_up_distance` measures the difference: a 6×6 Truchet tiling goes from 72
   strokes and 2742 units of pen-up travel to 13 and 533. Neither pass ever
   crosses a layer, since strokes on different layers are drawn by different
   pens, and neither changes the ink.
 - **`to_vpype`** — hands a design to [vpype](https://vpype.readthedocs.io/)
   directly, one vpype layer per style layer, named and page-sized. `vpype` is
-  not a dependency; the import is guarded and says how to install it. The test
-  suite compares `optimize` against `vpype linemerge linesort` over the same
-  design, and reads geomotif's own plotter SVG back with `vpype`'s reader.
+  not a dependency of the library; the import is guarded and says how to
+  install it. It *is* a dependency of the tests: the `plotter` group and a CI
+  job of its own exist so that the comparison of `optimize` against
+  `vpype linemerge linesort`, and the read-back of geomotif's own plotter SVG
+  through `vpype`'s reader, actually run rather than skipping quietly.
 - `to_svg(..., units="mm")` — a physical unit for the document's `width` and
-  `height`, with the `viewBox` left in plain numbers.
-- `geomotif render NAME --out x.svg --paper a4 [--landscape] [--optimize]`.
-
+  `height`, from `UNITS`, with the `viewBox` left in plain numbers.
+- `geomotif render NAME --out x.svg --paper a4 [--landscape] [--margin MM]
+  [--optimize]`.
 - **An explorable gallery** (`geomotif.explore`, `geomotif explore`) — one
   self-contained HTML page with a slider for every parameter a slider can move.
   Every frame is rendered ahead of time by geomotif's own SVG writer and
@@ -104,7 +116,9 @@ symmetry group makes it impossible is still an open question.
   explosion. A value the motif refuses is dropped from the sweep rather than
   reported, and a parameter with no single axis to drag along — a point, a set
   of coordinates, another motif — is listed on the page as held still.
-
+  `to_html`, `save_html`, `sweeps_for` and `Sweep` are the Python side of it;
+  `--steps`, `--size` and `--samples` set how many values a slider offers, how
+  big each frame is, and how densely it is drawn.
 - **Snapping to a grid** — `snap` (`geomotif.core.transform`) and
   `Design.snapped`, which round the *design* rather than each file as it is
   written, so every writer, the plot and the gallery agree on the numbers.
@@ -118,10 +132,16 @@ symmetry group makes it impossible is still an open question.
   with fewer than two points, with each surviving stroke's style carried
   across. `drop_duplicates=False` keeps the point count exactly as it was, for
   a caller feeding a fixed-size buffer or a per-point parallel array.
-  `half-up` rounds *away from zero* rather than toward +∞, so a design and its
-  mirror image snap to mirror-image grids.
+  `half-up` rounds *away from zero* rather than toward +∞, so a symmetric
+  design does not come off the grid asymmetric.
 - `geomotif render NAME --snap STEP [--snap-mode MODE] [--keep-duplicates]`,
-  applied after `--fit` so the grid is the one the file is written on.
+  applied after `--fit`. The writers that place a design themselves — `.svg`,
+  `--paper` included, `.gif` and the matplotlib formats — rescale the grid
+  away as they write; the coordinate formats and `.dxf` keep it exactly.
+- New at the top level: `Style`, `styled`, `styles_of`, `point_styles_of`,
+  `layer_names`, `by_layer`, `snap`, `SNAP_MODES`, `SnapMode`, `to_gif`,
+  `save_gif`, `to_plotter_svg` and `save_plotter_svg`. Import paths are a 1.x
+  promise, so they are listed rather than left to be discovered.
 
 ### Changed
 
@@ -136,12 +156,58 @@ symmetry group makes it impossible is still an open question.
   beats it there too, 67ms against 104ms, with no dependency. The core stays
   zero-dependency because that turned out to be the faster answer as well as
   the simpler one.
+- The DXF layer table now lists the layers a design actually uses rather than
+  the single `layer=` argument. Structure-preserving, and a file that parsed
+  still parses, but it is a change to what is emitted.
 - The API policy now defines what **experimental** means and lists what
-  carries the label.
+  carries the label, and its list of public modules gains `geomotif.animate`
+  and `geomotif.explore`.
 - `save_points` and `save_design` now document what a negative `precision`
   actually does — round to tens, hundreds and so on, rather than merely
   "write whole integers" — and it is pinned by a test rather than left as an
   accident of `round`. The behaviour is unchanged.
+- `to_svg` refuses a `units` string that is not one, rather than writing it
+  into the document's `width` and `height` attributes unquoted.
+- `rasterize` refuses a negative `padding`, which used to return a blank
+  raster, matching what `Design.fit` has always done.
+- `SymmetricPointSet` validates `connect` when it is constructed rather than
+  when `edges()` is called, and takes a `center` given as any pair of numbers.
+
+### Fixed
+
+Found in an audit of the above before release; none of it ever shipped.
+
+- `to_plotter_svg` and `save_plotter_svg` ignored `margin` entirely. The
+  design was placed on the page and then fitted to the page a second time by
+  the SVG writer, which scaled it back out to the paper edge — so every margin
+  produced the same file, running to the very edge of a sheet most plotters
+  cannot reach.
+- `to_gif(loop=1)` looped forever. The Netscape block counts *repeats* after
+  the first play, so the count that would mean "once" is the one that means
+  "forever"; playing once is the absence of the block.
+- The rasterizer scaled a design onto `width` pixels where a `width`-pixel row
+  addresses `0..width-1`, so the far edges landed one past the end and were
+  dropped. Invisible at the default padding, and half the picture at
+  `padding=0`.
+- `SymmetricPointSet` collapsed for a few counts under a dihedral group —
+  `D4` with 13, 17 or 29 points, `D5` with 16 or 41, and others. A ring orbit
+  seeded onto a mirror line meets its own reflection, which the relaxation
+  scores as every neighbour perfectly evenly spaced, and settles into. Swept
+  over `C2`–`C8` and `D2`–`D8` at every count they accept: fifteen collapsed,
+  none does now, and the number of counts that come out exactly evenly spaced
+  rises from 255 to 287.
+- `draw_on` never drew a stroke of zero length, so the last frame was not
+  quite the finished drawing and a design of nothing but degenerate strokes
+  animated as nothing at all.
+- `snap` dropped a duplicate loose point only when it happened to be adjacent
+  in the tuple. Loose points are a set with no walk through them, so the
+  result depended on an ordering that carries no information.
+- `plot_design` tested a stroke width for truthiness, so `Style(width=0.0)`
+  silently became the figure's default.
+- The explore page printed `--clip False` under its sliders, which argparse
+  rejects; a boolean parameter's flag is `--clip` or `--no-clip`.
+- `save_html` took `(path, names)` where every other writer takes
+  `(subject, path)`. Corrected before the signature became a promise.
 
 ## [1.0.0] — 2026-07-27
 
