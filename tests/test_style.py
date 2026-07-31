@@ -254,3 +254,46 @@ def test_styles_survive_a_design_file(tmp_path):
     design = styled(Circle(radius=10.0).build(), layer="pen1", stroke="red", width=0.5)
     reloaded = load_design(save_design(design, tmp_path / "design.json"))
     assert styles_of(reloaded) == (Style(layer="pen1", stroke="red", width=0.5),)
+
+
+# --- select_styles ----------------------------------------------------------
+#
+# The function a third-party operator has to call, tested on its own rather
+# than only through the operators here that already call it.
+
+
+def test_select_styles_reorders_the_list_to_match_reordered_strokes():
+    from geomotif.core.types import select_styles
+
+    design = layer(styled(TRIANGLE, stroke="red"), styled(TRIANGLE, stroke="blue"))
+    reversed_meta = select_styles(design.meta, paths=[1, 0])
+    assert reversed_meta[PATH_STYLE_KEY] == (Style(stroke="blue"), Style(stroke="red"))
+
+
+def test_select_styles_repeats_a_style_for_a_stroke_that_was_split():
+    from geomotif.core.types import select_styles
+
+    design = styled(TRIANGLE, stroke="red")
+    assert select_styles(design.meta, paths=[0, 0, 0])[PATH_STYLE_KEY] == (Style(stroke="red"),) * 3
+
+
+def test_select_styles_gives_an_index_it_has_no_style_for_no_style():
+    from geomotif.core.types import select_styles
+
+    design = styled(TRIANGLE, stroke="red")
+    assert select_styles(design.meta, paths=[0, 7])[PATH_STYLE_KEY] == (Style(stroke="red"), None)
+
+
+def test_select_styles_leaves_the_half_it_was_not_told_about_alone():
+    from geomotif.core.types import POINT_STYLE_KEY, select_styles
+
+    design = styled(Design(points=((0.0, 0.0), (1.0, 1.0))), stroke="red")
+    kept = select_styles(design.meta, paths=[])
+    assert kept[POINT_STYLE_KEY] == (Style(stroke="red"),) * 2
+
+
+def test_select_styles_hands_back_styleless_metadata_untouched():
+    from geomotif.core.types import select_styles
+
+    meta = {"motif": "circle"}
+    assert select_styles(meta, paths=[3, 1]) is meta

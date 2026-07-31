@@ -12,12 +12,11 @@ time, so a two-colour drawing is two files or one file with two layers; the
 SVG writer emits the groups Inkscape and ``vpype`` already understand, and the
 DXF writer emits real DXF layers::
 
-    from geomotif import layer
-    from geomotif.core.style import styled
-    from geomotif.motifs import Circle, PhyllotaxisPoints
+    from geomotif import layer, save_svg, styled
+    from geomotif.motifs import Circle, Phyllotaxis
 
     outline = styled(Circle(radius=100).build(), layer="pen1", stroke="black")
-    seeds = styled(PhyllotaxisPoints().build(), layer="pen2", stroke="crimson")
+    seeds = styled(Phyllotaxis().build(), layer="pen2", stroke="crimson")
     save_svg(layer(outline, seeds), "two-pens.svg")
 
 Nothing is required to have a style, and a design without one writes exactly
@@ -80,7 +79,7 @@ class Style:
         if self.width is not None and self.width <= 0.0:
             raise ValueError(f"width must be > 0, got {self.width}")
         if self.layer is not None and not self.layer.strip():
-            raise ValueError("layer must be a name, got a blank string")
+            raise ValueError(f"layer must be a name, got {self.layer!r}")
 
     def __bool__(self) -> bool:
         """Whether this style states anything at all."""

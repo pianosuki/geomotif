@@ -294,10 +294,11 @@ def _quantizer(mode: SnapMode) -> Callable[[float], int]:
             # neighbours so a long list of them does not drift upward.
             return round
         case "half-up":
-            # Away from zero, not toward +infinity. Toward +infinity would snap
-            # a design and its mirror image onto grids a whole step apart, and
-            # symmetry surviving the snap matters more here than agreeing with
-            # the accountants' definition of the name.
+            # Away from zero, not toward +infinity. Toward +infinity, a
+            # coordinate exactly halfway and its mirror would round the same
+            # direction rather than opposite ones, so a symmetric design would
+            # come off the grid asymmetric. That matters more here than
+            # agreeing with the accountants' definition of the name.
             return lambda q: int(math.copysign(math.floor(abs(q) + 0.5), q))
         case "floor":
             return math.floor
@@ -306,7 +307,7 @@ def _quantizer(mode: SnapMode) -> Callable[[float], int]:
         case "trunc":
             return math.trunc
         case _:
-            raise ValueError(f"unknown snap mode {mode!r}; expected one of {list(SNAP_MODES)}")
+            raise ValueError(f"mode must be one of {SNAP_MODES}, got {mode!r}")
 
 
 def _grid_places(step: float) -> int:
@@ -367,8 +368,8 @@ def snap(
         What to snap.
     step : float, optional
         Grid size, in the design's own units. Must be finite and positive.
-        ``0.5`` snaps to half units, ``5`` to a five-unit lattice -- neither of
-        which any number of decimal places can express.
+        ``0.5`` snaps to half units and ``5`` to a five-unit lattice -- any
+        grid at all, where ``precision=`` can only reach the powers of ten.
     mode : {"half-even", "half-up", "floor", "ceil", "trunc"}, optional
         How a coordinate between two grid lines is resolved. ``half-even`` is
         the default and matches the writers' ``precision=``: it goes to the

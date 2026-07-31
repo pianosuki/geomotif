@@ -11,7 +11,7 @@ software guessed.
 
 **Fewer wasted moves.** :func:`optimize` joins strokes that end where another
 begins and then orders them so the pen travels as little as possible between
-them. On a plotted mandala that is routinely most of the drawing time, and
+them -- which on a plotted mandala is most of the drawing time.
 :func:`pen_up_distance` measures the difference rather than asserting it.
 
 **One pen at a time.** Everything here works layer by layer
@@ -212,9 +212,8 @@ def optimize(
        whichever begins nearest to where the pen just finished, and reversing
        an open stroke when its far end is the nearer one.
 
-    Neither pass crosses a layer: strokes on different layers are drawn by
-    different pens, and joining them would mean drawing one in the wrong
-    colour. Layers come out in the order they went in.
+    Neither pass crosses a layer, for the reason this module opens with, and
+    layers come out in the order they went in.
 
     Parameters
     ----------
@@ -239,9 +238,10 @@ def optimize(
     -----
     Both passes are O(n²) in the number of strokes, which is nothing at the
     thousands a plotted design runs to and would matter at a million. Neither
-    is optimal, and neither is trying to be: this is the greedy travelling
-    salesman, whose answers are within a few percent of the best and which is
-    the same thing ``vpype linesort`` does.
+    is optimal, and neither is trying to be: this is nearest-neighbour applied
+    to the travelling salesman, which carries no bound on how far from the best
+    answer it lands but is what ``vpype linesort`` does too. The suite measures
+    the two against each other rather than taking either on trust.
     """
     if tolerance < 0:
         raise ValueError(f"tolerance must be >= 0, got {tolerance}")

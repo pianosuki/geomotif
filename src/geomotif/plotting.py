@@ -172,7 +172,7 @@ def plot_design(
                 xs,
                 ys,
                 color=_ink_for(style, ink),
-                linewidth=style.width if style is not None and style.width else linewidth,
+                linewidth=_width_for(style, linewidth),
                 alpha=alpha,
                 zorder=2,
             )
@@ -340,6 +340,13 @@ def _ink_for(style: Style | None, fallback: str) -> str:
     if style is None or style.stroke is None:
         return fallback
     return style.stroke
+
+
+def _width_for(style: Style | None, fallback: float) -> float:
+    """Return the width a styled stroke asks for, or the figure's own."""
+    if style is None or style.width is None:
+        return fallback
+    return style.width
 
 
 def _style_axes(ax: Any, title: str | None, palette: Palette, *, grid: bool) -> None:

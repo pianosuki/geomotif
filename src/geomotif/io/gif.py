@@ -7,11 +7,10 @@ chat window, an issue comment.
 
 It is also, unusually for a 1989 format, small enough to write by hand. The
 file is a colour table, a run of frames, and a trailer; the only real work is
-**LZW**, and GIF's variant of it is about eighty lines: build a dictionary of
-byte strings as you go, emit each match as a code, widen the code as the
-dictionary fills, and start again from empty when it is full at 4096 entries.
-That is the whole of it, and it keeps the zero-dependency core zero-dependency
-out to the animation as well as out to the file.
+**LZW**, and GIF's variant of it fits on a page: build a dictionary of byte
+strings as you go, emit each match as a code, widen the code as the dictionary
+fills, and start again from empty when it is full at 4096 entries. That is the
+whole of it, and it is why an animation costs no dependency either.
 
 The frames come from :mod:`geomotif.animate` and the pixels from
 :mod:`geomotif.io.raster`; this module is only the container::

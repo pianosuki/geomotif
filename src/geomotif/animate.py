@@ -25,9 +25,8 @@ precisely the point.
 
 from __future__ import annotations
 
-import dataclasses
 import math
-from dataclasses import replace
+from dataclasses import fields, is_dataclass, replace
 from typing import TYPE_CHECKING, cast
 
 from .core.sampling import ArcTable
@@ -169,15 +168,15 @@ def _swept(motif: object, parameter: str, values: Iterable[object]) -> tuple[Des
     and written against a motif type the whole body reads as unreachable. The
     narrowing has to happen where the class is not yet known to be a motif.
     """
-    if not dataclasses.is_dataclass(motif) or isinstance(motif, type):
+    if not is_dataclass(motif) or isinstance(motif, type):
         raise TypeError(
             f"cannot sweep a parameter of {type(motif).__name__}: it is not a dataclass, "
             f"so it has no named parameters to vary. Build the frames yourself"
         )
-    known = [field.name for field in dataclasses.fields(motif) if field.init]
+    known = [field.name for field in fields(motif) if field.init]
     if parameter not in known:
-        raise ValueError(f"{type(motif).__name__} has no parameter {parameter!r}; it has {known}")
-    built = [dataclasses.replace(motif, **{parameter: value}) for value in values]
+        raise ValueError(f"{type(motif).__name__} takes one of {known}, got {parameter!r}")
+    built = [replace(motif, **{parameter: value}) for value in values]
     return tuple(cast("SupportsBuild", changed).build() for changed in built)
 
 

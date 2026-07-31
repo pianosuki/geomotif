@@ -153,7 +153,7 @@ def test_sweep_rebuilds_the_motif_once_per_value():
 
 
 def test_sweeping_a_parameter_that_is_not_there_lists_the_ones_that_are():
-    with pytest.raises(ValueError, match="has no parameter 'petals'"):
+    with pytest.raises(ValueError, match=r"takes one of \[.*'n'.*\], got 'petals'"):
         sweep(Rose(), "petals", [1, 2])
 
 
@@ -331,3 +331,49 @@ def test_pillow_reads_what_this_writer_wrote():
     assert opened.n_frames == 6
     assert opened.size == (100, 100)
     assert opened.convert("P").tobytes() == gif(blob).frames[0].pixels
+
+
+# --- the palette and the pen ------------------------------------------------
+
+
+def test_colours_in_puts_the_background_first_and_the_ink_second():
+    from geomotif.io.raster import colours_in
+
+    assert colours_in([SQUARE], ink="#000", background="#fff") == ("#fff", "#000")
+
+
+def test_colours_in_adds_each_styled_colour_once_in_the_order_it_appears():
+    from geomotif.io.raster import colours_in
+
+    design = layer(
+        styled(SQUARE, stroke="#f00"),
+        styled(TWO_STROKES, stroke="#00f"),
+        styled(BOX, stroke="#f00"),  # already there
+    )
+    assert colours_in([design], ink="#000", background="#fff") == ("#fff", "#000", "#f00", "#00f")
+
+
+def test_a_wide_pen_draws_a_thicker_line():
+    thin = rasterize(BOX, width=40, height=40, thickness=1)
+    thick = rasterize(BOX, width=40, height=40, thickness=3)
+    assert sum(1 for p in thick.pixels if p) > sum(1 for p in thin.pixels if p)
+
+
+def test_a_loose_point_is_drawn_as_a_disc_the_radius_it_was_given():
+    dot = Design(points=((0.0, 0.0),))
+    small = rasterize(dot, width=40, height=40, dot_radius=1)
+    large = rasterize(dot, width=40, height=40, dot_radius=5)
+    assert sum(1 for p in large.pixels if p) > sum(1 for p in small.pixels if p) > 0
+
+
+def test_a_stroke_of_one_point_still_marks_the_canvas():
+    single = Design(paths=(Path(((0.0, 0.0),)),))
+    assert sum(1 for p in rasterize(single, width=20, height=20).pixels if p) > 0
+
+
+def test_a_colour_outside_the_palette_falls_back_to_the_ink():
+    # Only reachable by passing a palette the design's styles are not in.
+    # Drawing in the default is better than dropping the stroke.
+    design = styled(BOX, stroke="#abcdef")
+    raster = rasterize(design, width=20, height=20, palette=("#fff", "#000"))
+    assert set(raster.pixels) == {0, 1}

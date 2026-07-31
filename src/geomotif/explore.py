@@ -8,8 +8,8 @@ slider and watching, and never by reading a default value.
 So: a page you can drag. It has no server, no build step and no JavaScript
 library -- every frame is **rendered ahead of time** by geomotif's own SVG
 writer and embedded in the document, and the sliders only choose which one is
-showing. That means the page works from a file:// URL, inside a zip, offline,
-forever::
+showing. That means the page works from a file:// URL, inside a zip, and with
+nothing installed and no network::
 
     geomotif explore rose fractal.dragon --out explore.html
     geomotif explore --family spiral --out spirals.html
@@ -18,7 +18,8 @@ forever::
 parameters would be a combinatorial explosion and a hundred-megabyte file, so
 each slider sweeps *its own* parameter with the others left at the motif's
 example values. The page says so; it is the honest limit of pre-rendering, and
-in exchange the whole thing is a single file that opens instantly.
+in exchange one motif is a few hundred kilobytes rather than the product of
+every slider's length. ``--samples`` trims a dense one further.
 
 Numbers and booleans get sliders. A parameter that is a point, a set of
 coordinates or another motif does not -- there is no single axis to drag it
@@ -45,7 +46,7 @@ if TYPE_CHECKING:
 __all__ = ["DEFAULT_SIZE", "DEFAULT_STEPS", "Sweep", "save_html", "sweeps_for", "to_html"]
 
 #: How many values a slider offers. Odd, so the motif's own example value sits
-#: exactly in the middle and the slider starts where the gallery left off.
+#: exactly in the middle and the page opens on the picture the gallery shows.
 DEFAULT_STEPS = 9
 
 #: Canvas for each frame, in SVG user units.
@@ -57,14 +58,14 @@ DEFAULT_SIZE = 340
 _SPREAD = 2.0
 
 #: Coordinate precision for an embedded frame. These are display sizes, so a
-#: second decimal is a hundredth of a pixel; dropping it takes a third off a
-#: page with three hundred frames in it.
+#: second decimal is a hundredth of a pixel, and a page holds a frame per step
+#: per parameter.
 _PRECISION = 1
 
-#: The largest frame worth embedding, in bytes. A depth parameter doubles the
-#: geometry every step, so the top of its slider is a megabyte of coordinates
-#: nobody can see the individual strokes of anyway. Dropping those frames keeps
-#: a page openable; the slider simply stops where the drawing stops being one.
+#: The largest frame worth embedding, in bytes. A depth parameter can double
+#: its geometry every step, so the top of that slider is a frame large enough
+#: to stop the page opening. Dropping those leaves the slider ending where the
+#: drawing does.
 _MAX_FRAME = 250_000
 
 
@@ -327,10 +328,14 @@ def _panel(info: MotifInfo, sweeps: Sequence[Sweep], *, size: int, shown: bool) 
         # they are numbers and booleans, the page has no other data, and an
         # attribute is one less thing that has to parse before anything works.
         values = html.escape(",".join(str(value) for value in sweep.values), quote=True)
+        # A boolean parameter's flag is --x or --no-x, never "--x False", which
+        # is what argparse's BooleanOptionalAction accepts and what the command
+        # line under the sliders therefore has to write.
+        boolean = " data-boolean" if all(isinstance(v, bool) for v in sweep.values) else ""
         parts.append(
             f"<label><span class=name>{parameter}</span>"
             f'<input type=range min=0 max="{len(sweep.values) - 1}" value="{sweep.start}" '
-            f'data-param="{parameter}" data-values="{values}">'
+            f'data-param="{parameter}" data-values="{values}"{boolean}>'
             f'<output data-for="{parameter}">{html.escape(str(sweep.values[sweep.start]))}</output>'
             "</label>"
         )
@@ -414,8 +419,10 @@ document.querySelector('nav button')?.classList.add('on');
 
 document.querySelectorAll('section.motif').forEach(function (section) {
   var values = {};
+  var booleans = {};
   section.querySelectorAll('input[type=range]').forEach(function (slider) {
     values[slider.dataset.param] = slider.dataset.values.split(',');
+    booleans[slider.dataset.param] = slider.dataset.boolean !== undefined;
   });
   var command = section.querySelector('pre.command');
 
@@ -425,9 +432,13 @@ document.querySelectorAll('section.motif').forEach(function (section) {
         'on', frame.dataset.param === param && Number(frame.dataset.index) === index
       );
     });
-    var flag = '--' + param.replace(/_/g, '-');
-    command.textContent =
-      'geomotif render ' + command.dataset.name + ' ' + flag + ' ' + values[param][index];
+    var name = param.replace(/_/g, '-');
+    var value = values[param][index];
+    // A boolean is --x or --no-x; everything else is --x value.
+    var flag = booleans[param]
+      ? (value === 'True' ? '--' + name : '--no-' + name)
+      : '--' + name + ' ' + value;
+    command.textContent = 'geomotif render ' + command.dataset.name + ' ' + flag;
   }
 
   section.querySelectorAll('input[type=range]').forEach(function (slider) {

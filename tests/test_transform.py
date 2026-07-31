@@ -295,6 +295,16 @@ def test_snap_rejects_an_unknown_mode():
         snap(UNIT, mode="nearest")  # type: ignore[arg-type]
 
 
+def test_every_mode_snap_modes_lists_is_one_snap_accepts():
+    # SNAP_MODES is what the command line offers and what the docs list, so a
+    # mode in it that snap refuses would be an offer nothing can take up.
+    from geomotif import SNAP_MODES
+
+    for mode in SNAP_MODES:
+        assert snap(UNIT, mode=mode).paths, mode
+    assert set(SNAP_MODES) == {"half-even", "half-up", "floor", "ceil", "trunc"}
+
+
 def test_snap_drops_the_points_a_coarse_grid_stacked_up():
     path = Path(((0.0, 0.0), (0.1, 0.1), (0.2, 0.2), (5.0, 5.0)))
     assert snap(Design((path,))).paths[0].points == ((0.0, 0.0), (5.0, 5.0))

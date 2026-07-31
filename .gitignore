@@ -21,8 +21,18 @@ htmlcov/
 .idea/
 .vscode/
 
-# Demo output
-spiral-demo.png
+# Output from running the README's and the guide's own examples in the
+# repository, which is a thing a reader does and should not have to undo.
+# Anchored to the root: docs/assets and docs/gallery hold committed SVGs, and
+# an unanchored rule would swallow them.
+/spiral-demo.png
+/*.html
+/*.gif
+/*.svg
+/*.dxf
+/*.png
+/*.csv
+/gallery/
 
 # Documentation regenerated from the code on every build by tools/gendocs.py.
 # docs/catalogue.md and docs/assets/ are deliberately *not* here: GitHub renders

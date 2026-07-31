@@ -132,7 +132,9 @@ def test_the_page_says_which_parameters_it_is_holding_still():
 def test_the_script_only_reaches_for_things_the_markup_has():
     # The page is generated in two halves that have to agree about their own
     # attribute names; nothing else would catch a rename of one of them.
-    markup = to_html(["rose", "circle"], steps=3)
+    # girih.hex-star is in the list for its boolean parameter, whose attribute
+    # only appears on a slider that has one.
+    markup = to_html(["rose", "circle", "girih.hex-star"], steps=3)
     for attribute in re.findall(r"dataset\.(\w+)", markup):
         kebab = "data-" + re.sub(r"(?<=[a-z])(?=[A-Z])", "-", attribute).lower()
         assert kebab in markup, f"the script reads {kebab}, which nothing writes"
@@ -168,3 +170,11 @@ def test_resampling_keeps_the_page_small():
     dense = len(to_html(["fractal.koch-snowflake"], steps=3))
     sparse = len(to_html(["fractal.koch-snowflake"], steps=3, samples=200))
     assert sparse < dense / 2
+
+
+def test_a_boolean_parameter_prints_the_flag_argparse_actually_takes():
+    # BooleanOptionalAction wants --clip or --no-clip; "--clip False" is an
+    # error, and the command line under the sliders is meant to be pasteable.
+    markup = to_html(["girih.hex-star"], steps=3)
+    assert 'data-param="clip" data-values="False,True" data-boolean' in markup
+    assert "'--' + name : '--no-' + name" in markup

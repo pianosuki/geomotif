@@ -113,6 +113,43 @@ def test_a_batch_of_lookups_on_a_zero_length_polyline_gives_its_one_place():
     assert table.points_at([0.0, 1.0, 2.0]) == ((3.0, 3.0),) * 3
 
 
+# --- segment ----------------------------------------------------------------
+
+
+def test_a_segment_keeps_the_vertices_between_its_ends_as_they_were():
+    # A piece of the polyline, not a resampling of one: the ends are exact and
+    # everything between them arrives at the resolution it was built at.
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (20.0, 10.0)))
+    assert table.segment(5.0, 25.0) == ((5.0, 0.0), (10.0, 0.0), (10.0, 10.0), (15.0, 10.0))
+
+
+def test_a_segment_spanning_everything_is_the_polyline_itself():
+    points = ((0.0, 0.0), (10.0, 0.0), (10.0, 10.0))
+    table = ArcTable(points)
+    assert table.segment(0.0, table.total) == points
+
+
+def test_a_segment_clamps_to_the_ends_rather_than_running_past_them():
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0)))
+    assert table.segment(-99.0, 999.0) == ((0.0, 0.0), (10.0, 0.0))
+
+
+def test_a_segment_given_its_ends_backwards_reads_them_the_right_way_round():
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0)))
+    assert table.segment(8.0, 2.0) == table.segment(2.0, 8.0)
+
+
+def test_a_segment_that_collapses_to_a_point_is_that_point():
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0)))
+    assert table.segment(4.0, 4.0) == ((4.0, 0.0),)
+
+
+def test_a_closed_polylines_segment_can_cross_the_seam():
+    square = ArcTable(((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)), closed=True)
+    assert square.total == pytest.approx(40.0)
+    assert square.segment(35.0, 40.0)[-1] == (0.0, 0.0)  # back round to the start
+
+
 def test_equal_spacing_is_equal_real_distance():
     # The crown jewel: on a curve whose radius is constant but sampled
     # unevenly in parameter, every gap must still come out the same.

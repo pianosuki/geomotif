@@ -41,8 +41,8 @@ test: ## Run the test suite
 	$(UV) run pytest
 
 .PHONY: test-cov
-test-cov: ## Run the test suite with a coverage report
-	$(UV) run pytest --cov=geomotif --cov-report=term-missing
+test-cov: ## Run the test suite with a coverage report, and the coverage gate
+	$(UV) run pytest --cov
 
 .PHONY: check
 check: lint format-check typecheck test ## Run all checks (lint, format-check, typecheck, test) -- what CI runs

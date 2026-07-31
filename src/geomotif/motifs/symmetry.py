@@ -47,43 +47,43 @@ __all__ = ["Connection", "SymmetricPointSet"]
 #: How the points are joined once they have been placed.
 type Connection = Literal["none", "nearest", "equal-distance", "all-pairs"]
 
-#: The values :data:`Connection` allows, as data, so ``__post_init__`` can
-#: refuse a bad one where every other parameter is refused rather than leaving
-#: it to surface from ``edges()`` much later.
+# The values Connection allows, as data, so __post_init__ can refuse a bad one
+# where every other parameter is refused rather than leaving it to surface from
+# edges() much later.
 _CONNECTIONS: tuple[str, ...] = get_args(Connection.__value__)
 
-#: What each orbit is free to move along. A ring orbit sits at a general
-#: position and may slide both outward and around; an axis orbit is pinned to a
-#: mirror line and may only slide outward, since leaving the line would break
-#: the very symmetry it was placed to satisfy; the centre cannot move at all.
+# What each orbit is free to move along. A ring orbit sits at a general
+# position and may slide both outward and around; an axis orbit is pinned to a
+# mirror line and may only slide outward, since leaving the line would break
+# the very symmetry it was placed to satisfy; the centre cannot move at all.
 type _Kind = Literal["centre", "ring", "axis"]
 
-#: How far a relaxation step moves a representative, as a fraction of the
-#: distance error it is correcting. Well under 1 so that neighbours converge
-#: together rather than overshooting each other turn about.
+# How far a relaxation step moves a representative, as a fraction of the
+# distance error it is correcting. Well under 1 so that neighbours converge
+# together rather than overshooting each other turn about.
 _RATE = 0.35
 
-#: The furthest one iteration may move a representative, as a fraction of the
-#: target distance. Small enough that neighbours cannot swap places between
-#: steps, which is what turns a relaxation into an oscillation.
+# The furthest one iteration may move a representative, as a fraction of the
+# target distance. Small enough that neighbours cannot swap places between
+# steps, which is what turns a relaxation into an oscillation.
 _MAX_STEP = 0.25
 
-#: How far away a neighbour can be and still pull, as a multiple of the target
-#: distance. Past it a pair is not neighbouring at all, and treating it as one
-#: would make every figure contract without limit -- see :func:`_force`.
+# How far away a neighbour can be and still pull, as a multiple of the target
+# distance. Past it a pair is not neighbouring at all -- see _force, which
+# explains what pulling on one anyway would do.
 _REACH = 1.5
 
-#: How close a ring orbit may drift to a mirror line, as a fraction of the
-#: sector it lives in. On the line its points would coincide in pairs and the
-#: distances between them would go to zero -- which the relaxation reads as
-#: every neighbour equally spaced, and stays in. The margin is what makes that
-#: minimum unreachable rather than merely unlikely.
+# How close a ring orbit may drift to a mirror line, as a fraction of the
+# sector it lives in. On the line its points would coincide in pairs and the
+# distances between them would go to zero -- which the relaxation reads as
+# every neighbour equally spaced, and stays in. The margin is what makes that
+# minimum unreachable rather than merely unlikely.
 _AXIS_MARGIN = 0.15
 
-#: How far a dihedral ring orbit is seeded from the middle of its wedge, as a
-#: fraction of the sector, alternating ring to ring. Comfortably inside
-#: :data:`_AXIS_MARGIN`, so no orbit begins against a wall it then has to be
-#: pushed away from.
+# How far a dihedral ring orbit is seeded from the middle of its wedge, as a
+# fraction of the sector, alternating ring to ring. Comfortably inside
+# :data:`_AXIS_MARGIN`, so no orbit begins against a wall it then has to be
+# pushed away from.
 _STAGGER = 0.15
 
 

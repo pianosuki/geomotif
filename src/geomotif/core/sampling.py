@@ -9,6 +9,11 @@ Because it operates on polylines rather than on any particular curve, every
 motif in the library -- including fractals, tilings and string art, which
 have no closed-form parametrization at all -- gets arc-length placement and
 the whole spacing-curve family for free.
+
+It is also plain Python on tuples of floats, deliberately. An array library
+was tried here and lost: converting a design costs more than a single pass
+over its vertices saves, and its hypot disagrees with :func:`math.dist` in the
+last bit, which would move every point this table places.
 """
 
 from __future__ import annotations
@@ -86,11 +91,13 @@ def _vertices(points: Sequence[Point], *, closed: bool) -> tuple[Point, ...]:
 
 
 class ArcTable:
-    """Cumulative-length table over a polyline, with O(log n) inverse lookup.
+    """Cumulative-length table over a polyline, and the inverse of it.
 
-    Building the table is O(n); every subsequent "where is the point at
-    distance d?" query is a binary search plus one linear interpolation. That
-    is what keeps resampling to thousands of points cheap.
+    Building the table is O(n). A lone "where is the point at distance d?"
+    costs a binary search and one linear interpolation; asking for a whole run
+    of increasing distances -- which is what resampling does -- walks the table
+    once between them all instead, so the run is linear in the *table* rather
+    than n log n. See :meth:`points_at`.
     """
 
     __slots__ = ("_cumulative", "_vertices")
@@ -99,10 +106,6 @@ class ArcTable:
         vertices = _vertices(points, closed=closed)
         if not vertices:
             raise ValueError("cannot measure an empty polyline")
-        # Measured with math.dist even where numpy is installed, and
-        # deliberately: an array conversion costs more than this single pass
-        # over the vertices saves, and numpy's hypot disagrees with math.dist
-        # in the last bit, which would move every point the table then places.
         cumulative = [0.0]
         for a, b in itertools.pairwise(vertices):
             cumulative.append(cumulative[-1] + math.dist(a, b))

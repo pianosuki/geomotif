@@ -100,6 +100,22 @@ testpaths = ["tests"]
 # from drifting away from the code.
 pythonpath = ["tools"]
 
+[tool.coverage.run]
+source = ["geomotif"]
+branch = true
+
+[tool.coverage.report]
+# A floor, not a target -- the suite sits well above it. It is here so that a
+# feature arriving with no tests shows up as a failure rather than as a number
+# nobody read.
+fail_under = 95
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
+
 [tool.ruff]
 # Pinned to the supported floor, not the newest interpreter, so a
 # 3.13-or-later idiom cannot slip in unnoticed.

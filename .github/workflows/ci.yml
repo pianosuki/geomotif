@@ -47,7 +47,10 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - run: pip install -e . --group dev
-      - run: pytest
+      # With coverage on one leg of the matrix only: the gate is about the
+      # code, not the interpreter, and measuring it nine times over says the
+      # same thing nine times more slowly.
+      - run: pytest ${{ matrix.python-version == '3.12' && runner.os == 'Linux' && '--cov' || '' }}
 
   bare:
     # The zero-dependency promise, checked rather than asserted: the core
