@@ -7,9 +7,14 @@ what you need to know before opening a pull request.
 
 ```bash
 git clone https://github.com/pianosuki/geomotif && cd geomotif
-pip install -e . --group dev    # or: uv sync --group dev
+make install                    # uv sync --group dev --group plotter
 make check                      # ruff, ruff-format, mypy strict, pytest
 ```
+
+Without `uv`, `pip install -e . --group dev --group plotter` is the same thing.
+The `plotter` group is only `vpype`, which four tests compare this library's
+pen-up optimizer against — they skip themselves without it, and a skipped test
+reads as a passing one.
 
 `make check` is exactly what CI runs. It must pass before a pull request is
 reviewed, and `make fix` applies everything ruff can fix on its own.

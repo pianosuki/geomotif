@@ -11,7 +11,10 @@ help: ## Show this help
 
 .PHONY: install
 install: ## Install/sync the dev environment (creates .venv via uv)
-	$(UV) sync --group dev
+	@# The plotter group as well as dev: without vpype the four tests that
+	@# check this optimizer against vpype's skip themselves, and a skipped
+	@# test reads as a passing one.
+	$(UV) sync --group dev --group plotter
 
 .PHONY: lint
 lint: ## Lint the code with ruff

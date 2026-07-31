@@ -57,6 +57,17 @@ dev = [
     "ruff>=0.16",
     "mypy>=1.14",
 ]
+plotter = [
+    # vpype is not a dependency of anything here -- geomotif.io.plotter imports
+    # it behind a guard -- but the plotter tests measure this optimizer against
+    # vpype's own linemerge/linesort and read the plotter SVG back with vpype's
+    # reader. Without it installed somewhere those tests silently skip, and the
+    # changelog's claim that they run would be true only of the source.
+    #
+    # Its own group rather than dev: it brings numpy, shapely and click, and
+    # nine of the ten CI jobs have no use for any of them.
+    "vpype>=1.14",
+]
 docs = [
     # Pinned below 2.0 deliberately. MkDocs 2.0 removes the plugin system
     # outright -- mkdocstrings, literate-nav and the Material theme all stop
