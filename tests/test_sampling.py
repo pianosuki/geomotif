@@ -1,5 +1,6 @@
 import itertools
 import math
+import random
 
 import pytest
 
@@ -76,6 +77,40 @@ def test_arc_table_handles_zero_length():
 def test_arc_table_rejects_empty_input():
     with pytest.raises(ValueError):
         ArcTable(())
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        "increasing",  # what resampling actually asks for, and the fast case
+        "decreasing",  # the walk has to seek backwards rather than run off
+        "shuffled",  # no order at all: still every answer, still in place
+    ],
+)
+def test_a_batch_of_lookups_answers_exactly_as_one_at_a_time_would(order):
+    # points_at walks the table once for a run of ordered distances instead of
+    # bisecting it per distance. That is only allowed to be faster, never
+    # different -- including to the last bit, since a resampled design's
+    # coordinates are compared against goldens elsewhere.
+    table = ArcTable(circle().points)
+    wanted = [i * table.total / 400 for i in range(401)]
+    match order:
+        case "decreasing":
+            wanted.reverse()
+        case "shuffled":
+            wanted = random.Random(7).sample(wanted, len(wanted))
+    assert table.points_at(wanted) == tuple(table.point_at(d) for d in wanted)
+
+
+def test_a_batch_of_lookups_clamps_and_interpolates_like_a_single_one():
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0)))
+    assert table.points_at([-5.0, 2.5, 999.0]) == ((0.0, 0.0), (2.5, 0.0), (10.0, 0.0))
+    assert table.points_at_fractions([0.0, 0.5, 1.0]) == ((0.0, 0.0), (5.0, 0.0), (10.0, 0.0))
+
+
+def test_a_batch_of_lookups_on_a_zero_length_polyline_gives_its_one_place():
+    table = ArcTable(((3.0, 3.0), (3.0, 3.0)))
+    assert table.points_at([0.0, 1.0, 2.0]) == ((3.0, 3.0),) * 3
 
 
 def test_equal_spacing_is_equal_real_distance():

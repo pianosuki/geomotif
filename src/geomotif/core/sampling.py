@@ -23,7 +23,7 @@ from .spacing import coerce_spacing
 from .types import Design, Path, select_styles
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
     from .motif import Distribution
     from .spacing import SpacingLike
@@ -99,6 +99,10 @@ class ArcTable:
         vertices = _vertices(points, closed=closed)
         if not vertices:
             raise ValueError("cannot measure an empty polyline")
+        # Measured with math.dist even where numpy is installed, and
+        # deliberately: an array conversion costs more than this single pass
+        # over the vertices saves, and numpy's hypot disagrees with math.dist
+        # in the last bit, which would move every point the table then places.
         cumulative = [0.0]
         for a, b in itertools.pairwise(vertices):
             cumulative.append(cumulative[-1] + math.dist(a, b))
@@ -141,6 +145,54 @@ class ArcTable:
     def point_at_fraction(self, s: float) -> Point:
         """Return the point at fraction ``s`` of the total length."""
         return self.point_at(s * self._cumulative[-1])
+
+    def points_at(self, distances: Iterable[float]) -> tuple[Point, ...]:
+        """Return the point at each distance, in the order they were asked for.
+
+        Exactly what calling :meth:`point_at` on each in turn returns, and
+        several times faster for the run of lookups that resampling actually
+        performs. Those arrive in increasing order, so the segment holding one
+        is at or after the segment that held the last, and the whole run walks
+        the table once between them instead of binary-searching all of it every
+        time.
+
+        Order is exploited, never assumed: a distance that goes backwards seeks
+        again, so this has no precondition to get wrong and no fast and slow
+        version to keep in agreement.
+        """
+        cumulative = self._cumulative
+        vertices = self._vertices
+        total = cumulative[-1]
+        first, final = vertices[0], vertices[-1]
+        if total == 0.0:
+            return tuple(first for _ in distances)
+
+        limit = len(cumulative) - 1
+        placed: list[Point] = []
+        segment = 1
+        for distance in distances:
+            if distance <= 0.0:
+                placed.append(first)
+                continue
+            if distance >= total:
+                placed.append(final)
+                continue
+            if distance < cumulative[segment - 1]:
+                segment = max(bisect.bisect_left(cumulative, distance), 1)
+            while segment < limit and cumulative[segment] < distance:
+                segment += 1
+            start = cumulative[segment - 1]
+            span = cumulative[segment] - start
+            ax, ay = vertices[segment - 1]
+            bx, by = vertices[segment]
+            frac = 0.0 if span == 0.0 else (distance - start) / span
+            placed.append((ax + (bx - ax) * frac, ay + (by - ay) * frac))
+        return tuple(placed)
+
+    def points_at_fractions(self, fractions: Iterable[float]) -> tuple[Point, ...]:
+        """Return the point at each fraction of the total length."""
+        total = self._cumulative[-1]
+        return self.points_at([s * total for s in fractions])
 
 
 def _lerp(a: Point, b: Point, t: float) -> Point:
@@ -231,7 +283,7 @@ def resample_path(
         if table.total == 0.0:
             return replace(path, points=(path.points[0],))
         howmany = int(table.total // step) + 1
-        return replace(path, points=tuple(table.point_at(i * step) for i in range(howmany)))
+        return replace(path, points=table.points_at([i * step for i in range(howmany)]))
 
     # The exclusivity check above already guarantees this, but it is not a
     # narrowing the type checker can follow, so restate it.
@@ -251,7 +303,7 @@ def resample_path(
         # Every vertex is the same place: emit that place, count times, rather
         # than failing. Degenerate input should degrade, not raise.
         return replace(path, points=(path.points[0],) * count)
-    return replace(path, points=tuple(table.point_at_fraction(s) for s in fractions))
+    return replace(path, points=table.points_at_fractions(fractions))
 
 
 def _allocate(count: int, lengths: Sequence[float]) -> list[int]:

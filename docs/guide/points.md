@@ -51,6 +51,14 @@ Because step 2 only ever sees a list of points, every motif gets this for free â
 including your own, and including motifs whose geometry arrived from an
 algorithm rather than an equation.
 
+Step 3 is where the time goes, and resampling asks for a whole run of distances
+at once â€” in increasing order, because that is what walking along a curve means.
+[`ArcTable.points_at`][geomotif.core.sampling.ArcTable.points_at] takes the run
+rather than one distance at a time and walks the table once between them all,
+which is where most of the cost of a large resample went. Order is exploited but
+never assumed: a distance that goes backwards seeks again, so the answers are
+identical to calling `point_at` in a loop, to the last bit.
+
 !!! note "The one place the two measures visibly differ"
 
     Spacing is measured *along the curve*. When the gaps are small relative to

@@ -41,8 +41,26 @@ history reads honestly.
   `"equal-distance"`, which draws the edges the relaxation was equalizing.
   Marked **experimental**; see the API policy.
 
+- **`ArcTable.points_at` / `points_at_fractions`** — batch inverse lookup.
+  Resampling asks for a run of distances in increasing order, so the run walks
+  the cumulative table once between them all instead of binary-searching the
+  whole of it per point. Order is exploited but never assumed: a distance that
+  goes backwards seeks again, so the answers are identical to `point_at` in a
+  loop, bit for bit.
+
 ### Changed
 
+- Resampling a large design is about 1.4x faster (200k points off a
+  100k-vertex polyline: 355ms to 248ms), with byte-identical output.
+
+  A numpy fast path was written and measured first, per the original plan, and
+  then deleted: with `Point` being a tuple of Python floats, `np.asarray` on a
+  200k-point design costs more (44ms) than the entire pure-Python loop it was
+  meant to replace, and numpy lost on transforms, bounds and length outright.
+  It won only on the inverse lookup — and the ordered walk that shipped instead
+  beats it there too, 67ms against 104ms, with no dependency. The core stays
+  zero-dependency because that turned out to be the faster answer as well as
+  the simpler one.
 - The API policy now defines what **experimental** means and lists what
   carries the label.
 
