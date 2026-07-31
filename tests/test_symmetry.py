@@ -134,6 +134,31 @@ def test_relaxing_further_does_not_undo_the_answer():
     assert spread(points(count=15, group="D5", relax=2000)) == pytest.approx(1.0, abs=1e-6)
 
 
+@pytest.mark.parametrize(
+    ("count", "group"),
+    [(13, "D4"), (17, "D4"), (29, "D4"), (16, "D5"), (41, "D5"), (8, "D2"), (48, "D6")],
+)
+def test_the_counts_that_used_to_fold_onto_a_mirror_line(count, group):
+    # Named individually as well as swept, because each is a count with a
+    # centre point or a second ring -- the shapes that put a ring orbit next
+    # to a mirror line and gave the relaxation somewhere degenerate to settle.
+    assert spread(points(count=count, group=group)) < 2.0
+
+
+def test_a_connect_rule_that_is_not_one_is_refused_at_construction():
+    # Where every other parameter is refused, rather than surfacing from
+    # edges() long after the motif was accepted and written to a spec.
+    with pytest.raises(ValueError, match="connect must be one of"):
+        SymmetricPointSet(connect="bogus")  # type: ignore[arg-type]
+
+
+def test_a_centre_given_as_a_list_is_taken_as_a_point():
+    # The solver is memoized on its arguments, so an unhashable centre used to
+    # arrive as a TypeError naming neither the motif nor the parameter.
+    assert SymmetricPointSet(center=[3.0, 4.0]).center == (3.0, 4.0)  # type: ignore[arg-type]
+    assert len(SymmetricPointSet(center=[3.0, 4.0]).build().points) == 15  # type: ignore[arg-type]
+
+
 def test_the_same_parameters_always_give_the_same_points():
     # No random numbers anywhere: symmetry comes from construction and spacing
     # from a deterministic relaxation, so this needs no seed to be reproducible.
@@ -145,6 +170,32 @@ def test_no_two_points_land_on_top_of_each_other():
         pts = points(count=count, group=group)
         assert min(nearest_distances(pts)) > 0.0
         assert len(set(pts)) == count
+
+
+@pytest.mark.parametrize("group", ["C2", "C3", "C4", "C5", "C6", "C8", "D2", "D3", "D4", "D5"])
+def test_no_count_the_group_accepts_collapses(group):
+    """Every arrangement it agrees to build is one you could actually draw.
+
+    The relaxation only ever measures distances *between* neighbours, so a
+    figure whose points have all crowded together scores as perfectly even.
+    Under a dihedral group there is a way in: a ring orbit reaching a mirror
+    line, where its points meet their own reflections in pairs. Five counts
+    used to end up there, and the seeded angles walked straight into it.
+    """
+    radius = 120.0
+    # Up to 42 rather than further: past it the low-order groups are all the
+    # same shape with another ring on it, and the sweep costs more than it
+    # finds. Every count that ever collapsed is inside this range.
+    for count in range(2, 43):
+        try:
+            pts = points(count=count, group=group, radius=radius)
+        except ValueError:
+            continue  # a count this group cannot arrange at all, which is fine
+        # Points spread over a disc of this radius sit roughly this far apart;
+        # an eighth of that is far below anything an arrangement produces and
+        # far above anything a collapse does.
+        floor = 0.12 * 2.0 * radius / math.sqrt(count)
+        assert min(nearest_distances(pts)) > floor, f"{group}, {count} points collapsed"
 
 
 # --- joining them up --------------------------------------------------------

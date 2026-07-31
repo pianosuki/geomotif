@@ -32,7 +32,7 @@ import math
 from dataclasses import dataclass, field
 from functools import lru_cache
 from itertools import combinations
-from typing import TYPE_CHECKING, Literal, override
+from typing import TYPE_CHECKING, Literal, get_args, override
 
 from ..bases import SegmentMotif
 from ..core.registry import register
@@ -46,6 +46,11 @@ __all__ = ["Connection", "SymmetricPointSet"]
 
 #: How the points are joined once they have been placed.
 type Connection = Literal["none", "nearest", "equal-distance", "all-pairs"]
+
+#: The values :data:`Connection` allows, as data, so ``__post_init__`` can
+#: refuse a bad one where every other parameter is refused rather than leaving
+#: it to surface from ``edges()`` much later.
+_CONNECTIONS: tuple[str, ...] = get_args(Connection.__value__)
 
 #: What each orbit is free to move along. A ring orbit sits at a general
 #: position and may slide both outward and around; an axis orbit is pinned to a
@@ -70,8 +75,16 @@ _REACH = 1.5
 
 #: How close a ring orbit may drift to a mirror line, as a fraction of the
 #: sector it lives in. On the line its points would coincide in pairs and the
-#: distances between them would go to zero.
-_AXIS_MARGIN = 0.02
+#: distances between them would go to zero -- which the relaxation reads as
+#: every neighbour equally spaced, and stays in. The margin is what makes that
+#: minimum unreachable rather than merely unlikely.
+_AXIS_MARGIN = 0.15
+
+#: How far a dihedral ring orbit is seeded from the middle of its wedge, as a
+#: fraction of the sector, alternating ring to ring. Comfortably inside
+#: :data:`_AXIS_MARGIN`, so no orbit begins against a wall it then has to be
+#: pushed away from.
+_STAGGER = 0.15
 
 
 @register(
@@ -99,6 +112,13 @@ class SymmetricPointSet(SegmentMotif):
     group replicates whatever it does. Because only representatives move, the
     figure cannot drift off its symmetry, and no random numbers are involved
     anywhere -- the same parameters always give the same points.
+
+    The relaxation is local, so it finds an even arrangement rather than
+    proving one. Most counts come out exactly equal; a few settle for a figure
+    that is well spread but not uniform, usually where two orbits of the same
+    size want the same radius. Raising ``relax`` does not rescue those -- they
+    are settled, not unfinished. This is the part of the motif that is still
+    experimental.
 
     Parameters
     ----------
@@ -151,6 +171,10 @@ class SymmetricPointSet(SegmentMotif):
 
     def __post_init__(self) -> None:
         name = type(self).__name__
+        # Normalized rather than merely checked: the solver is memoized on its
+        # arguments, and a list here would reach the cache as an unhashable
+        # TypeError naming neither this motif nor this parameter.
+        object.__setattr__(self, "center", (float(self.center[0]), float(self.center[1])))
         order, _ = _parse_group(self.group, owner=name)
         if self.count < 1:
             raise ValueError(f"{name}: needs at least one point, got {self.count}")
@@ -169,6 +193,8 @@ class SymmetricPointSet(SegmentMotif):
             raise ValueError(f"{name}: neighbors must be >= 1, got {self.neighbors}")
         if self.tolerance < 0.0:
             raise ValueError(f"{name}: tolerance must be >= 0, got {self.tolerance}")
+        if self.connect not in _CONNECTIONS:
+            raise ValueError(f"{name}: connect must be one of {_CONNECTIONS}, got {self.connect!r}")
         if self.connect == "none" and not self.show_nodes:
             raise ValueError(
                 f"{name}: connect='none' draws no edges and show_nodes=False draws no "
@@ -317,6 +343,14 @@ def _seed(
 
     A stagger costs nothing and gives the relaxation a better place to start
     than a set of rings whose points all line up along the same spokes.
+
+    Where the stagger goes depends on the group. A cyclic sector wraps, so any
+    offset is as good as any other. A dihedral one is walled by mirror lines,
+    and an orbit *on* a wall has its points coincide in mirrored pairs -- a
+    figure whose nearest-neighbour distances are all equal and all nearly zero,
+    which the relaxation scores as a perfect answer and settles into. So the
+    dihedral stagger stays inside the wedge rather than reaching the far edge
+    of it.
     """
     rings = [i for i, kind in enumerate(kinds) if kind != "centre"]
     radii = [0.0] * len(kinds)
@@ -325,9 +359,8 @@ def _seed(
     for place, index in enumerate(rings):
         radii[index] = radius * (place + 1) / len(rings)
         if kinds[index] == "ring":
-            # Half a sector along, so a dihedral orbit starts as far from
-            # either mirror line as it can, then staggered ring to ring.
-            angles[index] = sector * (0.5 + 0.5 * (place % 2))
+            offset = _STAGGER if place % 2 else -_STAGGER
+            angles[index] = sector * (0.5 + offset) if dihedral else sector * 0.5 * (place % 2)
     return radii, angles
 
 
