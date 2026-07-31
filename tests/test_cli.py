@@ -113,6 +113,25 @@ def test_the_frame_rate_reaches_the_file(capsys, tmp_path):
     assert gif(out.read_bytes()).frames[0].delay == 10
 
 
+def test_paper_writes_an_svg_in_real_millimetres(capsys, tmp_path):
+    out = tmp_path / "rose.svg"
+    run(capsys, "render", "rose", "--out", str(out), "--paper", "a5")
+    assert svg_root(out.read_text()).get("width") == "148mm"
+
+
+def test_paper_can_be_turned_on_its_side(capsys, tmp_path):
+    out = tmp_path / "rose.svg"
+    run(capsys, "render", "rose", "--out", str(out), "--paper", "a5", "--landscape")
+    assert svg_root(out.read_text()).get("width") == "210mm"
+
+
+def test_optimize_joins_the_strokes_up(capsys, tmp_path):
+    plain, tidied = tmp_path / "a.svg", tmp_path / "b.svg"
+    run(capsys, "render", "tiling.truchet", "--out", str(plain))
+    run(capsys, "render", "tiling.truchet", "--out", str(tidied), "--optimize")
+    assert len(svg_strokes(tidied.read_text())) < len(svg_strokes(plain.read_text()))
+
+
 def test_render_writes_a_design_file(capsys, tmp_path):
     out = tmp_path / "rose.json"
     run(capsys, "render", "rose", "--out", str(out))

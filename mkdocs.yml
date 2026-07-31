@@ -115,6 +115,7 @@ nav:
       - guide/style.md
       - guide/export.md
       - guide/animation.md
+      - guide/plotter.md
       - guide/plotting.md
       - guide/cli.md
   - Extending:

@@ -155,7 +155,9 @@ warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["matplotlib.*", "scipy.*"]
+# vpype is not a dependency at all -- it is imported behind a guard by
+# geomotif.io.plotter and is only present on a machine that plots.
+module = ["matplotlib.*", "scipy.*", "vpype.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

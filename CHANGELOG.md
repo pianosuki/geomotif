@@ -64,6 +64,24 @@ history reads honestly.
 - `ArcTable.segment` — the part of a polyline between two distances, with the
   ends interpolated and every vertex between them kept.
 
+- **Plotter output** (`geomotif.io.plotter`) — `to_plotter_svg` and
+  `save_plotter_svg` write a design at a named paper size in real millimetres
+  (`width="210mm"`, not `width="210"`), with `PAPER`, `page_size` and
+  `on_page` behind them. `optimize` joins strokes whose ends meet and then
+  orders them so the pen travels as little as possible between them, and
+  `pen_up_distance` measures the difference: a Truchet tiling goes from 72
+  strokes and 2742 units of pen-up travel to 13 and 533. Neither pass ever
+  crosses a layer, since strokes on different layers are drawn by different
+  pens, and neither changes the ink.
+- **`to_vpype`** — hands a design to [vpype](https://vpype.readthedocs.io/)
+  directly, one vpype layer per style layer, named and page-sized. `vpype` is
+  not a dependency; the import is guarded and says how to install it. The test
+  suite compares `optimize` against `vpype linemerge linesort` over the same
+  design, and reads geomotif's own plotter SVG back with `vpype`'s reader.
+- `to_svg(..., units="mm")` — a physical unit for the document's `width` and
+  `height`, with the `viewBox` left in plain numbers.
+- `geomotif render NAME --out x.svg --paper a4 [--landscape] [--optimize]`.
+
 ### Changed
 
 - Resampling a large design is about 1.4x faster (200k points off a

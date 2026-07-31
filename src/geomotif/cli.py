@@ -9,6 +9,7 @@ Pure :mod:`argparse`, so the zero-dependency core stays that way::
     geomotif render spiral.golden --samples 300 --ease power:2.5 --out s.csv
     geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
     geomotif render fractal.hilbert --out h.gif --motion draw-on --frames 60
+    geomotif render mandala --out m.svg --paper a4 --optimize    # for a plotter
     geomotif render --spec my-design.json --out out.svg
     geomotif gallery --out docs/gallery
     geomotif demo
@@ -58,6 +59,7 @@ from .core.spacing import (
 )
 from .core.types import Bounds
 from .io import load_spec, save_design, save_dxf, save_gif, save_svg, to_spec
+from .io.plotter import PAPER, optimize, save_plotter_svg
 
 # Imported rather than repeated: "0 or negative writes whole integers" is part
 # of the export contract, and two copies of it would eventually disagree.
@@ -83,8 +85,11 @@ RESERVED = frozenset(
         "fit",
         "fps",
         "frames",
+        "landscape",
         "motion",
+        "optimize",
         "out",
+        "paper",
         "precision",
         "samples",
         "spec",
@@ -201,6 +206,17 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     render.add_argument("--motion", choices=MOTIONS, default="draw-on", help="how a .gif animates")
     render.add_argument("--frames", type=int, default=48, metavar="N", help="frames in a .gif")
     render.add_argument("--fps", type=float, default=20.0, metavar="X", help="a .gif's frame rate")
+    render.add_argument(
+        "--paper",
+        choices=sorted(PAPER),
+        help="write a .svg at this paper size, in real millimetres, for a plotter",
+    )
+    render.add_argument("--landscape", action="store_true", help="turn --paper on its side")
+    render.add_argument(
+        "--optimize",
+        action="store_true",
+        help="join strokes that meet and order them so the pen travels less",
+    )
     render.add_argument("--precision", type=int, metavar="N", help="decimal places to write")
     render.add_argument("--title", help="title for the SVG document or the figure")
     render.add_argument("--out", type=pathlib.Path, help=f"output file; {sorted(_WRITERS)}")
@@ -280,6 +296,8 @@ def _render(args: argparse.Namespace) -> int:
     """Build one motif and write it wherever ``--out`` says."""
     motif = _motif_from(args)
     design = _sample(motif, args)
+    if args.optimize:
+        design = optimize(design)
     if args.fit is not None:
         design = design.fit(*args.fit)
     if args.out is None:
@@ -581,6 +599,15 @@ def _write(design: Design, target: pathlib.Path, args: argparse.Namespace) -> No
             f"do not know how to write {target.suffix!r}; expected one of {sorted(_WRITERS)}"
         )
     match kind:
+        case "svg" if args.paper is not None:
+            save_plotter_svg(
+                design,
+                target,
+                paper=args.paper,
+                landscape=args.landscape,
+                precision=3 if args.precision is None else args.precision,
+                title=args.title,
+            )
         case "svg":
             precision = 3 if args.precision is None else args.precision
             save_svg(design, target, precision=precision, title=args.title)

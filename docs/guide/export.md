@@ -158,5 +158,7 @@ name rather than writing a file that will not load.
 - Putting it on a web page or into an editor → `save_svg`.
 - Showing how it is drawn rather than what it is → `save_gif`, and
   [Animation](animation.md).
+- Actually plotting it → `save_plotter_svg`, and
+  [Plotting it for real](plotter.md).
 - Saving your *work*, so you can change your mind about the resolution later →
   `save_spec`. It is the only one that is still useful after you have edited it.

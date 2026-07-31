@@ -86,6 +86,7 @@ def to_svg(
     precision: int = 3,
     group_by_path: bool = True,
     title: str | None = None,
+    units: str = "",
 ) -> str:
     """Render a design as an SVG document.
 
@@ -124,6 +125,12 @@ def to_svg(
     title : str, optional
         The document's ``<title>``. Defaults to the motif recorded in the
         design's metadata, which is what makes a gallery file self-labelling.
+    units : str, optional
+        A physical unit -- ``"mm"``, ``"in"``, ``"pt"`` -- for the document's
+        ``width`` and ``height``. The ``viewBox`` stays in plain numbers, so
+        one user unit becomes one of these and the drawing has a real size on
+        paper. Empty by default, which leaves the size in user units and is
+        what anything on a screen wants. See :mod:`geomotif.io.plotter`.
 
     Returns
     -------
@@ -156,8 +163,8 @@ def to_svg(
         namespaces += f' xmlns:inkscape="{INKSCAPE_NS}"'
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
-        f'<svg {namespaces} width="{num(canvas_w)}" '
-        f'height="{num(canvas_h)}" viewBox="0 0 {num(canvas_w)} {num(canvas_h)}">',
+        f'<svg {namespaces} width="{num(canvas_w)}{units}" '
+        f'height="{num(canvas_h)}{units}" viewBox="0 0 {num(canvas_w)} {num(canvas_h)}">',
     ]
 
     label = title if title is not None else str(design.meta.get(NAME_KEY, "") or "")

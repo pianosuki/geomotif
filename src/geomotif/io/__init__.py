@@ -23,6 +23,10 @@ GIF is the odd one out and the only raster format here: it is what an
 animation from :mod:`geomotif.animate` is written as, since a moving picture
 has no vector form that plays everywhere.
 
+:mod:`geomotif.io.plotter` is the SVG writer again with a pen plotter in mind:
+real millimetres on a named sheet of paper, and a pass that joins strokes up
+and orders them so the pen wastes less time in the air.
+
 Every writer here is pure standard library, so the zero-dependency core stays
 zero-dependency all the way out to the file -- LZW compression, colour tables
 and all.
@@ -30,6 +34,7 @@ and all.
 
 from .dxf import save_dxf, to_dxf
 from .gif import save_gif, to_gif
+from .plotter import save_plotter_svg, to_plotter_svg
 from .points import PointFormat, load_design, save_design, save_points
 from .raster import Raster, rasterize
 from .spec import from_spec, load_spec, save_spec, to_spec
@@ -45,11 +50,13 @@ __all__ = [
     "save_design",
     "save_dxf",
     "save_gif",
+    "save_plotter_svg",
     "save_points",
     "save_spec",
     "save_svg",
     "to_dxf",
     "to_gif",
+    "to_plotter_svg",
     "to_spec",
     "to_svg",
 ]

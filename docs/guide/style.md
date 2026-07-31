@@ -115,4 +115,5 @@ called `path-style`, so a motif's own parameters can never collide with them.
 
 Layers are what the plotter helpers work in terms of: `optimize` sorts and
 merges strokes within each layer and never across them, and `to_plotter_svg`
-writes the whole thing at a physical paper size in millimetres.
+writes the whole thing at a physical paper size in millimetres. See
+[Plotting it for real](plotter.md).
