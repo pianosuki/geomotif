@@ -24,11 +24,84 @@ save_points(design, "points.json", precision=2)  # JSON array of [x, y] pairs
 
 The format comes from the file suffix (`.csv`, `.txt`/`.tsv`, `.json`) or from
 `fmt=`. `precision` rounds; `precision=0` writes whole integers rather than
-`1.0`.
+`1.0`, and each step below that rounds to tens, hundreds and so on.
 
 `save_points` flattens everything into one list, which is exactly right when
 the destination only wants coordinates — a spreadsheet, a game map, a particle
 system.
+
+## Snapping to a grid
+
+`precision` rounds the **file**. Each writer has its own, they do not have to
+agree, and the design in memory still holds every digit — so a plot of it is
+not quite the thing you exported.
+
+[`Design.snapped`][geomotif.core.types.Design.snapped] rounds the **design**
+instead. Do it once, and every writer, the plot and the gallery all show the
+same numbers:
+
+```python
+aligned = design.snapped()  # nearest whole unit
+half_mm = design.snapped(0.5)  # a grid no number of decimals can express
+lattice = design.snapped(5.0, mode="half-up")
+```
+
+Three things it does that `precision` cannot.
+
+**Any grid, not only powers of ten.** Decimal places give you ones, tenths and
+hundredths. `snapped(0.5)`, `snapped(0.25)` and `snapped(5.0)` are the asks
+that actually turn up — half-millimetre plotter steps, a pegboard, a tile size.
+
+**A rounding rule you chose.** The default `half-even` is what Python's `round`
+and therefore `precision` have always done: a coordinate exactly halfway goes
+to the *even* neighbour, so a long list of halves does not drift upward.
+`half-up` sends it away from zero instead, which is the rounding most people
+were taught. `floor`, `ceil` and `trunc` always go the same way, for a
+one-sided tolerance.
+
+!!! note "`half-up` means away from zero"
+
+    Not toward +∞. A design and its mirror image have to snap to mirror-image
+    grids, and the toward-+∞ reading would shift one of the two by a whole step
+    at every halfway point.
+
+**Somewhere to put the collapsed points.** A coarse grid lands neighbouring
+points on top of each other, and those are zero-length segments: no ink, and a
+pen-down/pen-up the plotter spends time on anyway. `snapped` drops them, along
+with any stroke left with fewer than two points, and carries each surviving
+stroke's style across with it. Pass `drop_duplicates=False` to keep the point
+count exactly as it was — what a fixed-size buffer or a per-point parallel
+array needs:
+
+```python
+design.snapped(10.0)  # 200 points in, maybe 52 out
+design.snapped(10.0, drop_duplicates=False)  # 200 in, 200 out, some identical
+```
+
+Only *consecutive* repeats go. A point landing on an earlier, non-adjacent
+point of the same stroke is a crossing rather than a redundancy — a figure
+eight on a coarse grid still has to go round both loops.
+
+`snapped` puts the points on the grid; `precision=0` writes them as `3` rather
+than `3.0`. Use both:
+
+```python
+save_points(design.snapped(), "points.csv", precision=0)
+save_points(design.snapped(0.5), "points.csv", precision=1)
+```
+
+!!! warning "Snapping and arc-length spacing pull against each other"
+
+    Equal spacing here means equal *real* distance, and a grid does not care.
+    Points an equal distance apart come out equal only to within half a step.
+    Snap **after** resampling, and keep the step well under the spacing if the
+    evenness is what you were there for.
+
+    The picture writers have their own version of this: both `to_svg` and
+    `save_plotter_svg` fit the design into the canvas as they write, so they
+    rescale a snapped design and the grid does not survive into the file. Snap
+    is exact for `save_points`, `save_design`, the CLI's stdout, and DXF —
+    which writes the design's own coordinates untouched.
 
 ## Coordinates with the strokes kept apart
 

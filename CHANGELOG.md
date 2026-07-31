@@ -93,6 +93,24 @@ history reads honestly.
   reported, and a parameter with no single axis to drag along — a point, a set
   of coordinates, another motif — is listed on the page as held still.
 
+- **Snapping to a grid** — `snap` (`geomotif.core.transform`) and
+  `Design.snapped`, which round the *design* rather than each file as it is
+  written, so every writer, the plot and the gallery agree on the numbers.
+  Three things a writer's `precision=` cannot do: any grid rather than only
+  powers of ten (`snapped(0.5)`, `snapped(5.0)`); a choice of rounding rule
+  (`half-even`, the default and what `precision=` has always done, then
+  `half-up`, `floor`, `ceil`, `trunc`, listed in `SNAP_MODES`); and somewhere
+  to put the points a coarse grid lands on top of each other. Those are
+  zero-length segments — no ink, and a pen-down/pen-up the plotter spends time
+  on regardless — so they are dropped by default, along with any stroke left
+  with fewer than two points, with each surviving stroke's style carried
+  across. `drop_duplicates=False` keeps the point count exactly as it was, for
+  a caller feeding a fixed-size buffer or a per-point parallel array.
+  `half-up` rounds *away from zero* rather than toward +∞, so a design and its
+  mirror image snap to mirror-image grids.
+- `geomotif render NAME --snap STEP [--snap-mode MODE] [--keep-duplicates]`,
+  applied after `--fit` so the grid is the one the file is written on.
+
 ### Changed
 
 - Resampling a large design is about 1.4x faster (200k points off a
@@ -108,6 +126,10 @@ history reads honestly.
   the simpler one.
 - The API policy now defines what **experimental** means and lists what
   carries the label.
+- `save_points` and `save_design` now document what a negative `precision`
+  actually does — round to tens, hundreds and so on, rather than merely
+  "write whole integers" — and it is pinned by a test rather than left as an
+  accident of `round`. The behaviour is unchanged.
 
 ## [1.0.0] — 2026-07-27
 

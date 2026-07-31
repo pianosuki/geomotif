@@ -24,7 +24,9 @@ from .spacing import (
     coerce_spacing,
 )
 from .transform import (
+    SNAP_MODES,
     Affine,
+    SnapMode,
     clip_to,
     fit_to,
     jitter,
@@ -32,6 +34,7 @@ from .transform import (
     mirror_axis,
     offset_path,
     radial_repeat,
+    snap,
     symmetry_group,
     tile,
 )
@@ -39,6 +42,7 @@ from .types import EMPTY_META, Bounds, Design, Path, Point
 
 __all__ = [
     "EMPTY_META",
+    "SNAP_MODES",
     "Affine",
     "ArcTable",
     "Bounds",
@@ -59,6 +63,7 @@ __all__ = [
     "ReversedSpacing",
     "SineSpacing",
     "SmoothstepSpacing",
+    "SnapMode",
     "SpacingCurve",
     "SpacingLike",
     "SupportsBuild",
@@ -75,6 +80,7 @@ __all__ = [
     "resample",
     "resample_path",
     "samples_for_turns",
+    "snap",
     "symmetry_group",
     "tile",
 ]

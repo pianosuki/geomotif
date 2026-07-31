@@ -67,8 +67,14 @@ def save_points(
         * ``txt``  -- one tab-separated ``x<TAB>y`` line per point, no header
         * ``json`` -- a JSON array of ``[x, y]`` pairs
     precision : int, optional
-        Round coordinates to this many decimal places; ``0`` (or negative)
-        writes whole integers. Default keeps full float precision.
+        Round coordinates to this many decimal places. ``0`` and below write
+        whole integers, each further step back rounding to tens, hundreds and
+        so on. Default keeps full float precision.
+
+        This rounds the *file* rather than the design, so it says nothing about
+        what the other writers do with the same points.
+        :meth:`~geomotif.Design.snapped` rounds the geometry itself -- onto any
+        grid, not only powers of ten -- and every writer then agrees.
 
     Returns
     -------
@@ -121,8 +127,8 @@ def save_design(
         * ``json`` -- the structured form, and the only one
           :func:`load_design` reads back.
     precision : int, optional
-        Round coordinates to this many decimal places; ``0`` (or negative)
-        writes whole integers.
+        Round coordinates to this many decimal places, as for
+        :func:`save_points`.
     meta : bool, optional
         Record the design's recipe alongside its points, for the JSON format
         only. Turn it off for a design whose motif takes a parameter that
@@ -237,7 +243,12 @@ def _format_for(target: pathlib.Path, fmt: PointFormat | None) -> PointFormat:
 
 
 def _rounder(precision: int | None) -> Callable[[float], float | int]:
-    """Return the coordinate formatter for a given precision."""
+    """Return the coordinate formatter for a given precision.
+
+    Zero and below come back as :class:`int`, so a whole number is written as
+    ``3`` rather than ``3.0``: the file is smaller, and a reader that wants
+    integers gets them rather than having to strip the tails itself.
+    """
     if precision is None:
         return lambda value: value
 

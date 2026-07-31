@@ -82,7 +82,9 @@ from .core.spacing import (
 )
 from .core.style import Style, by_layer, layer_names, point_styles_of, styled, styles_of
 from .core.transform import (
+    SNAP_MODES,
     Affine,
+    SnapMode,
     clip_to,
     fit_to,
     jitter,
@@ -90,6 +92,7 @@ from .core.transform import (
     mirror_axis,
     offset_path,
     radial_repeat,
+    snap,
     symmetry_group,
     tile,
 )
@@ -116,6 +119,7 @@ from .io import (
 __version__ = "1.0.0"
 
 __all__ = [
+    "SNAP_MODES",
     "Affine",
     "ArcTable",
     "Bounds",
@@ -145,6 +149,7 @@ __all__ = [
     "SegmentMotif",
     "SineSpacing",
     "SmoothstepSpacing",
+    "SnapMode",
     "SpacingCurve",
     "SpacingLike",
     "Style",
@@ -178,6 +183,7 @@ __all__ = [
     "save_points",
     "save_spec",
     "save_svg",
+    "snap",
     "styled",
     "styles_of",
     "symmetry_group",

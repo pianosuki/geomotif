@@ -17,19 +17,24 @@ so a point maps to ``(a*x + c*y + e, b*x + d*y + f)``.
 
 from __future__ import annotations
 
+import decimal
 import itertools
 import math
 import random
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Literal, Self
 
 from .types import Design, Path, select_styles
 
 if TYPE_CHECKING:
+    from collections.abc import Callable, Iterable
+
     from .types import Bounds, Point
 
 __all__ = [
+    "SNAP_MODES",
     "Affine",
+    "SnapMode",
     "clip_to",
     "fit_to",
     "jitter",
@@ -37,9 +42,17 @@ __all__ = [
     "mirror_axis",
     "offset_path",
     "radial_repeat",
+    "snap",
     "symmetry_group",
     "tile",
 ]
+
+type SnapMode = Literal["half-even", "half-up", "floor", "ceil", "trunc"]
+
+#: Every rounding rule :func:`snap` understands. Named rather than inferred,
+#: because a user interface offering the choice needs the list and should not
+#: have to hardcode it.
+SNAP_MODES: tuple[SnapMode, ...] = ("half-even", "half-up", "floor", "ceil", "trunc")
 
 
 @dataclass(frozen=True, slots=True)
@@ -270,6 +283,157 @@ def jitter(design: Design, amount: float, *, seed: int | None = None) -> Design:
         replace(path, points=tuple(shift(p) for p in path.points)) for path in design.paths
     )
     return Design(paths, tuple(shift(p) for p in design.points), design.meta)
+
+
+def _quantizer(mode: SnapMode) -> Callable[[float], int]:
+    """Return the rule taking a coordinate measured in grid steps to a grid line."""
+    match mode:
+        case "half-even":
+            # What Python's own round() does, and therefore what the writers'
+            # precision= has always done: halves alternate between the two
+            # neighbours so a long list of them does not drift upward.
+            return round
+        case "half-up":
+            # Away from zero, not toward +infinity. Toward +infinity would snap
+            # a design and its mirror image onto grids a whole step apart, and
+            # symmetry surviving the snap matters more here than agreeing with
+            # the accountants' definition of the name.
+            return lambda q: int(math.copysign(math.floor(abs(q) + 0.5), q))
+        case "floor":
+            return math.floor
+        case "ceil":
+            return math.ceil
+        case "trunc":
+            return math.trunc
+        case _:
+            raise ValueError(f"unknown snap mode {mode!r}; expected one of {list(SNAP_MODES)}")
+
+
+def _grid_places(step: float) -> int:
+    """Return the decimal places a multiple of ``step`` needs to be written exactly.
+
+    Three tenths is ``0.30000000000000004`` if you reach it by multiplying, and
+    that is the wrong answer to hand someone who asked for a tenth-unit grid:
+    tidy numbers are the entire point of snapping, and one arriving with
+    seventeen digits is not one. Rounding the product back to the step's own
+    decimals removes the representation error and nothing else.
+    """
+    exponent = decimal.Decimal(str(step)).normalize().as_tuple().exponent
+    return max(0, -int(exponent))
+
+
+def _without_repeats(points: Iterable[Point], *, closed: bool) -> tuple[Point, ...]:
+    """Drop each point equal to the one before it, and a seam that has closed itself.
+
+    Only *consecutive* repeats go. A point that lands on some earlier,
+    non-adjacent point of the same stroke is a crossing rather than a
+    redundancy -- a figure eight snapped onto a coarse grid still has to go
+    round both of its loops -- and dropping it would draw a different shape.
+    """
+    kept: list[Point] = []
+    for point in points:
+        if not kept or point != kept[-1]:
+            kept.append(point)
+    # A closed path's last segment is implied and never stored, so a final
+    # point that has landed on the first would have the pen draw the seam
+    # twice: once along the stroke and once round the implied closure.
+    if closed and len(kept) > 1 and kept[-1] == kept[0]:
+        kept.pop()
+    return tuple(kept)
+
+
+def snap(
+    design: Design,
+    step: float = 1.0,
+    *,
+    mode: SnapMode = "half-even",
+    drop_duplicates: bool = True,
+) -> Design:
+    """Move every point onto the nearest line of a square grid.
+
+    This is rounding applied to the *design* rather than to each file as it is
+    written, which is the difference that matters: every exporter then agrees,
+    and a plot of the result shows what the file will actually contain.
+    ``design.snapped()`` alone rounds to whole units.
+
+    Snapping trades this library's exact arc-length spacing for grid alignment.
+    Points that were an equal real distance apart come out equal only to within
+    half a step, so snap *after* resampling and choose a step well below the
+    spacing if the evenness is what you are there for.
+
+    Parameters
+    ----------
+    design : Design
+        What to snap.
+    step : float, optional
+        Grid size, in the design's own units. Must be finite and positive.
+        ``0.5`` snaps to half units, ``5`` to a five-unit lattice -- neither of
+        which any number of decimal places can express.
+    mode : {"half-even", "half-up", "floor", "ceil", "trunc"}, optional
+        How a coordinate between two grid lines is resolved. ``half-even`` is
+        the default and matches the writers' ``precision=``: it goes to the
+        nearer line, and a coordinate exactly halfway goes to the even one.
+        ``half-up`` also goes to the nearer line but sends a halfway coordinate
+        away from zero, which is the rounding most people were taught.
+        ``floor``, ``ceil`` and ``trunc`` always go the same way -- down, up,
+        and toward zero -- which is what a one-sided tolerance asks for.
+    drop_duplicates : bool, optional
+        Remove points that a coarse grid has landed on top of their immediate
+        neighbour, and then any stroke left with fewer than two points. On by
+        default, because those are zero-length segments: ink a plotter cannot
+        draw and a pen-down/pen-up it should not spend the time on. Turn it off
+        to keep the point count exactly as it was, which is what a caller
+        feeding a fixed-size buffer or a per-point parallel array needs.
+
+    Returns
+    -------
+    Design
+        Snapped, with each surviving stroke's style following it across.
+
+    Raises
+    ------
+    ValueError
+        If ``step`` is not finite and positive, or ``mode`` is not one of the
+        five above.
+
+    Examples
+    --------
+    >>> from geomotif import Design, Path
+    >>> square = Design((Path(((0.4, 0.4), (9.6, 0.4), (9.6, 9.6))),))
+    >>> list(snap(square))
+    [(0.0, 0.0), (10.0, 0.0), (10.0, 10.0)]
+    >>> list(snap(square, 0.25))
+    [(0.5, 0.5), (9.5, 0.5), (9.5, 9.5)]
+    """
+    if not math.isfinite(step) or step <= 0.0:
+        raise ValueError(f"step must be finite and > 0, got {step}")
+    to_grid = _quantizer(mode)
+    places = _grid_places(step)
+
+    def place(p: Point) -> Point:
+        x, y = p
+        return (round(to_grid(x / step) * step, places), round(to_grid(y / step) * step, places))
+
+    paths: list[Path] = []
+    # Which source stroke each surviving one came from, so the styles can be
+    # carried across the ones that collapsed away.
+    sources: list[int] = []
+    for index, path in enumerate(design.paths):
+        moved = tuple(place(p) for p in path.points)
+        if drop_duplicates:
+            moved = _without_repeats(moved, closed=path.closed)
+            if len(moved) < 2:
+                continue  # the whole stroke landed on one grid point
+        paths.append(replace(path, points=moved))
+        sources.append(index)
+
+    loose = tuple(place(p) for p in design.points)
+    kept = list(range(len(loose)))
+    if drop_duplicates:
+        kept = [i for i, p in enumerate(loose) if i == 0 or p != loose[i - 1]]
+        loose = tuple(loose[i] for i in kept)
+
+    return Design(tuple(paths), loose, select_styles(design.meta, paths=sources, points=kept))
 
 
 def fit_to(

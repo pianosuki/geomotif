@@ -58,6 +58,7 @@ from .core.spacing import (
     SmoothstepSpacing,
     SpacingCurve,
 )
+from .core.transform import SNAP_MODES
 from .core.types import Bounds
 from .explore import DEFAULT_SIZE, DEFAULT_STEPS
 from .io import load_spec, save_design, save_dxf, save_gif, save_svg, to_spec
@@ -87,6 +88,7 @@ RESERVED = frozenset(
         "fit",
         "fps",
         "frames",
+        "keep_duplicates",
         "landscape",
         "motion",
         "optimize",
@@ -94,6 +96,8 @@ RESERVED = frozenset(
         "paper",
         "precision",
         "samples",
+        "snap",
+        "snap_mode",
         "spec",
         "stride",
         "title",
@@ -220,6 +224,20 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         action="store_true",
         help="join strokes that meet and order them so the pen travels less",
     )
+    render.add_argument(
+        "--snap", type=float, metavar="STEP", help="move every point onto a grid this size"
+    )
+    render.add_argument(
+        "--snap-mode",
+        choices=SNAP_MODES,
+        default="half-even",
+        help="which way --snap sends a point between two grid lines",
+    )
+    render.add_argument(
+        "--keep-duplicates",
+        action="store_true",
+        help="with --snap, keep the points a coarse grid stacked up rather than dropping them",
+    )
     render.add_argument("--precision", type=int, metavar="N", help="decimal places to write")
     render.add_argument("--title", help="title for the SVG document or the figure")
     render.add_argument("--out", type=pathlib.Path, help=f"output file; {sorted(_WRITERS)}")
@@ -321,6 +339,12 @@ def _render(args: argparse.Namespace) -> int:
         design = optimize(design)
     if args.fit is not None:
         design = design.fit(*args.fit)
+    if args.snap is not None:
+        # Last, so the grid is the one the file is written on rather than one
+        # --fit would then have scaled away.
+        design = design.snapped(
+            args.snap, mode=args.snap_mode, drop_duplicates=not args.keep_duplicates
+        )
     if args.out is None:
         return _to_stdout(design, args.precision)
     _write(design, args.out, args)

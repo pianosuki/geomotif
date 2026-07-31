@@ -221,6 +221,7 @@ rosette = radial_repeat(petal, 12)  # the mandala workhorse
 lattice = tile(cell, 8, 8, dx=20, dy=20, stagger=0.5)
 turned = design.transformed(Affine.rotate(math.pi / 6))
 loose = jitter(design, 0.5, seed=7)  # reproducible irregularity
+aligned = design.snapped(0.5)  # every point onto a half-unit grid
 ```
 
 `Affine` composes with `@` — `(m @ n)(p) == m(n(p))`, so the right-hand

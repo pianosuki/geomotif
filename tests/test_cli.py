@@ -249,6 +249,39 @@ def test_precision_reaches_the_writer(capsys):
     )
 
 
+def _cells(out):
+    """Every coordinate of the CSV on stdout, header dropped."""
+    return [cell for line in out.splitlines()[1:] for cell in line.split(",")]
+
+
+def test_snap_puts_every_coordinate_on_the_grid(capsys):
+    _, out, _ = run(capsys, "render", "polygon.regular", "--sides", "7", "--snap", "25")
+    assert _cells(out)
+    assert all(float(cell) % 25.0 == pytest.approx(0.0) for cell in _cells(out))
+
+
+def test_snap_mode_reaches_the_transform(capsys):
+    args = ("render", "polygon.regular", "--sides", "4", "--samples", "8", "--snap", "1000")
+    _, down, _ = run(capsys, *args, "--snap-mode", "floor", "--keep-duplicates")
+    _, up, _ = run(capsys, *args, "--snap-mode", "ceil", "--keep-duplicates")
+    assert down != up
+    assert all(float(cell) <= 0.0 for cell in _cells(down))
+    assert all(float(cell) >= 0.0 for cell in _cells(up))
+
+
+def test_snap_drops_the_stacked_points_unless_told_not_to(capsys):
+    args = ("render", "polygon.regular", "--sides", "5", "--samples", "40", "--snap", "100")
+    _, dropped, _ = run(capsys, *args)
+    _, kept, _ = run(capsys, *args, "--keep-duplicates")
+    assert len(kept.splitlines()) == 41  # the header, then every point asked for
+    assert 1 < len(dropped.splitlines()) < len(kept.splitlines())
+
+
+def test_snap_applies_after_fit_so_the_grid_is_the_one_written(capsys):
+    _, out, _ = run(capsys, "render", "rose", "--samples", "50", "--fit", "100x100", "--snap", "10")
+    assert all(float(cell) % 10.0 == pytest.approx(0.0) for cell in _cells(out))
+
+
 def test_a_spec_can_be_rendered_instead_of_a_name(capsys, tmp_path):
     from geomotif import save_spec
 

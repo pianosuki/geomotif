@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 
     from .motif import Distribution
     from .spacing import SpacingLike
-    from .transform import Affine
+    from .transform import Affine, SnapMode
 
 __all__ = [
     "EMPTY_META",
@@ -361,6 +361,27 @@ class Design:
         from .sampling import resample
 
         return resample(self, count, step=step, spacing=spacing, distribute=distribute)
+
+    def snapped(
+        self,
+        step: float = 1.0,
+        *,
+        mode: SnapMode = "half-even",
+        drop_duplicates: bool = True,
+    ) -> Design:
+        """Return this design with every point moved onto a grid of ``step``.
+
+        Rounding the geometry rather than each file as it is written, so every
+        exporter agrees and a plot shows what the file will hold. Defaults to
+        whole units.
+
+        See :func:`geomotif.core.transform.snap` for the full contract.
+        """
+        # Imported here rather than at module scope: the transform layer is
+        # built on top of these types, so a top-level import would be circular.
+        from .transform import snap
+
+        return snap(self, step, mode=mode, drop_duplicates=drop_duplicates)
 
     def fit(
         self,

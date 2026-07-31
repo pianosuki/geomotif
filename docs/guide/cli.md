@@ -116,6 +116,23 @@ done
 `--fit 800x600` scales onto a canvas, `--precision N` sets the decimals written,
 and `--title` sets the SVG document title or the figure title.
 
+`--snap STEP` puts every coordinate on a grid of that size — `--snap 0.5` for
+half units, `--snap 5` for a five-unit lattice, neither of which `--precision`
+can express. It runs last, after `--fit`, so the grid is the one the file is
+actually written on. `--snap-mode` chooses which way a point between two grid
+lines goes (`half-even`, the default, then `half-up`, `floor`, `ceil`,
+`trunc`), and `--keep-duplicates` keeps the points a coarse grid stacked up
+rather than dropping them:
+
+```bash
+geomotif render spiral.golden --samples 300 --snap 1 --precision 0 > whole.csv
+```
+
+`--snap` pairs with `--precision 0`, which writes `3` rather than `3.0`. It is
+exact for the coordinate formats and `.dxf`; `.svg` output, `--paper` included,
+fits the design into its canvas as it writes and rescales the grid away — see
+[Snapping to a grid](export.md#snapping-to-a-grid).
+
 For a plotter, `--paper a4` writes the SVG in real millimetres (with
 `--landscape` for the other way up) and `--optimize` joins strokes that meet and
 orders them so the pen travels less — see [Plotting it for

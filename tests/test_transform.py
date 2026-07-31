@@ -14,6 +14,7 @@ from geomotif import (
     mirror_axis,
     offset_path,
     radial_repeat,
+    snap,
     symmetry_group,
     tile,
 )
@@ -229,6 +230,126 @@ def test_jitter_rejects_negative_amounts():
 def test_fit_to_matches_the_method():
     design = Design((SQUARE,))
     assert fit_to(design, 50.0, 50.0).bounds == design.fit(50.0, 50.0).bounds
+
+
+# --- snap ------------------------------------------------------------------
+
+
+def test_snap_defaults_to_whole_units():
+    design = Design(points=((0.4, 0.6), (-1.2, 2.7)))
+    assert list(snap(design)) == [(0.0, 1.0), (-1.0, 3.0)]
+
+
+def test_snap_takes_a_grid_no_number_of_decimals_can_express():
+    design = Design(points=((103.2, 103.4), (0.24, 0.26)))
+    assert list(snap(design, 0.5)) == [(103.0, 103.5), (0.0, 0.5)]
+    assert list(snap(design, 5.0)) == [(105.0, 105.0), (0.0, 0.0)]
+
+
+def test_snap_does_not_leave_binary_floating_point_noise():
+    # 3 * 0.1 is 0.30000000000000004 if you reach it by multiplying, which is
+    # the wrong answer to give someone who asked for tidy numbers.
+    snapped = snap(Design(points=((0.31, 0.29),)), 0.1)
+    assert list(snapped) == [(0.3, 0.3)]
+    assert repr(snapped.points[0][0]) == "0.3"
+
+
+def test_snap_keeps_a_design_on_its_grid():
+    design = Design((Path(((1.3, 4.8), (9.6, 0.2))),))
+    for x, y in snap(design, 0.25):
+        assert x % 0.25 == pytest.approx(0.0, abs=1e-9)
+        assert y % 0.25 == pytest.approx(0.0, abs=1e-9)
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [
+        ("half-even", [(2.0, -2.0), (2.0, -2.0)]),
+        ("half-up", [(3.0, -3.0), (2.0, -2.0)]),
+        ("floor", [(2.0, -3.0), (1.0, -2.0)]),
+        ("ceil", [(3.0, -2.0), (2.0, -1.0)]),
+        ("trunc", [(2.0, -2.0), (1.0, -1.0)]),
+    ],
+)
+def test_snap_modes_resolve_a_halfway_point_their_own_way(mode, expected):
+    halves = Design(points=((2.5, -2.5), (1.5, -1.5)))
+    assert list(snap(halves, mode=mode, drop_duplicates=False)) == expected
+
+
+def test_half_up_goes_away_from_zero_so_a_mirror_image_stays_one():
+    design = Design(points=((2.5, 0.5),))
+    mirrored = Design(points=((-2.5, -0.5),))
+    snapped = snap(design, mode="half-up")
+    assert list(snapped) == [(3.0, 1.0)]
+    assert list(snap(mirrored, mode="half-up")) == [(-3.0, -1.0)]
+
+
+def test_snap_rejects_a_step_that_is_not_a_grid():
+    for step in (0.0, -1.0, math.inf, math.nan):
+        with pytest.raises(ValueError):
+            snap(UNIT, step)
+
+
+def test_snap_rejects_an_unknown_mode():
+    with pytest.raises(ValueError, match="half-even"):
+        snap(UNIT, mode="nearest")  # type: ignore[arg-type]
+
+
+def test_snap_drops_the_points_a_coarse_grid_stacked_up():
+    path = Path(((0.0, 0.0), (0.1, 0.1), (0.2, 0.2), (5.0, 5.0)))
+    assert snap(Design((path,))).paths[0].points == ((0.0, 0.0), (5.0, 5.0))
+
+
+def test_keeping_duplicates_preserves_the_point_count_exactly():
+    path = Path(((0.0, 0.0), (0.1, 0.1), (0.2, 0.2), (5.0, 5.0)))
+    snapped = snap(Design((path,)), drop_duplicates=False)
+    assert len(snapped.paths[0].points) == 4
+    assert snapped.paths[0].points[:3] == ((0.0, 0.0),) * 3
+
+
+def test_snap_drops_a_seam_that_has_closed_itself():
+    # The closing segment is implied, so a final point that has landed on the
+    # first would have the pen draw it twice.
+    square = Path(((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0), (0.4, 0.4)), closed=True)
+    snapped = snap(Design((square,)))
+    assert snapped.paths[0].points == ((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0))
+    assert snapped.paths[0].closed is True
+
+
+def test_snap_drops_a_stroke_with_nothing_left_to_draw():
+    collapsing = Path(((0.1, 0.1), (0.2, 0.2)))
+    design = Design((collapsing, Path(((0.0, 0.0), (5.0, 5.0)))))
+    assert len(snap(design).paths) == 1
+    assert len(snap(design, drop_duplicates=False).paths) == 2
+
+
+def test_snap_carries_the_style_of_a_stroke_that_survived():
+    from geomotif import Style, styled, styles_of
+
+    doomed = styled(Design((Path(((0.1, 0.1), (0.2, 0.2))),)), stroke="#a00")
+    kept = styled(Design((Path(((0.0, 0.0), (5.0, 5.0))),)), stroke="#00a")
+    # The collapsed stroke takes its colour with it rather than leaving the
+    # list one long and shifting every colour after it onto the wrong stroke.
+    assert styles_of(snap(layer(doomed, kept))) == (Style(stroke="#00a"),)
+
+
+def test_snap_carries_loose_point_styles_across_too():
+    from geomotif import Style, point_styles_of, styled
+
+    stacked = styled(Design(points=((0.1, 0.1), (0.2, 0.2))), stroke="#a00")
+    apart = styled(Design(points=((5.0, 5.0),)), stroke="#00a")
+    snapped = snap(stacked + apart)
+    assert point_styles_of(snapped) == (Style(stroke="#a00"), Style(stroke="#00a"))
+
+
+def test_snap_leaves_a_design_that_is_already_on_the_grid_alone():
+    design = Design((SQUARE,))
+    assert snap(design).paths[0].points == SQUARE.points
+
+
+def test_snapped_matches_the_function():
+    design = Design((Path(((1.3, 4.8), (9.6, 0.2))),))
+    assert design.snapped(0.5).paths[0].points == snap(design, 0.5).paths[0].points
 
 
 def test_clip_keeps_the_inside_and_trims_the_rest():
