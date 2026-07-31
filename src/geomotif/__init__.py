@@ -101,10 +101,12 @@ from .io import (
     load_spec,
     save_design,
     save_dxf,
+    save_gif,
     save_points,
     save_spec,
     save_svg,
     to_dxf,
+    to_gif,
     to_spec,
     to_svg,
 )
@@ -169,6 +171,7 @@ __all__ = [
     "samples_for_turns",
     "save_design",
     "save_dxf",
+    "save_gif",
     "save_points",
     "save_spec",
     "save_svg",
@@ -177,6 +180,7 @@ __all__ = [
     "symmetry_group",
     "tile",
     "to_dxf",
+    "to_gif",
     "to_spec",
     "to_svg",
 ]

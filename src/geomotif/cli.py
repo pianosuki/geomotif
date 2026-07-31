@@ -8,6 +8,7 @@ Pure :mod:`argparse`, so the zero-dependency core stays that way::
     geomotif render rose --n 5 --samples 400 --out rose.svg
     geomotif render spiral.golden --samples 300 --ease power:2.5 --out s.csv
     geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
+    geomotif render fractal.hilbert --out h.gif --motion draw-on --frames 60
     geomotif render --spec my-design.json --out out.svg
     geomotif gallery --out docs/gallery
     geomotif demo
@@ -56,7 +57,7 @@ from .core.spacing import (
     SpacingCurve,
 )
 from .core.types import Bounds
-from .io import load_spec, save_design, save_dxf, save_svg, to_spec
+from .io import load_spec, save_design, save_dxf, save_gif, save_svg, to_spec
 
 # Imported rather than repeated: "0 or negative writes whole integers" is part
 # of the export contract, and two copies of it would eventually disagree.
@@ -75,8 +76,31 @@ __all__ = ["RESERVED", "build_parser", "main"]
 #: of these names gets no flag and falls back to its example value, because
 #: argparse has one namespace and the generic option has to win.
 RESERVED = frozenset(
-    {"by", "distribute", "ease", "fit", "out", "precision", "samples", "spec", "stride", "title"}
+    {
+        "by",
+        "distribute",
+        "ease",
+        "fit",
+        "fps",
+        "frames",
+        "motion",
+        "out",
+        "precision",
+        "samples",
+        "spec",
+        "stride",
+        "title",
+    }
 )
+
+#: How ``--motion`` turns one design into many. Sweeping a parameter is not
+#: here: it needs a parameter name and a range of values, which is two more
+#: flags and a small language to say them in -- write it in Python, where
+#: :func:`geomotif.animate.sweep` takes exactly the values you mean.
+MOTIONS = ("draw-on", "spin")
+
+#: Canvas for an animation when ``--fit`` did not say, in pixels.
+_GIF_SIZE = 480
 
 #: The ``name:arg:arg`` mini-syntax for ``--ease``. The arguments are handed to
 #: the constructor positionally, which is why ``power:2.5`` sets the exponent
@@ -102,6 +126,7 @@ _WRITERS = {
     ".txt": "design",
     ".tsv": "design",
     ".json": "design",
+    ".gif": "gif",
     ".png": "figure",
     ".pdf": "figure",
     ".jpg": "figure",
@@ -173,6 +198,9 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     render.add_argument("--by", choices=("length", "parameter"), default="length")
     render.add_argument("--distribute", choices=("length", "even", "per_path"), default="length")
     render.add_argument("--fit", type=_size, metavar="WxH", help="scale onto a canvas")
+    render.add_argument("--motion", choices=MOTIONS, default="draw-on", help="how a .gif animates")
+    render.add_argument("--frames", type=int, default=48, metavar="N", help="frames in a .gif")
+    render.add_argument("--fps", type=float, default=20.0, metavar="X", help="a .gif's frame rate")
     render.add_argument("--precision", type=int, metavar="N", help="decimal places to write")
     render.add_argument("--title", help="title for the SVG document or the figure")
     render.add_argument("--out", type=pathlib.Path, help=f"output file; {sorted(_WRITERS)}")
@@ -561,8 +589,25 @@ def _write(design: Design, target: pathlib.Path, args: argparse.Namespace) -> No
             save_dxf(design, target, precision=precision)
         case "design":
             save_design(design, target, precision=args.precision)
+        case "gif":
+            _save_animation(design, target, args)
         case _:
             _save_figure(design, target, args)
+
+
+def _save_animation(design: Design, target: pathlib.Path, args: argparse.Namespace) -> None:
+    """Turn one design into frames and write them as an animated GIF."""
+    from .animate import draw_on, spin
+
+    width, height = args.fit if args.fit is not None else (_GIF_SIZE, _GIF_SIZE)
+    match args.motion:
+        case "spin":
+            frames = spin(design, args.frames)
+        case _:
+            # A quarter of the run held at the end, so a loop pauses on the
+            # finished drawing rather than restarting the instant it arrives.
+            frames = draw_on(design, args.frames, hold=max(1, args.frames // 4))
+    save_gif(frames, target, width=round(width), height=round(height), fps=args.fps)
 
 
 def _save_figure(design: Design, target: pathlib.Path, args: argparse.Namespace) -> None:

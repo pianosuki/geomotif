@@ -189,6 +189,33 @@ class ArcTable:
             placed.append((ax + (bx - ax) * frac, ay + (by - ay) * frac))
         return tuple(placed)
 
+    def segment(self, start: float, end: float) -> tuple[Point, ...]:
+        """Return the part of the polyline lying between two distances.
+
+        The ends are exact -- interpolated where they fall inside a segment --
+        and every vertex between them is kept as it was, so this is a *piece*
+        of the polyline rather than a resampling of one. That is what an
+        animation drawing itself on needs: the geometry so far, at the
+        resolution it was built at.
+
+        Distances outside the polyline clamp to its ends, and a range that
+        collapses to a point returns that one point.
+        """
+        if end < start:
+            start, end = end, start
+        start = max(start, 0.0)
+        end = min(end, self.total)
+        if end <= start:
+            return (self.point_at(start),)
+        kept = [self.point_at(start)]
+        kept.extend(
+            vertex
+            for distance, vertex in zip(self._cumulative, self._vertices, strict=True)
+            if start < distance < end
+        )
+        kept.append(self.point_at(end))
+        return tuple(kept)
+
     def points_at_fractions(self, fractions: Iterable[float]) -> tuple[Point, ...]:
         """Return the point at each fraction of the total length."""
         total = self._cumulative[-1]

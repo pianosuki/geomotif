@@ -5,7 +5,7 @@ import pytest
 from geomotif import load_design
 from geomotif.cli import RESERVED, main
 from geomotif.core import registry
-from tests.readback import dxf_polylines, svg_root, svg_strokes
+from tests.readback import dxf_polylines, gif, svg_root, svg_strokes
 
 
 def run(capsys, *argv):
@@ -89,6 +89,28 @@ def test_render_writes_dxf(capsys, tmp_path):
     out = tmp_path / "rose.dxf"
     run(capsys, "render", "rose", "--out", str(out))
     assert dxf_polylines(out.read_text())
+
+
+def test_render_writes_an_animated_gif(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--fit", "60x60")
+    decoded = gif(out.read_bytes())
+    # Six drawn frames plus the hold that keeps a loop from restarting the
+    # instant the drawing finishes.
+    assert len(decoded.frames) > 6
+    assert (decoded.width, decoded.height) == (60, 60)
+
+
+def test_a_spinning_gif_holds_nothing_and_repeats_exactly(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--motion", "spin", "--frames", "8")
+    assert len(gif(out.read_bytes()).frames) == 8
+
+
+def test_the_frame_rate_reaches_the_file(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "4", "--fps", "10")
+    assert gif(out.read_bytes()).frames[0].delay == 10
 
 
 def test_render_writes_a_design_file(capsys, tmp_path):

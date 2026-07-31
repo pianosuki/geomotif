@@ -40,13 +40,29 @@ history reads honestly.
   exactly reproducible. Four rules for joining the points up, including
   `"equal-distance"`, which draws the edges the relaxation was equalizing.
   Marked **experimental**; see the API policy.
-
 - **`ArcTable.points_at` / `points_at_fractions`** — batch inverse lookup.
   Resampling asks for a run of distances in increasing order, so the run walks
   the cumulative table once between them all instead of binary-searching the
   whole of it per point. Order is exploited but never assumed: a distance that
   goes backwards seeks again, so the answers are identical to `point_at` in a
   loop, bit for bit.
+- **Animation** (`geomotif.animate`) — `draw_on` reveals a design
+  progressively by arc length, so the pen moves at a constant speed rather than
+  racing through the sparse parts of the geometry; `spin` turns it about a
+  point; `sweep` rebuilds a motif once per value of one of its parameters.
+  Each returns a plain tuple of designs, so frames compose with everything
+  else. A partly drawn closed path comes back open, because half a square is
+  not a square.
+- **Animated GIF** (`geomotif.io.gif`) — `to_gif` and `save_gif`, LZW and all,
+  in pure standard library. Every frame is drawn against the same world
+  rectangle and the same colour table, so a growing drawing stays put and a
+  two-pen design animates in two colours. Underneath it,
+  `geomotif.io.raster.rasterize` turns a design into an indexed bitmap, usable
+  on its own.
+- `geomotif render NAME --out x.gif` with `--motion draw-on|spin`, `--frames`
+  and `--fps`.
+- `ArcTable.segment` — the part of a polyline between two distances, with the
+  ends interpolated and every vertex between them kept.
 
 ### Changed
 
