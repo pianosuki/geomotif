@@ -90,6 +90,7 @@ RESERVED = frozenset(
         "frames",
         "keep_duplicates",
         "landscape",
+        "margin",
         "motion",
         "optimize",
         "out",
@@ -220,6 +221,13 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     )
     render.add_argument("--landscape", action="store_true", help="turn --paper on its side")
     render.add_argument(
+        "--margin",
+        type=float,
+        default=10.0,
+        metavar="MM",
+        help="with --paper, border to leave unplotted, in millimetres",
+    )
+    render.add_argument(
         "--optimize",
         action="store_true",
         help="join strokes that meet and order them so the pen travels less",
@@ -340,8 +348,9 @@ def _render(args: argparse.Namespace) -> int:
     if args.fit is not None:
         design = design.fit(*args.fit)
     if args.snap is not None:
-        # Last, so the grid is the one the file is written on rather than one
-        # --fit would then have scaled away.
+        # Last, so --fit cannot scale the grid away underneath it. The writers
+        # that place a design themselves -- .svg, --paper, .gif, the matplotlib
+        # formats -- rescale it anyway; the guide says so.
         design = design.snapped(
             args.snap, mode=args.snap_mode, drop_duplicates=not args.keep_duplicates
         )
@@ -673,6 +682,7 @@ def _write(design: Design, target: pathlib.Path, args: argparse.Namespace) -> No
                 target,
                 paper=args.paper,
                 landscape=args.landscape,
+                margin=args.margin,
                 precision=3 if args.precision is None else args.precision,
                 title=args.title,
             )

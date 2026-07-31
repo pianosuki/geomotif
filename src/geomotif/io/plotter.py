@@ -150,14 +150,14 @@ def to_plotter_svg(
         Inkscape read.
     """
     width, height = page_size(paper, landscape=landscape)
+    # The writer does the placing. Fitting to the page here as well would only
+    # be undone: to_svg fits whatever it is given into the canvas it is given,
+    # so a margin applied first is scaled straight back out to the paper edge.
     return to_svg(
-        on_page(design, paper=paper, margin=margin, landscape=landscape),
+        design,
         width=width,
         height=height,
-        padding=0.0,
-        # The design is already placed and already y-down, so the writer must
-        # not fit or flip it a second time.
-        flip_y=False,
+        padding=margin,
         stroke_width=stroke_width,
         units="mm",
         **kwargs,

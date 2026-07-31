@@ -34,6 +34,11 @@ def drawn(design):
     return math.fsum(path.length for path in design.paths)
 
 
+def drawn_width(text):
+    xs = [x for points, _ in svg_strokes(text) for x, _ in points]
+    return max(xs) - min(xs)
+
+
 # --- paper ------------------------------------------------------------------
 
 
@@ -60,6 +65,27 @@ def test_a_design_lands_inside_the_margin():
     assert bounds.min_y >= 15.0 - 1e-9
     assert bounds.max_x <= 210.0 - 15.0 + 1e-9
     assert bounds.max_y <= 297.0 - 15.0 + 1e-9
+
+
+def test_the_written_svg_lands_inside_the_margin_too():
+    # Not the same assertion as the one above: on_page places the design, and
+    # the writer used to fit it a second time and scale the margin straight
+    # back out to the paper edge.
+    for margin in (0.0, 15.0, 40.0):
+        strokes = svg_strokes(to_plotter_svg(TruchetTiling().build(), paper="a4", margin=margin))
+        xs = [x for points, _ in strokes for x, _ in points]
+        ys = [y for points, _ in strokes for _, y in points]
+        assert min(xs) >= margin - 1e-6
+        assert min(ys) >= margin - 1e-6
+        assert max(xs) <= 210.0 - margin + 1e-6
+        assert max(ys) <= 297.0 - margin + 1e-6
+
+
+def test_a_wider_margin_draws_a_smaller_picture():
+    design = TruchetTiling().build()
+    narrow = drawn_width(to_plotter_svg(design, paper="a4", margin=5.0))
+    wide = drawn_width(to_plotter_svg(design, paper="a4", margin=40.0))
+    assert wide < narrow
 
 
 def test_the_page_is_y_down_like_everything_that_prints():

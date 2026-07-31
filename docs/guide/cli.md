@@ -103,7 +103,7 @@ The suffix of `--out` picks the writer:
 | `.dxf` | DXF R12 |
 | `.csv`, `.txt`, `.tsv`, `.json` | the structured design writer |
 | `.gif` | an animation — see `--motion`, `--frames` and `--fps` |
-| `.png`, `.pdf`, `.jpg` | matplotlib — the one part of the CLI that needs the `plot` extra |
+| `.png`, `.pdf`, `.jpg`, `.jpeg` | matplotlib — the one part of the CLI that needs the `plot` extra |
 
 Without `--out`, the points go to stdout as CSV, so the command pipes:
 
@@ -129,14 +129,15 @@ geomotif render spiral.golden --samples 300 --snap 1 --precision 0 > whole.csv
 ```
 
 `--snap` pairs with `--precision 0`, which writes `3` rather than `3.0`. It is
-exact for the coordinate formats and `.dxf`; `.svg` output, `--paper` included,
-fits the design into its canvas as it writes and rescales the grid away — see
+exact for the coordinate formats and `.dxf`; the writers that place a design
+themselves — `.svg`, `--paper` included, `.gif` and the matplotlib formats — fit
+it into their canvas as they write and rescale the grid away. See
 [Snapping to a grid](export.md#snapping-to-a-grid).
 
-For a plotter, `--paper a4` writes the SVG in real millimetres (with
-`--landscape` for the other way up) and `--optimize` joins strokes that meet and
-orders them so the pen travels less — see [Plotting it for
-real](plotter.md):
+For a plotter, `--paper a4` writes the SVG in real millimetres — `--landscape`
+turns the sheet on its side, `--margin` sets the border to leave unplotted (10 mm
+by default), and `--optimize` joins strokes that meet and orders them so the pen
+travels less. See [Plotting it for real](plotter.md):
 
 ```bash
 geomotif render tiling.truchet --out plot.svg --paper a4 --optimize

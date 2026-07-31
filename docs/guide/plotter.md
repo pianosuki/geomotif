@@ -31,7 +31,12 @@ on_page(design, paper="a4", margin=10.0)  # the design, fitted, in mm, y-down
 ```
 
 The margin is worth more than it looks: most plotters cannot reach the last few
-millimetres of a sheet.
+millimetres of a sheet. `to_plotter_svg` and `save_plotter_svg` take it
+directly, and `--margin` does the same on the command line:
+
+```bash
+geomotif render mandala --out plot.svg --paper a4 --margin 20
+```
 
 ## Fewer wasted moves
 
