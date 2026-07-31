@@ -9,7 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 migration path to document — the lineage is recorded here only so the early
 history reads honestly.
 
-## [Unreleased]
+## [1.1.0] — 2026-07-31
+
+The stretch release: the things 1.0.0 deliberately left until the shape of the
+library was known. Six of them, plus a seventh — snapping — that only became
+obvious once there was plotter output to point at a grid. Not one changes
+anything that already worked: a design with no styles writes the file it always
+did, and every motif in the catalogue builds the geometry it built before.
+
+Two of the six ended somewhere other than where they set out. The numpy fast
+path was written, measured, and deleted in favour of a pure-Python one that
+turned out to be faster (see **Changed**); and the symmetric point sets ship
+marked **experimental**, because what "evenly spaced" should mean when the
+symmetry group makes it impossible is still an open question.
 
 ### Added
 
@@ -555,4 +567,5 @@ this name or number; `geomotif` 1.0.0 is the first release of anything.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
 
+[1.1.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.1.0
 [1.0.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.0.0

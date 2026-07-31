@@ -8,7 +8,7 @@ is what the gallery manifest and the CLI's ``--spec`` flag are built on.
 The on-disk shape is the same nested object at every depth::
 
     {
-      "geomotif": "1.0.0",
+      "geomotif": "1.1.0",
       "motif": "polygon.star",
       "params": {"points": 7, "step": 3, "center": [0.0, 0.0]}
     }

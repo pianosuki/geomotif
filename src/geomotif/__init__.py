@@ -116,7 +116,7 @@ from .io import (
     to_svg,
 )
 
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 
 __all__ = [
     "SNAP_MODES",

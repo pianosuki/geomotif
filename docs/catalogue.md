@@ -3,8 +3,8 @@
 # The catalogue
 
 147 motifs in 19 families, as of geomotif
-1.0.0. Every one of them resamples by arc length, takes every
-spacing curve, and exports to SVG, DXF, CSV, TXT, JSON and a spec file.
+1.1.0. Every one of them resamples by arc length, takes every
+spacing curve, and exports to SVG, DXF, GIF, CSV, TXT, JSON and a spec file.
 
 The pictures are in [the gallery](gallery/index.md); this page is the same
 list in a form you can search and read.

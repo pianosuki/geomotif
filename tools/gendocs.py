@@ -457,7 +457,7 @@ def _catalogue(out: Path) -> Iterator[Path]:
         "",
         f"{len(names)} motifs in {len(families)} families, as of geomotif",
         f"{geomotif.__version__}. Every one of them resamples by arc length, takes every",
-        "spacing curve, and exports to SVG, DXF, CSV, TXT, JSON and a spec file.",
+        "spacing curve, and exports to SVG, DXF, GIF, CSV, TXT, JSON and a spec file.",
         "",
         "The pictures are in [the gallery](gallery/index.md); this page is the same",
         "list in a form you can search and read.",
