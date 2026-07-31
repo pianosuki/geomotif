@@ -11,11 +11,11 @@ documentation goes stale:
   looking at.
 
 The reference and the gallery are rebuilt on every docs build and are not
-committed: 146 SVGs come to several megabytes, and a generated file in the tree
-is a file that can disagree with the code. The catalogue and the handful of
-images the README leads with *are* committed, because GitHub renders a README
-without ever running mkdocs -- so those two are checked for drift instead, by
-``make docs-check`` and by CI.
+committed: an SVG per motif comes to several megabytes, and a generated file in
+the tree is a file that can disagree with the code. The catalogue and the
+handful of images the README leads with *are* committed, because GitHub renders
+a README without ever running mkdocs -- so those two are checked for drift
+instead, by ``make docs-check`` and by CI.
 
 This module is both a script and an mkdocs hook. ``mkdocs.yml`` names it under
 ``hooks:``, so ``mkdocs serve`` and ``mkdocs build`` regenerate everything

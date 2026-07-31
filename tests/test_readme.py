@@ -56,6 +56,33 @@ def test_the_version_in_the_spec_example_is_the_current_one(readme):
     assert f'"geomotif": "{__version__}"' in readme
 
 
+# --- the documentation's own front page -------------------------------------
+#
+# docs/index.md quotes the same numbers and is written by hand, unlike the
+# catalogue beside it. Nothing was checking it, and it spent a release saying
+# 146 across 18.
+
+INDEX = README.parent / "docs" / "index.md"
+
+
+@pytest.fixture(scope="module")
+def index() -> str:
+    return INDEX.read_text(encoding="utf-8")
+
+
+def test_the_front_page_states_the_real_totals(index):
+    match = re.search(r"\[(\d+) motifs\]\(catalogue\.md\) across (\d+) families", index)
+    assert match, "docs/index.md no longer states its motif and family counts"
+    assert int(match.group(1)) == len(registry.names())
+    assert int(match.group(2)) == len(registry.families())
+
+
+def test_the_front_page_points_at_every_guide(index):
+    guides = {path.name for path in (README.parent / "docs" / "guide").glob("*.md")}
+    linked = set(re.findall(r"\((guide/[a-z-]+\.md)\)", index))
+    assert {f"guide/{name}" for name in guides} <= linked, "a guide page nothing links to"
+
+
 def _families(cell: str) -> list[str]:
     """Pull the family names out of one table cell."""
     return re.findall(r"\*\*([a-z-]+)\*\*", cell)

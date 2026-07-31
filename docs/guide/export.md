@@ -174,10 +174,10 @@ measurements.
 !!! info "Checked against real readers"
 
     Both writers were validated against third-party parsers — `ezdxf` and
-    `svgelements` — during development, and the test suite takes all 146
-    motifs through both formats and parses them back with readers written in
-    nothing but the standard library. Neither third-party parser is a
-    dependency.
+    `svgelements` — during development, and the test suite takes every motif in
+    the catalogue through both formats and parses them back with readers
+    written in nothing but the standard library. Neither third-party parser is
+    a dependency.
 
 ## Specs: the recipe, not the points
 

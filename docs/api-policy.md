@@ -14,7 +14,7 @@ reference](reference/index.md). Concretely:
 - `geomotif.motifs` and `geomotif.compose` — the motif catalogue, as a flat
   namespace each.
 - `geomotif.bases`, `geomotif.core.*`, `geomotif.io.*`, `geomotif.plotting`,
-  `geomotif.cli`.
+  `geomotif.animate`, `geomotif.explore`, `geomotif.cli`.
 - The `geomotif` command and its options.
 - The `geomotif.motifs` entry-point group.
 - The spec file format.
