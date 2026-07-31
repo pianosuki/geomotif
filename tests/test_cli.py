@@ -1,4 +1,5 @@
 import json
+import re
 
 import pytest
 
@@ -288,6 +289,34 @@ def test_render_writes_a_figure(capsys, tmp_path):
     out = tmp_path / "r.png"
     assert run(capsys, "render", "rose", "--samples", "50", "--out", str(out))[0] == 0
     assert out.stat().st_size > 0
+
+
+# --- explore ---------------------------------------------------------------
+
+
+def test_explore_writes_one_self_contained_page(capsys, tmp_path):
+    out = tmp_path / "rose.html"
+    assert run(capsys, "explore", "rose", "--out", str(out), "--steps", "3")[0] == 0
+    markup = out.read_text()
+    assert markup.startswith("<!DOCTYPE html>")
+    assert 'src="' not in markup  # nothing to fetch, from anywhere
+
+
+def test_explore_takes_a_whole_family(capsys, tmp_path):
+    out = tmp_path / "sacred.html"
+    run(capsys, "explore", "--family", "sacred", "--out", str(out), "--steps", "3")
+    markup = out.read_text()
+    # Every motif on the page is from the family, and a family is more than one
+    # motif. A motif with nothing to sweep is dropped rather than shown blank.
+    shown = re.findall(r'<section class="motif[^"]*" id="([^"]+)"', markup)
+    assert len(shown) > 1
+    assert set(shown) <= set(registry.names(family="sacred"))
+
+
+def test_explore_with_nothing_to_explore_says_so(capsys, tmp_path):
+    code, _, err = run(capsys, "explore", "--out", str(tmp_path / "x.html"))
+    assert code == 2
+    assert "name a motif" in err
 
 
 # --- gallery and demo ------------------------------------------------------

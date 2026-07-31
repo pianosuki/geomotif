@@ -11,7 +11,10 @@ geomotif render rose --n 5 --samples 400 --out rose.svg
 geomotif render spiral.golden --samples 300 --ease power:2.5 --out s.csv
 geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
 geomotif render --spec my-design.json --out out.svg
-geomotif gallery --out gallery                  # all 146, plus a manifest
+geomotif render tiling.truchet --out plot.svg --paper a4 --optimize
+geomotif render fractal.hilbert --out h.gif --frames 60   # an animation
+geomotif explore rose --out rose.html           # sliders for its parameters
+geomotif gallery --out gallery                  # all 147, plus a manifest
 geomotif demo                                   # the spacing showcase (needs matplotlib)
 ```
 
@@ -99,6 +102,7 @@ The suffix of `--out` picks the writer:
 | `.svg` | SVG |
 | `.dxf` | DXF R12 |
 | `.csv`, `.txt`, `.tsv`, `.json` | the structured design writer |
+| `.gif` | an animation — see `--motion`, `--frames` and `--fps` |
 | `.png`, `.pdf`, `.jpg` | matplotlib — the one part of the CLI that needs the `plot` extra |
 
 Without `--out`, the points go to stdout as CSV, so the command pipes:
@@ -111,6 +115,18 @@ done
 
 `--fit 800x600` scales onto a canvas, `--precision N` sets the decimals written,
 and `--title` sets the SVG document title or the figure title.
+
+For a plotter, `--paper a4` writes the SVG in real millimetres (with
+`--landscape` for the other way up) and `--optimize` joins strokes that meet and
+orders them so the pen travels less — see [Plotting it for
+real](plotter.md):
+
+```bash
+geomotif render tiling.truchet --out plot.svg --paper a4 --optimize
+```
+
+For an animation, `--out something.gif` with `--motion draw-on` (the default) or
+`--motion spin`, plus `--frames` and `--fps` — see [Animation](animation.md).
 
 !!! tip "Negative coordinates"
 
@@ -129,6 +145,28 @@ your mind about the resolution later:
 geomotif render --spec my-design.json --samples 4000 --out big.svg
 ```
 
+## The explore command
+
+```bash
+geomotif explore rose --out rose.html
+geomotif explore --family spiral --out spirals.html --steps 7
+```
+
+writes a single self-contained HTML page with a **slider for every parameter a
+slider can move**. Every frame is rendered ahead of time by geomotif's own SVG
+writer and embedded in the document, so the page needs no server, no build step
+and no JavaScript library, and works from a `file://` URL forever.
+
+One parameter moves at a time: each slider sweeps its own with the others left
+at the motif's example values. Rendering every *combination* would be a
+combinatorial explosion and a hundred-megabyte file; this way a motif costs a
+few hundred kilobytes and opens instantly. `--samples N` resamples each frame if
+that is still too much, and `--steps` sets how many values a slider offers.
+
+Numbers and booleans get sliders. A parameter that is a point, a set of
+coordinates or another motif does not — there is no single axis to drag it along
+— and the page lists it as held still.
+
 ## The gallery command
 
 ```bash
@@ -137,7 +175,7 @@ geomotif gallery --out gallery --size 320
 
 renders every available motif to SVG at its registered example, and writes a
 `manifest.json` beside them holding each one's name, family, summary and spec.
-All 146 take about two seconds. On an install without the optional extras it
+All 147 take about two seconds. On an install without the optional extras it
 writes what it can and reports the rest as skipped rather than failing.
 
 The [documentation gallery](../gallery/index.md) is the same idea with pages

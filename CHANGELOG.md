@@ -82,6 +82,17 @@ history reads honestly.
   `height`, with the `viewBox` left in plain numbers.
 - `geomotif render NAME --out x.svg --paper a4 [--landscape] [--optimize]`.
 
+- **An explorable gallery** (`geomotif.explore`, `geomotif explore`) — one
+  self-contained HTML page with a slider for every parameter a slider can move.
+  Every frame is rendered ahead of time by geomotif's own SVG writer and
+  embedded in the document, so the page needs no server, no build step and no
+  JavaScript library, and works from a `file://` URL. One parameter moves at a
+  time: each slider sweeps its own with the others left at the motif's example
+  values, because rendering every combination would be a combinatorial
+  explosion. A value the motif refuses is dropped from the sweep rather than
+  reported, and a parameter with no single axis to drag along — a point, a set
+  of coordinates, another motif — is listed on the page as held still.
+
 ### Changed
 
 - Resampling a large design is about 1.4x faster (200k points off a

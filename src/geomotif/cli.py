@@ -11,6 +11,7 @@ Pure :mod:`argparse`, so the zero-dependency core stays that way::
     geomotif render fractal.hilbert --out h.gif --motion draw-on --frames 60
     geomotif render mandala --out m.svg --paper a4 --optimize    # for a plotter
     geomotif render --spec my-design.json --out out.svg
+    geomotif explore rose --out rose.html          # sliders for its parameters
     geomotif gallery --out docs/gallery
     geomotif demo
 
@@ -58,6 +59,7 @@ from .core.spacing import (
     SpacingCurve,
 )
 from .core.types import Bounds
+from .explore import DEFAULT_SIZE, DEFAULT_STEPS
 from .io import load_spec, save_design, save_dxf, save_gif, save_svg, to_spec
 from .io.plotter import PAPER, optimize, save_plotter_svg
 
@@ -149,6 +151,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "list": _list,
         "show": _show,
         "render": _render,
+        "explore": _explore,
         "gallery": _gallery,
         "demo": _demo,
     }
@@ -222,6 +225,24 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     render.add_argument("--out", type=pathlib.Path, help=f"output file; {sorted(_WRITERS)}")
     if motif is not None:
         _add_motif_flags(render, motif)
+
+    explore = sub.add_parser(
+        "explore",
+        help="one HTML page with a slider per parameter",
+        description=(
+            "Write a self-contained page with a slider for every parameter a slider "
+            "can move. Every frame is rendered ahead of time and embedded, so the "
+            "page needs no server and works offline."
+        ),
+    )
+    explore.add_argument("names", nargs="*", help="registered motif names")
+    explore.add_argument("--family", help="every motif in this family as well")
+    explore.add_argument("--out", type=pathlib.Path, default=pathlib.Path("explore.html"))
+    explore.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="values per slider")
+    explore.add_argument("--size", type=int, default=DEFAULT_SIZE, help="frame canvas, in units")
+    explore.add_argument(
+        "--samples", type=int, metavar="N", help="resample each frame, to keep the page small"
+    )
 
     gallery = sub.add_parser("gallery", help="render every motif to SVG, with a manifest")
     gallery.add_argument("--out", type=pathlib.Path, default=pathlib.Path("gallery"))
@@ -304,6 +325,29 @@ def _render(args: argparse.Namespace) -> int:
         return _to_stdout(design, args.precision)
     _write(design, args.out, args)
     print(f"wrote {args.out}", file=sys.stderr)
+    return 0
+
+
+def _explore(args: argparse.Namespace) -> int:
+    """Write one page with a slider per parameter, every frame already drawn."""
+    from .explore import save_html
+
+    names = list(args.names)
+    if args.family is not None:
+        names.extend(name for name in registry.names(family=args.family) if name not in names)
+    if not names:
+        raise ValueError("nothing to explore: name a motif, or pass --family")
+
+    written = save_html(
+        args.out,
+        names,
+        steps=args.steps,
+        size=args.size,
+        samples=args.samples,
+        title=names[0] if len(names) == 1 else "geomotif",
+    )
+    size = written.stat().st_size
+    print(f"wrote {written} ({size // 1024} KB, {len(names)} motif(s))", file=sys.stderr)
     return 0
 
 
