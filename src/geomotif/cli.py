@@ -60,7 +60,7 @@ from .core.spacing import (
 )
 from .core.transform import SNAP_MODES
 from .core.types import Bounds
-from .explore import DEFAULT_SIZE, DEFAULT_STEPS
+from .explore import DEFAULT_SIZE, DEFAULT_STEPS, save_html
 from .io import load_spec, save_design, save_dxf, save_gif, save_svg, to_spec
 from .io.plotter import PAPER, optimize, save_plotter_svg
 
@@ -75,7 +75,7 @@ if TYPE_CHECKING:
     from .core.registry import MotifInfo, ParamInfo
     from .core.types import Design, Point
 
-__all__ = ["RESERVED", "build_parser", "main"]
+__all__ = ["MOTIONS", "RESERVED", "build_parser", "main"]
 
 #: Option names the command line keeps for itself. A motif parameter with one
 #: of these names gets no flag and falls back to its example value, because
@@ -363,8 +363,6 @@ def _render(args: argparse.Namespace) -> int:
 
 def _explore(args: argparse.Namespace) -> int:
     """Write one page with a slider per parameter, every frame already drawn."""
-    from .explore import save_html
-
     names = list(args.names)
     if args.family is not None:
         names.extend(name for name in registry.names(family=args.family) if name not in names)
@@ -372,8 +370,8 @@ def _explore(args: argparse.Namespace) -> int:
         raise ValueError("nothing to explore: name a motif, or pass --family")
 
     written = save_html(
-        args.out,
         names,
+        args.out,
         steps=args.steps,
         size=args.size,
         samples=args.samples,

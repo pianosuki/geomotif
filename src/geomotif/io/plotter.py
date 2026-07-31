@@ -49,6 +49,7 @@ if TYPE_CHECKING:
     from ..core.types import Point
 
 __all__ = [
+    "DEFAULT_PEN",
     "PAPER",
     "on_page",
     "optimize",

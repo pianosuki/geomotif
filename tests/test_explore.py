@@ -160,7 +160,7 @@ def test_an_unknown_motif_is_reported_by_the_registry():
 
 
 def test_the_page_is_written(tmp_path):
-    target = save_html(tmp_path / "rose.html", ["rose"], steps=3)
+    target = save_html(["rose"], tmp_path / "rose.html", steps=3)
     assert target.read_text(encoding="utf-8").startswith("<!DOCTYPE html>")
 
 

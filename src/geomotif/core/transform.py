@@ -430,7 +430,17 @@ def snap(
     loose = tuple(place(p) for p in design.points)
     kept = list(range(len(loose)))
     if drop_duplicates:
-        kept = [i for i, p in enumerate(loose) if i == 0 or p != loose[i - 1]]
+        # Every duplicate, not merely a consecutive one. A stroke's points are
+        # a walk, so only its neighbours can be redundant -- a later revisit is
+        # a crossing. Loose points are a set with no walk through them, and
+        # which two of them happen to be adjacent in the tuple says nothing
+        # about the drawing, so dropping by position would be arbitrary.
+        seen: set[Point] = set()
+        kept = []
+        for i, p in enumerate(loose):
+            if p not in seen:
+                seen.add(p)
+                kept.append(i)
         loose = tuple(loose[i] for i in kept)
 
     return Design(tuple(paths), loose, select_styles(design.meta, paths=sources, points=kept))

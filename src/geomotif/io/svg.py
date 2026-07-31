@@ -43,7 +43,7 @@ if TYPE_CHECKING:
     from ..core.style import Style
     from ..core.types import Design, Point
 
-__all__ = ["save_svg", "to_svg"]
+__all__ = ["UNITS", "save_svg", "to_svg"]
 
 SVG_NS = "http://www.w3.org/2000/svg"
 
@@ -51,6 +51,13 @@ SVG_NS = "http://www.w3.org/2000/svg"
 #: because Inkscape got there first and everything downstream -- ``vpype``
 #: included -- reads a layer by looking for exactly these two attributes.
 INKSCAPE_NS = "http://www.inkscape.org/namespaces/inkscape"
+
+#: The physical units an SVG length may carry, plus the empty string for a
+#: plain user unit. Checked against rather than escaped: everything else in
+#: this writer is a value going through ``quoteattr``, but ``units`` is glued
+#: onto a number *inside* an attribute, where an escape would be wrong and a
+#: quote character would end the attribute and start another.
+UNITS: tuple[str, ...] = ("", "px", "pt", "pc", "mm", "cm", "in", "em", "ex", "%")
 
 #: A design flat in one axis -- a horizontal line, a single point -- still
 #: needs a canvas taller than nothing to sit in. One unit holds a stroke.
@@ -126,11 +133,12 @@ def to_svg(
         The document's ``<title>``. Defaults to the motif recorded in the
         design's metadata, which is what makes a gallery file self-labelling.
     units : str, optional
-        A physical unit -- ``"mm"``, ``"in"``, ``"pt"`` -- for the document's
-        ``width`` and ``height``. The ``viewBox`` stays in plain numbers, so
-        one user unit becomes one of these and the drawing has a real size on
-        paper. Empty by default, which leaves the size in user units and is
-        what anything on a screen wants. See :mod:`geomotif.io.plotter`.
+        A physical unit for the document's ``width`` and ``height``, from
+        :data:`UNITS` -- ``"mm"``, ``"in"``, ``"pt"`` and the rest. The
+        ``viewBox`` stays in plain numbers, so one user unit becomes one of
+        these and the drawing has a real size on paper. Empty by default,
+        which leaves the size in user units and is what anything on a screen
+        wants. See :mod:`geomotif.io.plotter`.
 
     Returns
     -------
@@ -140,8 +148,8 @@ def to_svg(
     Raises
     ------
     ValueError
-        If the design has no points, or ``padding`` leaves no room inside the
-        canvas asked for.
+        If the design has no points, ``padding`` leaves no room inside the
+        canvas asked for, or ``units`` is not one of :data:`UNITS`.
     """
     if not len(design):
         raise ValueError("cannot write an empty design to SVG: there is nothing to draw")
@@ -149,6 +157,8 @@ def to_svg(
         raise ValueError(f"padding must be >= 0, got {padding}")
     if precision < 0:
         raise ValueError(f"precision must be >= 0, got {precision}")
+    if units not in UNITS:
+        raise ValueError(f"units must be one of {UNITS}, got {units!r}")
 
     canvas_w, canvas_h = _canvas(design, width, height, padding)
     placed = design.fit(canvas_w, canvas_h, padding=padding, flip_y=flip_y)

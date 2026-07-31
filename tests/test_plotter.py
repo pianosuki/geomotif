@@ -112,6 +112,15 @@ def test_a_plain_svg_is_still_unitless():
     assert svg_root(to_svg(TruchetTiling().build(), width=200)).get("width") == "200"
 
 
+def test_a_unit_that_is_not_one_cannot_reach_the_document():
+    # The one value this writer glues into an attribute rather than escaping
+    # into it, so it is checked against the list instead.
+    from geomotif import to_svg
+
+    with pytest.raises(ValueError, match="units must be one of"):
+        to_svg(TruchetTiling().build(), width=200, units='mm" onload="alert(1)')
+
+
 def test_the_paper_can_be_turned_on_its_side():
     root = svg_root(to_plotter_svg(TruchetTiling().build(), paper="a3", landscape=True))
     assert (root.get("width"), root.get("height")) == ("420mm", "297mm")

@@ -144,6 +144,44 @@ that a motif:
 That list is the actual promise the library makes about a motif. It is worth
 reading it as a specification of what you are signing up for.
 
+## If you write an operator, carry the styles
+
+Writing a *motif* needs nothing from this section: styles are attached to a
+design after it is built, so `build()` never sees one.
+
+Writing an **operator** — anything taking a design and returning another one,
+the way [`clip_to`][geomotif.core.transform.clip_to] and
+[`resample`][geomotif.core.sampling.resample] do — is different. A
+[`Style`][geomotif.Style] rides in `Design.meta` as one entry per stroke,
+positionally. Drop, split, merge or reorder the strokes without saying so and
+every colour after the first change lands on the wrong geometry — silently,
+because a list of the wrong length is still a list.
+
+[`select_styles`][geomotif.core.types.select_styles] is how you say so. Give it
+the *source* index of every element you kept, in the order you kept them:
+
+```python
+from geomotif import Design
+from geomotif.core.types import select_styles
+
+
+def every_other_stroke(design: Design) -> Design:
+    kept = list(range(0, len(design.paths), 2))
+    return Design(
+        tuple(design.paths[i] for i in kept),
+        design.points,
+        select_styles(design.meta, paths=kept),  # <- the whole of it
+    )
+```
+
+`points=` does the same for loose points, and either may be left out when you
+did not touch that half. A design carrying no styles is returned unchanged, so
+this costs nothing in the usual case and there is no reason to guard it.
+
+Operators built out of `+` — anything that composes designs rather than taking
+them apart — get this for free: `Design.__add__` lays the style lists end to
+end, which is why `layer`, `tile` and `radial_repeat` need no code of their own.
+
 ## Shipping it as a plugin
 
 One entry point in your `pyproject.toml` is the whole contract:

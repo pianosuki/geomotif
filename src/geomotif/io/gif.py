@@ -26,18 +26,38 @@ The frames come from :mod:`geomotif.animate` and the pixels from
 from __future__ import annotations
 
 import pathlib
+from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
 from .raster import colours_in, rasterize
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Sequence
+    from collections.abc import Iterable, Mapping, Sequence
     from os import PathLike
 
     from ..core.types import Bounds, Design
     from .raster import Raster
 
-__all__ = ["save_gif", "to_gif"]
+__all__ = ["NAMED", "save_gif", "to_gif"]
+
+#: Colour names this writer understands, matching the ones the DXF writer can
+#: put a name to. A GIF holds literal red, green and blue, so a name it does
+#: not know cannot be passed downstream the way the SVG writer passes one --
+#: it has to be resolved here or refused here.
+NAMED: Mapping[str, bytes] = MappingProxyType(
+    {
+        "black": b"\x00\x00\x00",
+        "white": b"\xff\xff\xff",
+        "red": b"\xff\x00\x00",
+        "green": b"\x00\x80\x00",
+        "blue": b"\x00\x00\xff",
+        "yellow": b"\xff\xff\x00",
+        "cyan": b"\x00\xff\xff",
+        "aqua": b"\x00\xff\xff",
+        "magenta": b"\xff\x00\xff",
+        "fuchsia": b"\xff\x00\xff",
+    }
+)
 
 #: GIF measures a frame's delay in hundredths of a second, and nothing else.
 #: Two is the practical floor: browsers treat 0 and 1 as "as fast as you like"
@@ -232,16 +252,29 @@ def _short(value: int) -> bytes:
 
 
 def _rgb(colour: str) -> bytes:
-    """Parse ``#rgb`` or ``#rrggbb`` into three bytes."""
-    text = colour.strip().lstrip("#")
+    """Parse ``#rgb``, ``#rrggbb`` or a name from :data:`NAMED` into three bytes."""
+    text = colour.strip().lower()
+    if text in NAMED:
+        return NAMED[text]
+    text = text.lstrip("#")
     if len(text) == 3:
         text = "".join(c * 2 for c in text)
     if len(text) != 6:
-        raise ValueError(f"expected a colour like '#3366ff', got {colour!r}")
+        raise ValueError(_unreadable(colour))
     try:
         return bytes.fromhex(text)
     except ValueError:
-        raise ValueError(f"expected a colour like '#3366ff', got {colour!r}") from None
+        raise ValueError(_unreadable(colour)) from None
+
+
+def _unreadable(colour: str) -> str:
+    """Say what went wrong, and what this writer can read instead."""
+    return (
+        f"cannot write {colour!r} into a GIF colour table: expected '#3366ff', "
+        f"'#36f', or one of {sorted(NAMED)}. A GIF stores literal red, green and "
+        f"blue, so unlike the SVG writer it cannot pass a colour through to "
+        f"something else to interpret"
+    )
 
 
 def _blocks(data: bytes) -> bytes:

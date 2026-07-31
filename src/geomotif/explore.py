@@ -31,7 +31,7 @@ from __future__ import annotations
 import html
 import pathlib
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .core import registry
 from .io.svg import to_svg
@@ -42,7 +42,7 @@ if TYPE_CHECKING:
 
     from .core.registry import MotifInfo, ParamInfo
 
-__all__ = ["Sweep", "save_html", "sweeps_for", "to_html"]
+__all__ = ["DEFAULT_SIZE", "DEFAULT_STEPS", "Sweep", "save_html", "sweeps_for", "to_html"]
 
 #: How many values a slider offers. Odd, so the motif's own example value sits
 #: exactly in the middle and the slider starts where the gallery left off.
@@ -137,16 +137,13 @@ def to_html(
     return _document(drawable, title=title, size=size)
 
 
-def save_html(
-    path: str | PathLike[str],
-    names: Sequence[str],
-    **kwargs: object,
-) -> pathlib.Path:
-    """Write an explorable page and return the path written."""
+def save_html(names: Sequence[str], path: str | PathLike[str], **kwargs: Any) -> pathlib.Path:
+    """Write an explorable page and return the path written.
+
+    Keyword arguments are passed straight through to :func:`to_html`.
+    """
     target = pathlib.Path(path)
-    # Typed loosely on the way through rather than repeating four parameters
-    # that to_html already declares and checks.
-    target.write_text(to_html(names, **kwargs), encoding="utf-8")  # type: ignore[arg-type]
+    target.write_text(to_html(names, **kwargs), encoding="utf-8")
     return target
 
 

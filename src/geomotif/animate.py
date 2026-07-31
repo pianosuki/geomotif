@@ -197,6 +197,16 @@ def _revealed(
     walked = 0.0
     for index, (path, length) in enumerate(zip(design.paths, lengths, strict=True)):
         start, walked = walked, walked + length
+        if length == 0.0:
+            # A stroke with no length sits at one point of the walk rather than
+            # spanning any of it, so the two tests below -- has the pen got
+            # here, has the trail left it behind -- become the same test, and
+            # the strict inequalities in them exclude it from every frame
+            # including the last. It appears when the pen reaches it.
+            if behind <= start <= distance:
+                paths.append(path)
+                sources.append(index)
+            continue
         if walked <= behind or start >= distance:
             continue
         if start >= behind and walked <= distance:

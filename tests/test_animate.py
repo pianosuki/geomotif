@@ -71,6 +71,17 @@ def test_a_partly_drawn_closed_path_is_not_claimed_to_be_closed():
     assert draw_on(SQUARE, 4)[-1].paths[0].closed is True
 
 
+def test_a_stroke_with_no_length_is_still_drawn():
+    # It sits at one point of the walk rather than spanning any of it, so the
+    # two tests that bracket a normal stroke collapse into the same one and
+    # used to exclude it from every frame, the last one included.
+    dot = Design(paths=(Path(((1.0, 1.0), (1.0, 1.0))),))
+    assert [len(frame.paths) for frame in draw_on(dot, 3)] == [1, 1, 1]
+
+    mixed = Design(paths=(Path(((0.0, 0.0), (10.0, 0.0))), Path(((5.0, 5.0),))))
+    assert len(draw_on(mixed, 4)[-1].paths) == len(mixed.paths)
+
+
 def test_a_trail_forgets_what_the_pen_has_left_behind():
     full = draw_on(SQUARE, 8)[-1]
     comet = draw_on(SQUARE, 8, trail=50.0)[-1]
@@ -276,8 +287,15 @@ def test_a_short_hex_colour_is_understood():
     assert gif(to_gif([SQUARE], ink="#f00")).palette[1] == (0xFF, 0x00, 0x00)
 
 
+def test_the_named_colours_the_dxf_writer_knows_are_understood_here_too():
+    # A styled design should not export to SVG and DXF and then fail on GIF
+    # for naming its colour rather than spelling it in hex.
+    assert gif(to_gif([SQUARE], ink="red")).palette[1] == (0xFF, 0x00, 0x00)
+    assert gif(to_gif([styled(SQUARE, stroke="Blue")])).palette[2] == (0x00, 0x00, 0xFF)
+
+
 def test_a_colour_that_is_not_one_is_refused():
-    with pytest.raises(ValueError, match="expected a colour"):
+    with pytest.raises(ValueError, match="cannot write 'crimson' into a GIF colour table"):
         to_gif([SQUARE], ink="crimson")
 
 

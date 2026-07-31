@@ -333,6 +333,14 @@ def test_snap_carries_the_style_of_a_stroke_that_survived():
     assert styles_of(snap(layer(doomed, kept))) == (Style(stroke="#00a"),)
 
 
+def test_snap_drops_a_stacked_loose_point_wherever_it_sits_in_the_tuple():
+    # A stroke is a walk, so only neighbouring points can be redundant. Loose
+    # points are a set, and which two are adjacent in the tuple is not a fact
+    # about the drawing -- dropping only those would be arbitrary.
+    scattered = Design(points=((0.0, 0.0), (5.0, 5.0), (0.1, 0.1), (5.2, 5.2)))
+    assert snap(scattered).points == ((0.0, 0.0), (5.0, 5.0))
+
+
 def test_snap_carries_loose_point_styles_across_too():
     from geomotif import Style, point_styles_of, styled
 

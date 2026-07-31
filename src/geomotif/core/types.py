@@ -103,7 +103,9 @@ def select_styles(
     Returns
     -------
     Mapping[str, object]
-        Read-only, ready to hand to :class:`Design`.
+        Ready to hand to :class:`Design`. A rewritten mapping is read-only; a
+        styleless one is the argument itself, so it is exactly as read-only as
+        what was passed in.
     """
     if PATH_STYLE_KEY not in meta and POINT_STYLE_KEY not in meta:
         return meta
