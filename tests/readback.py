@@ -17,6 +17,7 @@ from __future__ import annotations
 import xml.etree.ElementTree as ET
 
 SVG_NS = "http://www.w3.org/2000/svg"
+INKSCAPE_NS = "http://www.inkscape.org/namespaces/inkscape"
 
 type Point = tuple[float, float]
 #: A stroke as read back: its vertices, and whether it closed.
@@ -53,6 +54,15 @@ def svg_strokes(text: str) -> list[Stroke]:
 def svg_dots(text: str) -> list[Point]:
     """The centre of every ``<circle>``."""
     return [(float(c.get("cx", "0")), float(c.get("cy", "0"))) for c in svg_find(text, "circle")]
+
+
+def svg_layers(text: str) -> list[str]:
+    """The label of every group marked as a layer, in document order."""
+    return [
+        group.get(f"{{{INKSCAPE_NS}}}label", "")
+        for group in svg_find(text, "g")
+        if group.get(f"{{{INKSCAPE_NS}}}groupmode") == "layer"
+    ]
 
 
 def _subpaths(d: str) -> list[Stroke]:
@@ -150,6 +160,31 @@ def dxf_points(text: str) -> list[Point]:
         (float(codes[10]), float(codes[20]))
         for kind, codes in dxf_section(text, "ENTITIES")
         if kind == "POINT"
+    ]
+
+
+def dxf_layer_table(text: str) -> list[str]:
+    """Every layer the file declares, in the order the table lists them."""
+    return [
+        codes[2] for kind, codes in dxf_section(text, "TABLES") if kind == "LAYER" and 2 in codes
+    ]
+
+
+def dxf_entity_layers(text: str) -> list[tuple[str, str]]:
+    """Each drawn entity as ``(kind, layer)``; the VERTEX run is left out."""
+    return [
+        (kind, codes.get(8, ""))
+        for kind, codes in dxf_section(text, "ENTITIES")
+        if kind in {"POLYLINE", "POINT"}
+    ]
+
+
+def dxf_entity_colours(text: str) -> list[int | None]:
+    """The colour index of each drawn entity, or ``None`` where it inherits one."""
+    return [
+        int(codes[62]) if 62 in codes else None
+        for kind, codes in dxf_section(text, "ENTITIES")
+        if kind in {"POLYLINE", "POINT"}
     ]
 
 

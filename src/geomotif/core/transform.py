@@ -23,7 +23,7 @@ import random
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Self
 
-from .types import Design, Path
+from .types import Design, Path, select_styles
 
 if TYPE_CHECKING:
     from .types import Bounds, Point
@@ -326,7 +326,17 @@ def clip_to(design: Design, bounds: Bounds) -> Design:
     dropped.
     """
     paths: list[Path] = []
-    for path in design.paths:
+    # One stroke in can be several strokes out, or none; ``sources`` records
+    # which one each fragment came from so its style follows it across.
+    sources: list[int] = []
+
+    def emit(run: list[Point], source: int) -> None:
+        """Keep a fragment, if it is long enough to draw."""
+        if len(run) > 1:
+            paths.append(Path(tuple(run)))
+            sources.append(source)
+
+    for index, path in enumerate(design.paths):
         vertices = list(path.points)
         if path.closed and len(vertices) > 2:
             vertices.append(vertices[0])
@@ -334,8 +344,7 @@ def clip_to(design: Design, bounds: Bounds) -> Design:
         for a, b in itertools.pairwise(vertices):
             clipped = _clip_segment(a, b, bounds)
             if clipped is None:
-                if len(run) > 1:
-                    paths.append(Path(tuple(run)))
+                emit(run, index)
                 run = []
                 continue
             start, end = clipped
@@ -344,14 +353,16 @@ def clip_to(design: Design, bounds: Bounds) -> Design:
             elif math.dist(run[-1], start) > 1e-12:
                 # The path left the box and came back: start a new stroke
                 # rather than drawing the shortcut across the outside.
-                if len(run) > 1:
-                    paths.append(Path(tuple(run)))
+                emit(run, index)
                 run = [start]
             run.append(end)
-        if len(run) > 1:
-            paths.append(Path(tuple(run)))
-    points = tuple(p for p in design.points if p in bounds)
-    return Design(tuple(paths), points, design.meta)
+        emit(run, index)
+    kept = [i for i, p in enumerate(design.points) if p in bounds]
+    return Design(
+        tuple(paths),
+        tuple(design.points[i] for i in kept),
+        select_styles(design.meta, paths=sources, points=kept),
+    )
 
 
 def offset_path(path: Path, distance: float) -> Path:

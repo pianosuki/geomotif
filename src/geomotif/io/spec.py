@@ -39,7 +39,7 @@ from typing import TYPE_CHECKING
 
 from ..core import registry
 from ..core.motif import SupportsBuild
-from ..core.types import Design
+from ..core.types import PATH_STYLE_KEY, POINT_STYLE_KEY, Design
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -72,6 +72,9 @@ PARAMS_KEY = "params"
 #: the class to rebuild it with.
 TYPE_KEY = "$type"
 
+#: A design's styles, written beside its parameters rather than among them.
+_STYLE_KEYS = (PATH_STYLE_KEY, POINT_STYLE_KEY)
+
 
 def to_spec(source: SupportsBuild | Design) -> dict[str, object]:
     """Return the JSON-ready recipe for a motif, or for the design it built.
@@ -103,16 +106,27 @@ def to_spec(source: SupportsBuild | Design) -> dict[str, object]:
     """
     live = _live_spec(source)
     name = live[registry.NAME_KEY]
-    params = {key: value for key, value in live.items() if key != registry.NAME_KEY}
+    params = {
+        key: value
+        for key, value in live.items()
+        if key != registry.NAME_KEY and key not in _STYLE_KEYS
+    }
     # Imported at call time rather than at module scope: this module is part of
     # the package whose version it reads, so the two would import in a cycle.
     from .. import __version__
 
-    return {
+    blob: dict[str, object] = {
         VERSION_KEY: __version__,
         registry.NAME_KEY: name,
         PARAMS_KEY: _encode(params, where=str(name)),
     }
+    # Styles sit beside the parameters rather than among them: they belong to
+    # the design rather than to the motif, and feeding one back to a
+    # constructor as a keyword argument would only raise.
+    for key in _STYLE_KEYS:
+        if key in live:
+            blob[key] = _encode(live[key], where=key)
+    return blob
 
 
 def from_spec(data: Mapping[str, object]) -> Motif:
@@ -270,7 +284,8 @@ def _meta_from_spec(data: Mapping[str, object]) -> Mapping[str, object]:
     allowed = _importable_packages()
     name, params = _name_and_params(data, where="meta")
     decoded = {key: _decode(v, allowed, where=f"{name}.{key}") for key, v in params.items()}
-    return MappingProxyType({registry.NAME_KEY: name, **decoded})
+    styles = {key: _decode(data[key], allowed, where=key) for key in _STYLE_KEYS if data.get(key)}
+    return MappingProxyType({registry.NAME_KEY: name, **decoded, **styles})
 
 
 def _decode_spec(data: Mapping[str, object], allowed: frozenset[str], *, where: str) -> Motif:

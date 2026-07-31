@@ -3,7 +3,7 @@ import pytest
 matplotlib = pytest.importorskip("matplotlib")
 matplotlib.use("Agg")
 
-from geomotif import Design, Path, PowerSpacing, SmoothstepSpacing  # noqa: E402
+from geomotif import Design, Path, PowerSpacing, SmoothstepSpacing, layer, styled  # noqa: E402
 from geomotif.motifs import BarnsleyFern, GoldenSpiral, RegularPolygon  # noqa: E402
 from geomotif.plotting import (  # noqa: E402
     DARK,
@@ -15,6 +15,15 @@ from geomotif.plotting import (  # noqa: E402
 )
 
 SQUARE = RegularPolygon(sides=4, radius=100.0).build()
+
+
+@pytest.fixture(autouse=True)
+def _close_figures():
+    # pyplot keeps every figure it makes until something closes it, and this
+    # module makes one per test; past twenty, matplotlib starts warning about
+    # the leak rather than about anything wrong with the code.
+    yield
+    matplotlib.pyplot.close("all")
 
 MIXED = Design(
     paths=(Path(((0.0, 0.0), (10.0, 0.0))), Path(((0.0, 5.0), (10.0, 5.0)))),
@@ -39,6 +48,18 @@ def test_loose_points_are_always_drawn():
     # way a stroke's vertices are.
     ax = plot_design(BarnsleyFern(count=100).build())
     assert sum(len(c.get_offsets()) for c in ax.collections) == 100
+
+
+def test_a_styled_stroke_is_drawn_in_its_own_colour():
+    # What comes off the plotter is two pens, so what appears on screen is
+    # two colours -- without having to say so twice.
+    ax = plot_design(layer(styled(MIXED, stroke="red"), styled(SQUARE, stroke="blue")))
+    assert [line.get_color() for line in ax.lines] == ["red", "red", "blue"]
+
+
+def test_an_unstyled_stroke_still_takes_the_figures_colour():
+    ax = plot_design(MIXED, color="#123456")
+    assert {line.get_color() for line in ax.lines} == {"#123456"}
 
 
 def test_stroke_vertices_are_drawn_only_when_asked():

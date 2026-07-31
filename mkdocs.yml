@@ -112,6 +112,7 @@ nav:
   - Guide:
       - guide/points.md
       - guide/designs.md
+      - guide/style.md
       - guide/export.md
       - guide/plotting.md
       - guide/cli.md

@@ -20,7 +20,7 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Literal
 
 from .spacing import coerce_spacing
-from .types import Design, Path
+from .types import Design, Path, select_styles
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -367,7 +367,11 @@ def resample(
             )
 
     out: list[Path] = []
-    for path, n in zip(design.paths, allocation, strict=True):
+    # Which source stroke each surviving one came from: a path allocated no
+    # points is dropped entirely, and its style has to go with it rather than
+    # slide onto its neighbour.
+    kept: list[int] = []
+    for index, (path, n) in enumerate(zip(design.paths, allocation, strict=True)):
         match n:
             case 0:
                 continue
@@ -375,4 +379,5 @@ def resample(
                 out.append(replace(path, points=(path.points[0],)))
             case _:
                 out.append(resample_path(path, n, spacing=spacing, by=by))
-    return Design(tuple(out), design.points, design.meta)
+        kept.append(index)
+    return Design(tuple(out), design.points, select_styles(design.meta, paths=kept))

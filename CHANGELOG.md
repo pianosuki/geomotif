@@ -9,6 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 migration path to document — the lineage is recorded here only so the early
 history reads honestly.
 
+## [Unreleased]
+
+### Added
+
+- **Colour and layers** (`geomotif.core.style`) — `Style`, `styled`,
+  `styles_of`, `point_styles_of`, `layer_names` and `by_layer`. A style is
+  attached per stroke and per loose point, and rides in `Design.meta` rather
+  than in `Path`, because none of it changes the maths. Styles survive every
+  transform, are laid end to end by `+` so `layer(red, blue)` keeps both, are
+  dropped alongside a stroke that resampling drops, and are carried onto every
+  fragment `clip_to` cuts a stroke into.
+- **Layered output** — SVG writes each layer as the group Inkscape and `vpype`
+  read, plus per-element `stroke`, `stroke-width` and `fill` wherever a style
+  differs from the document's own; DXF writes real DXF layers and the seven
+  colours its indexed palette can name; matplotlib draws a styled stroke in its
+  own colour and width. A design carrying no styles writes exactly the file it
+  wrote before.
+- Styles round-trip through `save_design`/`load_design` and through a spec,
+  written beside the parameters rather than among them.
+
 ## [1.0.0] — 2026-07-27
 
 The first release, and the whole of the rework from `spiralgen` in one entry.
