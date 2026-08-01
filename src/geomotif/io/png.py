@@ -24,7 +24,7 @@ It can write three ways, chosen by ``color``:
 - **``"rgb"``** (the default) -- truecolor, three bytes a pixel. Lossless
   and full color; the picture to reach for by default.
 - **``"rgba"``** -- truecolor with an alpha channel, four bytes a pixel.
-  Handy when a design supplies its own transparency later; here the alpha
+  With ``transparent`` it leaves the background empty; without, the alpha
   is opaque.
 - **``"indexed"``** -- a palette of at most 256 colors, one byte a pixel.
   The smallest files, at the cost of a palette; the same median-cut
@@ -73,6 +73,7 @@ def to_png(
     aa_level: int = 8,
     color: str = "rgb",
     compression: int = 6,
+    transparent: bool = False,
 ) -> bytes:
     """Render a design -- or re-encode a :class:`~geomotif.io.Raster` -- as PNG.
 
@@ -108,6 +109,12 @@ def to_png(
     compression : int
         zlib level from 0 (fast, big) to 9 (slow, small). Must be an
         integer in that range.
+    transparent : bool
+        Leave the background empty instead of painting ``background``. A
+        pixel with no ink is written with alpha 0 and an antialiased edge
+        with the ink and its coverage as the alpha -- the straight alpha a
+        PNG stores. This implies ``color="rgba"`` (a JPEG has no alpha, so
+        this is where transparency lives in this library). Off by default.
 
     Returns
     -------
@@ -127,6 +134,8 @@ def to_png(
             f"compression must be between {_MIN_COMPRESSION} and {_MAX_COMPRESSION}, "
             f"got {compression}"
         )
+    if transparent:
+        color = "rgba"
 
     raster = _frame(
         source,
@@ -140,6 +149,7 @@ def to_png(
         dot_radius=dot_radius,
         antialias=antialias,
         aa_level=aa_level,
+        transparent=transparent,
     )
     return _encode(raster, _COLOR_TYPE[color], compression)
 
@@ -167,6 +177,7 @@ def _frame(
     dot_radius: int | None,
     antialias: bool,
     aa_level: int,
+    transparent: bool,
 ) -> Raster:
     """Return the raster to encode: a design drawn, or a raster as it is."""
     if isinstance(source, Raster):
@@ -174,7 +185,7 @@ def _frame(
 
     palette = colors_in([source], ink=ink, background=background)
     scale = _AA_SCALE if antialias else 1
-    if color == "indexed" and not antialias:
+    if color == "indexed" and not antialias and not transparent:
         return rasterize(
             source,
             width=width,
@@ -198,6 +209,7 @@ def _frame(
         dot_radius=dot_radius,
         scale=scale,
         aa_level=None if color != "indexed" else aa_level,
+        transparent=transparent,
     )
     if color == "indexed":
         return quantize([rgba], seeds=palette, max_colors=256, dither=True)[0]
@@ -219,7 +231,10 @@ def _encode(raster: Raster, color_type: int, compression: int) -> bytes:
     plane, palette = _plane(raster, color_type)
     parts = bytearray(_PNG_SIGNATURE)
     parts.extend(
-        _chunk(b"IHDR", struct.pack(">IIBBBBB", raster.width, raster.height, bit_depth, color_type, 0, 0, 0))
+        _chunk(
+            b"IHDR",
+            struct.pack(">IIBBBBB", raster.width, raster.height, bit_depth, color_type, 0, 0, 0),
+        )
     )
     if color_type == 3:
         parts.extend(_chunk(b"PLTE", palette))
@@ -280,4 +295,9 @@ def _plane(raster: Raster, color_type: int) -> tuple[bytes, bytes]:
 
 def _chunk(kind: bytes, data: bytes) -> bytes:
     """Return one PNG chunk: length, type, data, and its CRC-32 over type+data."""
-    return struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    return (
+        struct.pack(">I", len(data))
+        + kind
+        + data
+        + struct.pack(">I", zlib.crc32(kind + data) & 0xFFFFFFFF)
+    )

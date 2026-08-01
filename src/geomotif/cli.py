@@ -123,6 +123,7 @@ RESERVED = frozenset(
         "spec",
         "stride",
         "title",
+        "transparent",
     }
 )
 
@@ -248,7 +249,11 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     )
     render.add_argument("--fps", type=float, default=20.0, metavar="X", help="a .gif's frame rate")
     render.add_argument(
-        "--loop", type=_nonnegative_int, default=0, metavar="N", help="times a .gif plays (0=forever)"
+        "--loop",
+        type=_nonnegative_int,
+        default=0,
+        metavar="N",
+        help="times a .gif plays (0=forever)",
     )
     render.add_argument(
         "--stroke-width",
@@ -264,8 +269,11 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         help="loose-point radius, in pixels (default: --thickness)",
     )
     render.add_argument("--ink", default="#0b0b0b", help="default stroke color, a name or #hex")
+    render.add_argument("--background", default="#ffffff", help="canvas color, a name or #hex")
     render.add_argument(
-        "--background", default="#ffffff", help="canvas color, a name or #hex"
+        "--transparent",
+        action="store_true",
+        help="leave a .png or .gif's background empty instead of painting it",
     )
     render.add_argument(
         "--padding",
@@ -274,9 +282,7 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         metavar="PX",
         help="margin around a raster drawing, in pixels",
     )
-    render.add_argument(
-        "--antialias", action="store_true", help="smooth a raster drawing's edges"
-    )
+    render.add_argument("--antialias", action="store_true", help="smooth a raster drawing's edges")
     render.add_argument(
         "--aa-level",
         type=_positive_int,
@@ -853,6 +859,7 @@ def _save_animation(design: Design, target: pathlib.Path, args: argparse.Namespa
         antialias=args.antialias,
         aa_level=args.aa_level,
         dither=args.dither,
+        transparent=args.transparent,
     )
 
 
@@ -908,7 +915,11 @@ def _save_still(design: Design, target: pathlib.Path, args: argparse.Namespace, 
         "aa_level": args.aa_level,
     }
     if kind == "jpeg":
+        # A JPEG has no alpha, so a transparent request is ignored here the
+        # way an animation flag is ignored for a still.
         save_jpeg(design, target, **shared, quality=args.quality)
+    elif args.transparent:
+        save_png(design, target, **shared, compression=args.compression, transparent=True)
     else:
         save_png(design, target, **shared, compression=args.compression)
 

@@ -71,6 +71,33 @@ def test_rgba_writes_an_opaque_alpha_channel():
     assert _pixel(decoded.pixels, 20, 3, 3, 6) == (0xFF, 0xFF, 0xFF, 0xFF)
 
 
+def test_transparent_writes_rgba_with_empty_background():
+    # --transparent implies truecolor-with-alpha and leaves the empty canvas
+    # at alpha 0 rather than painting the background color.
+    decoded = png(to_png(BOX, width=20, height=20, transparent=True))
+    assert decoded.color_type == 6
+    assert _pixel(decoded.pixels, 20, 0, 0, 6)[3] == 0xFF * 0  # background is empty
+    corner = _pixel(decoded.pixels, 20, 0, 0, 6)
+    assert corner[3] == 0
+    # ... yet a corner with ink is fully opaque, and ink survives exactly.
+    lit = [
+        x
+        for x in range(20)
+        if _pixel(decoded.pixels, 20, x, 10, 6)[:3] == (0x0B, 0x0B, 0x0B)
+        and _pixel(decoded.pixels, 20, x, 10, 6)[3] == 255
+    ]
+    assert lit
+
+
+def test_transparent_keeps_the_requested_ink_and_background_word():
+    decoded = png(
+        to_png(BOX, width=20, height=20, ink="#123456", background="#fedcba", transparent=True)
+    )
+    assert decoded.color_type == 6
+    assert _pixel(decoded.pixels, 20, 0, 0, 6)[3] == 0  # background still empty
+    assert (0x12, 0x34, 0x56) in _seen(decoded.pixels, 6)
+
+
 def test_indexed_still_carries_its_palette_and_background_first():
     decoded = png(to_png(BOX, width=20, height=20, color="indexed"))
     assert decoded.color_type == 3
@@ -149,5 +176,7 @@ def test_a_still_is_one_complete_frame_not_an_animation():
     # drawing rather than one early frame of an animation.
     color_type = 2
     ink = (0x0B, 0x0B, 0x0B)
-    lit = [y for y in range(decoded.height) if _pixel(decoded.pixels, 60, 30, y, color_type)[:3] == ink]
+    lit = [
+        y for y in range(decoded.height) if _pixel(decoded.pixels, 60, 30, y, color_type)[:3] == ink
+    ]
     assert len(lit) == 2, lit

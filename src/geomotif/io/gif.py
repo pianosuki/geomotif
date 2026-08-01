@@ -66,6 +66,7 @@ def to_gif(
     antialias: bool = False,
     aa_level: int = 8,
     dither: bool = True,
+    transparent: bool = False,
 ) -> bytes:
     """Render a sequence of designs as an animated GIF.
 
@@ -105,6 +106,11 @@ def to_gif(
         Error-diffuse the round-off onto a gradient, which keeps an
         antialiased edge on a colored ground from banding inside the palette
         budget. On by default.
+    transparent : bool
+        Leave the background empty. Index 0 is flagged transparent in the
+        file, so the drawing sits over whatever the page shows instead of a
+        painted ground. Off by default, so the picture stays what it has
+        always been.
 
     Returns
     -------
@@ -149,10 +155,13 @@ def to_gif(
                 thickness=thickness,
                 dot_radius=dot_radius,
                 aa_level=aa_level,
+                transparent=transparent,
             )
             for frame in frames
         ]
-        rasters = quantize(frame_rgba, seeds=seeds, max_colors=256, dither=dither)
+        rasters = quantize(
+            frame_rgba, seeds=seeds, max_colors=256, dither=dither, transparent=transparent
+        )
         palette = rasters[0].palette
     else:
         palette = seeds
@@ -177,7 +186,10 @@ def to_gif(
     # value of it that means "stop after one".
     if len(rasters) > 1 and loop != 1:
         parts.append(_looping(loop))
-    parts.extend(_frame(raster, delay=delay, animated=len(rasters) > 1) for raster in rasters)
+    parts.extend(
+        _frame(raster, delay=delay, animated=len(rasters) > 1, transparent=transparent)
+        for raster in rasters
+    )
     parts.append(b";")
     return b"".join(parts)
 
@@ -249,13 +261,17 @@ def _looping(loop: int) -> bytes:
     return b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + _short(0 if loop == 0 else loop - 1) + b"\x00"
 
 
-def _frame(raster: Raster, *, delay: int, animated: bool) -> bytes:
+def _frame(raster: Raster, *, delay: int, animated: bool, transparent: bool = False) -> bytes:
     """Return one frame: how long to hold it, where it goes, and its pixels."""
     parts = bytearray()
-    if animated:
+    if animated or transparent:
         # Disposal method 1, "leave it there": every frame here is a full
-        # canvas, so there is nothing to restore between them.
-        parts.extend(b"\x21\xf9\x04" + bytes([0x04]) + _short(delay) + b"\x00\x00")
+        # canvas, so there is nothing to restore between them. Bit 0 flags a
+        # transparent index, which is 0 -- the background slot -- when asked.
+        packed = 0x04 if animated else 0x00
+        if transparent:
+            packed |= 0x01
+        parts.extend(b"\x21\xf9\x04" + bytes([packed]) + _short(delay) + b"\x00\x00")
     parts.extend(b"\x2c" + _short(0) + _short(0) + _short(raster.width) + _short(raster.height))
     parts.append(0x00)  # no local color table, not interlaced
 

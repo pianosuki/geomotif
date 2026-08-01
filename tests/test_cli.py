@@ -126,7 +126,19 @@ def test_canvas_wins_over_fit_for_the_pixel_canvas(capsys, tmp_path):
     # both are given the pixels come from --canvas and the geometry is still
     # fitted onto the world canvas it was asked for.
     out = tmp_path / "rose.gif"
-    run(capsys, "render", "rose", "--out", str(out), "--fit", "60x60", "--canvas", "90x40", "--frames", "4")
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--fit",
+        "60x60",
+        "--canvas",
+        "90x40",
+        "--frames",
+        "4",
+    )
     assert (gif(out.read_bytes()).width, gif(out.read_bytes()).height) == (90, 40)
 
 
@@ -153,7 +165,9 @@ def test_stroke_width_reaches_the_gif(capsys, tmp_path):
         "--stroke-width",
         "4",
     )
-    assert gif(thick.read_bytes()).frames[-1].pixels.count(1) > gif(thin.read_bytes()).frames[-1].pixels.count(1)
+    assert gif(thick.read_bytes()).frames[-1].pixels.count(1) > gif(thin.read_bytes()).frames[
+        -1
+    ].pixels.count(1)
 
 
 def test_loop_reaches_the_gif(capsys, tmp_path):
@@ -533,6 +547,32 @@ def test_render_png_refuses_an_out_of_range_compression(tmp_path):
         main(["render", "rose", "--out", str(tmp_path / "r.png"), "--compression", "10"])
 
 
+def test_render_png_writes_a_transparent_background(capsys, tmp_path):
+    out = tmp_path / "r.png"
+    assert run(capsys, "render", "rose", "--out", str(out), "--transparent")[0] == 0
+    decoded = png(out.read_bytes())
+    assert decoded.color_type == 6  # --transparent implies truecolor-with-alpha
+    # The empty canvas corners are alpha 0, not the white background color.
+    at = 4 * (0 * decoded.width + 0)
+    assert tuple(decoded.pixels[at : at + 4]) == (0, 0, 0, 0)
+
+
+def test_render_gif_writes_a_transparent_background(capsys, tmp_path):
+    out = tmp_path / "r.gif"
+    assert run(capsys, "render", "rose", "--out", str(out), "--transparent", "--hold", "3")[0] == 0
+    decoded = gif(out.read_bytes())
+    assert decoded.frames
+    assert all(frame.transparent == 0 for frame in decoded.frames)
+
+
+def test_render_with_transparent_against_any_writer_does_not_error(capsys, tmp_path):
+    # A JPEG has no alpha, so --transparent is ignored there the way an
+    # animation flag is ignored for a still, rather than refused.
+    out = tmp_path / "r.jpg"
+    assert run(capsys, "render", "rose", "--out", str(out), "--transparent")[0] == 0
+    assert jpeg(out.read_bytes()).width == 480
+
+
 def test_render_writes_a_jpeg_a_figure_used_to_write(capsys, tmp_path):
     out = tmp_path / "r.jpg"
     assert run(capsys, "render", "rose", "--samples", "50", "--out", str(out))[0] == 0
@@ -769,6 +809,7 @@ def test_writing_a_figure_without_matplotlib_says_how_to_get_it(tmp_path, monkey
     monkeypatch.setitem(__import__("sys").modules, "geomotif.plotting", None)
     with pytest.raises(SystemExit, match=r"geomotif\[plot\]"):
         main(["render", "rose", "--out", str(tmp_path / "r.pdf")])
+
 
 def test_the_version_is_reported(capsys):
     from geomotif import __version__

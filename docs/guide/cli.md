@@ -106,6 +106,14 @@ The suffix of `--out` picks the writer:
 | `.png`, `.jpg`, `.jpeg` | a still picture — pure standard library, no install |
 | `.pdf` | matplotlib — the one part of the CLI that needs the `plot` extra |
 
+The `--canvas WxH` flag sets the pixel size of a `.gif`, `.png` or `.jpg`
+(independent of the geometry-fitting `--fit`), and the styling flags —
+`--stroke-width`, `--dot-radius`, `--ink`, `--background`, `--padding`,
+`--antialias`, `--loop` — apply the same way to every raster format. A
+`.mnf`-less still is a single picture, so `.png` has `--compression` and
+`.jpg` has `--quality`; `--transparent` leaves a `.png` or `.gif`'s
+background empty, and is ignored for `.jpg`, which has no alpha.
+
 Without `--out`, the points go to stdout as CSV, so the command pipes:
 
 ```bash

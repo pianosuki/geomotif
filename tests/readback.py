@@ -223,11 +223,12 @@ def dxf_header(text: str) -> dict[str, list[str]]:
 
 @dataclass(frozen=True, slots=True)
 class GifFrame:
-    """One decoded frame: its size, its delay, and one palette index per pixel."""
+    """One decoded frame: its size, its delay, its transparent index, and pixels."""
 
     width: int
     height: int
     delay: int
+    transparent: int | None
     pixels: bytes
 
 
@@ -256,6 +257,7 @@ def gif(data: bytes) -> Gif:
     frames: list[GifFrame] = []
     loop: int | None = None
     delay = 0
+    transparent: int | None = None
     while at < len(data):
         block = data[at]
         at += 1
@@ -267,6 +269,7 @@ def gif(data: bytes) -> Gif:
             chunks, at = _subblocks(data, at)
             if label == 0xF9:
                 delay = _u16(chunks, 1)
+                transparent = chunks[3] if (chunks[0] & 0x01) else None
             elif label == 0xFF and chunks.startswith(b"NETSCAPE2.0"):
                 # The eleven-byte name, then a sub-block whose first byte is
                 # its own id and whose next two are the repeat count.
@@ -283,7 +286,7 @@ def gif(data: bytes) -> Gif:
         compressed, at = _subblocks(data, at)
         pixels = _lzw_decode(compressed, minimum)
         assert len(pixels) == fw * fh, f"got {len(pixels)} pixels for a {fw}x{fh} frame"
-        frames.append(GifFrame(fw, fh, delay, pixels))
+        frames.append(GifFrame(fw, fh, delay, transparent, pixels))
 
     return Gif(width, height, palette, frames, loop)
 
@@ -387,7 +390,13 @@ def png(data: bytes) -> Png:
     if width is None or height is None or color_type is None:
         raise AssertionError("missing IHDR")
     bpp = {2: 3, 6: 4, 3: 1}[color_type]
-    return Png(width, height, color_type, palette, _defilter(zlib.decompress(bytes(idat)), width, height, bpp))
+    return Png(
+        width,
+        height,
+        color_type,
+        palette,
+        _defilter(zlib.decompress(bytes(idat)), width, height, bpp),
+    )
 
 
 def _defilter(raw: bytes, width: int, height: int, bpp: int) -> bytes:
@@ -439,10 +448,70 @@ class Jpeg:
 
 #: The path a block's 64 coefficients are read in, DC first (Annex A).
 _ZIGZAG = (
-    0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5,
-    12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28,
-    35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51,
-    58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63,
+    0,
+    1,
+    8,
+    16,
+    9,
+    2,
+    3,
+    10,
+    17,
+    24,
+    32,
+    25,
+    18,
+    11,
+    4,
+    5,
+    12,
+    19,
+    26,
+    33,
+    40,
+    48,
+    41,
+    34,
+    27,
+    20,
+    13,
+    6,
+    7,
+    14,
+    21,
+    28,
+    35,
+    42,
+    49,
+    56,
+    57,
+    50,
+    43,
+    36,
+    29,
+    22,
+    15,
+    23,
+    30,
+    37,
+    44,
+    51,
+    58,
+    59,
+    52,
+    45,
+    38,
+    31,
+    39,
+    46,
+    53,
+    60,
+    61,
+    54,
+    47,
+    55,
+    62,
+    63,
 )
 
 #: Cosines for the IDCT, indexed ``_COS[h][f] = cos((2h+1) f pi / 16)``.
@@ -625,7 +694,12 @@ def _rebuild(
 
     for my in range(mcu_h):
         for mx in range(mcu_w):
-            for by, bx in ((my * 2, mx * 2), (my * 2, mx * 2 + 1), (my * 2 + 1, mx * 2), (my * 2 + 1, mx * 2 + 1)):
+            for by, bx in (
+                (my * 2, mx * 2),
+                (my * 2, mx * 2 + 1),
+                (my * 2 + 1, mx * 2),
+                (my * 2 + 1, mx * 2 + 1),
+            ):
                 samples = _block(reader, prev_dc, 0, quant_y, dc_table[y_dc], ac_table[y_ac])
                 _place(y_plane, y_w, by, bx, samples)
             cbv = _block(reader, prev_dc, 1, quant_c, dc_table[cb_dc], ac_table[cb_ac])

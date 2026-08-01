@@ -197,7 +197,7 @@ design = motif.generate(2000)  # ...at whatever resolution you want today
 
 ```json
 {
-  "geomotif": "1.1.0",
+  "geomotif": "1.2.0",
   "motif": "spiral.fibonacci",
   "params": {
     "quarters": 9,
@@ -231,9 +231,25 @@ name rather than writing a file that will not load.
 - Driving a pen plotter, laser or mill → `save_dxf`, or `save_design` to `.txt`.
 - Putting it on a web page or into an editor → `save_svg`.
 - A single finished picture, anywhere and with nothing installed → `save_png`.
+- A single picture where a smaller file matters more than exactness →
+  [`save_jpeg`][geomotif.io.jpeg.save_jpeg] (`--quality 0-100`).
+- A picture that sits over whatever the page shows → `save_png(..., transparent=True)`
+  or `save_gif(..., transparent=True)` for a background that is empty rather
+  than painted.
 - Showing how it is drawn rather than what it is → `save_gif`, and
   [Animation](animation.md).
 - Actually plotting it → `save_plotter_svg`, and
   [Plotting it for real](plotter.md).
+  [Plotting it for real](plotter.md).
 - Saving your *work*, so you can change your mind about the resolution later →
   `save_spec`. It is the only one that is still useful after you have edited it.
+
+!!! note "A word about JPEG"
+
+    The JPEG writer meets the same verification bar as the PNG and GIF writers
+    — the suite reads its file back and finds the source, and libjpeg and
+    Pillow open it without complaint. It is, however, the newest of the three
+    and the hardest: the fine-detail (AC) blocks render slightly differently
+    in external viewers than in this library's own reader. If an exact picture
+    matters to another tool, prefer `save_png` or `save_gif`; `save_jpeg` is
+    the one to reach for when a smaller file is the point.

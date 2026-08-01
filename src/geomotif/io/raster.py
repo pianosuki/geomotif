@@ -94,9 +94,7 @@ class Raster:
         span = self.width * self.height
         expected = {"indexed": span, "rgb": span * 3, "rgba": span * 4}
         if self.mode not in expected:
-            raise ValueError(
-                f"mode must be one of {sorted(expected)}, got {self.mode!r}"
-            )
+            raise ValueError(f"mode must be one of {sorted(expected)}, got {self.mode!r}")
         if len(self.pixels) != expected[self.mode]:
             raise ValueError(
                 f"a {self.width}x{self.height} {self.mode} raster needs "
@@ -224,6 +222,7 @@ def rasterize_rgba(
     dot_radius: int | None = None,
     scale: int = _AA_SCALE,
     aa_level: int | None = None,
+    transparent: bool = False,
 ) -> Raster:
     """Draw a design into a full-color RGBA frame, supersampled and antialiased.
 
@@ -245,7 +244,9 @@ def rasterize_rgba(
         The world rectangle to map onto the canvas. Pass the same bounds to
         every frame of an animation or the drawing will swim about.
     ink, background : str
-        Default stroke color and the color behind everything.
+        Default stroke color and the color behind everything. When
+        ``transparent`` is set, ``background`` is only what index 0 of an
+        indexed result stands for -- it contributes no color at all.
     thickness : int
         Stroke width in pixels.
     dot_radius : int, optional
@@ -257,6 +258,11 @@ def rasterize_rgba(
         ``aa_level`` steps before blending, so an indexed frame later sees at
         most ``aa_level`` blended shades per color pair. Leave ``None`` for a
         PNG or JPEG, which keep full color depth.
+    transparent : bool
+        Leave the background empty rather than painting it. A pixel with no
+        ink becomes ``alpha 0``; an antialiased edge becomes the stroke color
+        with the coverage as its alpha, which is the straight alpha a PNG
+        stores and the mask an indexed GIF flags. Off by default.
 
     Returns
     -------
@@ -306,6 +312,33 @@ def rasterize_rgba(
                 base = (sub_row + sy) * sub_w + ox * scale
                 for sx in range(scale):
                     counts[sub[base + sx]] += 1
+            at4 = 4 * (oy * width + ox)
+            if transparent:
+                # Index 0 (the background) covers nothing; alpha is the share
+                # of the block the strokes actually paint, and the color is
+                # that ink alone -- straight alpha, background-free.
+                red = green = blue = norm = 0.0
+                for index, count in enumerate(counts):
+                    if count == 0 or index == 0:
+                        continue
+                    fraction = count / block
+                    if aa_level is not None:
+                        fraction = round(fraction * aa_level) / aa_level
+                    norm += fraction
+                    r, g, b = entry_rgb[index]
+                    red += r * fraction
+                    green += g * fraction
+                    blue += b * fraction
+                if aa_level is not None:
+                    norm = round(norm * aa_level) / aa_level
+                if norm <= 0:
+                    out[at4 : at4 + 4] = (0, 0, 0, 0)
+                    continue
+                out[at4] = round(red / norm)
+                out[at4 + 1] = round(green / norm)
+                out[at4 + 2] = round(blue / norm)
+                out[at4 + 3] = round(norm * 255)
+                continue
             red = green = blue = 0.0
             for index, count in enumerate(counts):
                 if count == 0:
@@ -317,12 +350,8 @@ def rasterize_rgba(
                 red += r * fraction
                 green += g * fraction
                 blue += b * fraction
-            out[4 * (oy * width + ox) : 4 * (oy * width + ox) + 3] = (
-                round(red),
-                round(green),
-                round(blue),
-            )
-            out[4 * (oy * width + ox) + 3] = 255
+            out[at4 : at4 + 3] = (round(red), round(green), round(blue))
+            out[at4 + 3] = 255
     return Raster(width, height, bytes(out), mode="rgba")
 
 
@@ -332,6 +361,7 @@ def quantize(
     seeds: Sequence[str] = (),
     max_colors: int = 256,
     dither: bool = True,
+    transparent: bool = False,
 ) -> tuple[Raster, ...]:
     """Shrink RGBA frames to one shared indexed palette of at most ``max_colors``.
 
@@ -343,13 +373,18 @@ def quantize(
     color is never dropped: asking for more seeds than ``max_colors`` raises
     instead.
 
+    With ``transparent`` set, index 0 is reserved for empty space: a pixel
+    whose alpha lies below the half point maps there instead of to a color,
+    and the transparent slot does not count against the color budget.
+
     Parameters
     ----------
     frames : sequence of Raster
         ``"rgba"`` frames, all the same size, to share one palette.
     seeds : sequence of str
         colors that must survive exactly, background first, as ``#rrggbb`` or
-        a name. These lead the palette, in order.
+        a name. These lead the palette, in order. The first -- the background
+        -- is the reserved transparent slot when ``transparent`` is set.
     max_colors : int
         The largest palette the output may hold. Must be >= 1.
     dither : bool
@@ -357,6 +392,9 @@ def quantize(
         onto its neighbours, which keeps antialiased gradients smooth within
         a small palette. On by default, since indexed output is where the
         color budget bites.
+    transparent : bool
+        Reserve index 0 for empty pixels and drop the background from the
+        color budget. Off by default.
 
     Returns
     -------
@@ -371,8 +409,7 @@ def quantize(
     for frame in frames:
         if frame.mode != "rgba":
             raise ValueError(
-                f"quantize needs 'rgba' frames, got {frame.mode!r}; render with "
-                f"rasterize_rgba"
+                f"quantize needs 'rgba' frames, got {frame.mode!r}; render with rasterize_rgba"
             )
         if (frame.width, frame.height) != (frames[0].width, frames[0].height):
             raise ValueError("all frames must share one size to share one palette")
@@ -382,39 +419,63 @@ def quantize(
         parsed = _rgb(seed)
         if parsed not in seed_rgb:
             seed_rgb.append(parsed)
-    if len(seed_rgb) > max_colors:
-        raise ValueError(
-            f"a palette of {max_colors} colors cannot hold the {len(seed_rgb)} "
-            f"colors requested; restyle the design onto fewer, or raise the budget"
-        )
+
+    if transparent:
+        if not seed_rgb:
+            raise ValueError("a transparent palette needs a background seed to reserve")
+        background_rgb = seed_rgb[0]
+        color_seeds = seed_rgb[1:]
+        budget = max_colors - 1
+        if len(color_seeds) > budget:
+            raise ValueError(
+                f"a palette of {max_colors} colors cannot hold the "
+                f"{len(color_seeds) + 1} colors requested (index 0 is transparent); "
+                f"restyle the design onto fewer, or raise the budget"
+            )
+    else:
+        background_rgb = seed_rgb[0] if seed_rgb else (255, 255, 255)
+        color_seeds = seed_rgb
+        budget = max_colors
+        if len(color_seeds) > budget:
+            raise ValueError(
+                f"a palette of {max_colors} colors cannot hold the {len(color_seeds)} "
+                f"colors requested; restyle the design onto fewer, or raise the budget"
+            )
 
     counts = Counter[tuple[int, int, int]]()
     for frame in frames:
         buffer = frame.pixels
         for at in range(0, len(buffer), 4):
+            if transparent and buffer[at + 3] < _EMPTY_ALPHA:
+                continue
             source = (buffer[at], buffer[at + 1], buffer[at + 2])
-            if source not in seed_rgb:
+            if source not in color_seeds:
                 counts[source] += 1
 
-    palette = list(seed_rgb)
+    palette = [background_rgb] if transparent else []
+    palette.extend(color_seeds)
     pairs = sorted(counts.items(), key=lambda item: (-item[1], item[0]))
-    budget = max_colors - len(palette)
-    if budget <= 0:
+    room = budget - len(color_seeds)
+    if room <= 0:
         tail: list[tuple[int, int, int]] = []
-    elif len(pairs) <= budget:
+    elif len(pairs) <= room:
         tail = [color for color, _ in pairs]
     else:
-        tail = _median_cut([color for color, _ in pairs], counts, budget)
+        tail = _median_cut([color for color, _ in pairs], counts, room)
     palette.extend(tail)
 
     hex_palette = tuple(f"#{r:02x}{g:02x}{b:02x}" for r, g, b in palette)
-    indexed = tuple(
-        _map_to_palette(frame, palette, dither=dither) for frame in frames
+    mapped = tuple(
+        _map_to_palette(frame, palette, dither=dither, transparent=transparent) for frame in frames
     )
     return tuple(
         Raster(frame.width, frame.height, stride.pixels, hex_palette)
-        for frame, stride in zip(frames, indexed, strict=True)
+        for frame, stride in zip(frames, mapped, strict=True)
     )
+
+
+#: A pixel with less than this alpha is treated as empty by :func:`quantize`.
+_EMPTY_ALPHA = 128
 
 
 def _median_cut(
@@ -454,36 +515,47 @@ def _split_box(
 ) -> tuple[list[tuple[int, int, int]], list[tuple[int, int, int]]]:
     """Split a box in half at the median of its widest channel."""
     channel, _ = max(
-        (ch, max(color[ch] for color in box) - min(color[ch] for color in box))
-        for ch in range(3)
+        (ch, max(color[ch] for color in box) - min(color[ch] for color in box)) for ch in range(3)
     )
     ordered = sorted(box, key=lambda color: color[channel])
     half = len(ordered) // 2
     return ordered[:half], ordered[half:]
 
 
-def _map_to_palette(frame: Raster, palette: list[tuple[int, int, int]], *, dither: bool) -> Raster:
+def _map_to_palette(
+    frame: Raster, palette: list[tuple[int, int, int]], *, dither: bool, transparent: bool = False
+) -> Raster:
     """Map an RGBA frame's pixels onto ``palette``, optionally with error diffusion."""
     width, height = frame.width, frame.height
     pixels = frame.pixels
+    color_entries = palette[1:] if transparent else palette
+    shift = 1 if transparent else 0
+
     if not dither:
         out = bytearray(width * height)
         for oy in range(height):
             for ox in range(width):
                 at = 4 * (oy * width + ox)
+                if transparent and pixels[at + 3] < _EMPTY_ALPHA:
+                    out[oy * width + ox] = 0
+                    continue
                 color = (pixels[at], pixels[at + 1], pixels[at + 2])
-                out[oy * width + ox] = _nearest(color, palette)
+                out[oy * width + ox] = _nearest(color, color_entries) + shift
         return Raster(width, height, bytes(out))
 
     grid = [
         [float(pixels[4 * (y * width + x) + ch]) for ch in range(3) for x in range(width)]
         for y in range(height)
     ]
+    alpha = [[pixels[4 * (y * width + x) + 3] for x in range(width)] for y in range(height)]
     out = bytearray(width * height)
     for oy in range(height):
         for ox in range(width):
+            if transparent and alpha[oy][ox] < _EMPTY_ALPHA:
+                out[oy * width + ox] = 0
+                continue
             errant = (grid[oy][ox * 3], grid[oy][ox * 3 + 1], grid[oy][ox * 3 + 2])
-            index = _nearest(errant, palette)
+            index = _nearest(errant, color_entries) + shift
             out[oy * width + ox] = index
             nearest = palette[index]
             error = (
@@ -491,17 +563,26 @@ def _map_to_palette(frame: Raster, palette: list[tuple[int, int, int]], *, dithe
                 errant[1] - nearest[1],
                 errant[2] - nearest[2],
             )
-            _scatter(grid, width, height, oy, ox, error)
+            _scatter(grid, alpha, width, height, oy, ox, error, transparent)
     return Raster(width, height, bytes(out))
 
 
 def _scatter(
-    grid: list[list[float]], width: int, height: int, y: int, x: int, error: tuple[float, float, float]
+    grid: list[list[float]],
+    alpha: list[list[int]] | None,
+    width: int,
+    height: int,
+    y: int,
+    x: int,
+    error: tuple[float, float, float],
+    transparent: bool,
 ) -> None:
     """Diffuse an RGB quantization error onto Floyd-Steinberg's four neighbours."""
     for dy, dx, weight in ((0, 1, 7), (1, -1, 3), (1, 0, 5), (1, 1, 1)):
         ny, nx = y + dy, x + dx
         if 0 <= ny < height and 0 <= nx < width:
+            if transparent and alpha is not None and alpha[ny][nx] < _EMPTY_ALPHA:
+                continue
             row = grid[ny]
             for ch in range(3):
                 row[nx * 3 + ch] += error[ch] * weight / 16.0
@@ -512,14 +593,11 @@ def _nearest(color: tuple[float, float, float], palette: list[tuple[int, int, in
     best, best_distance = 0, 1_000_000_000.0
     for index, entry in enumerate(palette):
         distance = (
-            (color[0] - entry[0]) ** 2
-            + (color[1] - entry[1]) ** 2
-            + (color[2] - entry[2]) ** 2
+            (color[0] - entry[0]) ** 2 + (color[1] - entry[1]) ** 2 + (color[2] - entry[2]) ** 2
         )
         if distance < best_distance:
             best, best_distance = index, distance
     return best
-
 
 
 def _bounds_of(design: Design) -> Bounds:
