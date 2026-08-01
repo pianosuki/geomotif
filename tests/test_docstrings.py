@@ -26,7 +26,10 @@ import geomotif
 def _examples():
     """Yield ``(module name, parsed example)`` for every docstring holding code."""
     for found in pkgutil.walk_packages(geomotif.__path__, "geomotif."):
-        module = importlib.import_module(found.name)
+        try:
+            module = importlib.import_module(found.name)
+        except ImportError:
+            continue
         tree = _parsed(module.__doc__ or "")
         if tree is not None and any(
             isinstance(node, ast.Import | ast.ImportFrom) for node in ast.walk(tree)
