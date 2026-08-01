@@ -83,21 +83,31 @@ __all__ = ["MOTIONS", "RESERVED", "build_parser", "main"]
 #: argparse has one namespace and the generic option has to win.
 RESERVED = frozenset(
     {
+        "aa_level",
+        "antialias",
+        "background",
         "by",
+        "compression",
         "distribute",
+        "dither",
+        "dot_radius",
         "ease",
         "fit",
         "fps",
         "frames",
         "hold",
+        "ink",
         "keep_duplicates",
         "landscape",
+        "loop",
         "margin",
         "motion",
         "optimize",
         "out",
+        "padding",
         "paper",
         "precision",
+        "quality",
         "samples",
         "snap",
         "snap_mode",
@@ -213,6 +223,12 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     render.add_argument("--by", choices=("length", "parameter"), default="length")
     render.add_argument("--distribute", choices=("length", "even", "per_path"), default="length")
     render.add_argument("--fit", type=_size, metavar="WxH", help="scale onto a canvas")
+    render.add_argument(
+        "--canvas",
+        type=_size,
+        metavar="WxH",
+        help="pixel canvas for a .gif, .png or .jpg",
+    )
     render.add_argument("--motion", choices=MOTIONS, default="draw-on", help="how a .gif animates")
     render.add_argument("--frames", type=int, default=48, metavar="N", help="frames in a .gif")
     render.add_argument(
@@ -222,6 +238,33 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         help="how long .gif sits on the finished drawing, in frames (default: a quarter of --frames)",
     )
     render.add_argument("--fps", type=float, default=20.0, metavar="X", help="a .gif's frame rate")
+    render.add_argument(
+        "--loop", type=_nonnegative_int, default=0, metavar="N", help="times a .gif plays (0=forever)"
+    )
+    render.add_argument(
+        "--stroke-width",
+        type=_positive_int,
+        default=1,
+        metavar="PX",
+        help="stroke width, in pixels",
+    )
+    render.add_argument(
+        "--dot-radius",
+        type=_positive_int,
+        metavar="PX",
+        help="loose-point radius, in pixels (default: --thickness)",
+    )
+    render.add_argument("--ink", default="#0b0b0b", help="default stroke colour, a name or #hex")
+    render.add_argument(
+        "--background", default="#ffffff", help="canvas colour, a name or #hex"
+    )
+    render.add_argument(
+        "--padding",
+        type=_nonnegative_float,
+        default=8.0,
+        metavar="PX",
+        help="margin around a raster drawing, in pixels",
+    )
     render.add_argument(
         "--paper",
         choices=sorted(PAPER),
@@ -610,6 +653,28 @@ def _nonnegative_int(text: str) -> int:
     return value
 
 
+def _positive_int(text: str) -> int:
+    """Parse a whole number that must be at least one."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a whole number -- got {text!r}") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
+    return value
+
+
+def _nonnegative_float(text: str) -> float:
+    """Parse a number that may not go below zero."""
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a number -- got {text!r}") from None
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
+    return value
+
+
 def _point(text: str) -> Point:
     """Parse ``x,y``."""
     try:
@@ -721,14 +786,42 @@ def _save_animation(design: Design, target: pathlib.Path, args: argparse.Namespa
     """Turn one design into frames and write them as an animated GIF."""
     from .animate import draw_on, spin
 
-    width, height = args.fit if args.fit is not None else (_GIF_SIZE, _GIF_SIZE)
+    width, height = _canvas(args)
     hold = _hold_for(args)
     match args.motion:
         case "spin":
             frames = spin(design, args.frames, hold=hold)
         case _:
             frames = draw_on(design, args.frames, hold=hold)
-    save_gif(frames, target, width=round(width), height=round(height), fps=args.fps)
+    save_gif(
+        frames,
+        target,
+        width=width,
+        height=height,
+        fps=args.fps,
+        loop=args.loop,
+        ink=args.ink,
+        background=args.background,
+        thickness=args.stroke_width,
+        dot_radius=args.dot_radius,
+        padding=args.padding,
+    )
+
+
+def _canvas(args: argparse.Namespace) -> tuple[int, int]:
+    """Return the raster canvas in pixels, ``--canvas`` winning over ``--fit``.
+
+    ``--canvas`` changes how big the pixels are, ``--fit`` changes what the
+    drawing is -- so when both are given the drawing is still fitted onto the
+    world canvas (in _render) and the pixel canvas comes from ``--canvas``
+    alone. Either alone sets the canvas from itself; neither falls back to the
+    1.1.0 fixed 480.
+    """
+    if args.canvas is not None:
+        return round(args.canvas[0]), round(args.canvas[1])
+    if args.fit is not None:
+        return round(args.fit[0]), round(args.fit[1])
+    return _GIF_SIZE, _GIF_SIZE
 
 
 def _hold_for(args: argparse.Namespace) -> int:

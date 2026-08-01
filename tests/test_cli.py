@@ -114,6 +114,65 @@ def test_the_frame_rate_reaches_the_file(capsys, tmp_path):
     assert gif(out.read_bytes()).frames[0].delay == 10
 
 
+def test_canvas_sets_the_pixel_size_independently_of_geometry(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--canvas", "120x80", "--frames", "4")
+    decoded = gif(out.read_bytes())
+    assert (decoded.width, decoded.height) == (120, 80)
+
+
+def test_canvas_wins_over_fit_for_the_pixel_canvas(capsys, tmp_path):
+    # --fit resizes the drawing's geometry; --canvas sizes the pixels. When
+    # both are given the pixels come from --canvas and the geometry is still
+    # fitted onto the world canvas it was asked for.
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--fit", "60x60", "--canvas", "90x40", "--frames", "4")
+    assert (gif(out.read_bytes()).width, gif(out.read_bytes()).height) == (90, 40)
+
+
+def test_canvas_alone_and_fit_alone_degrade_to_each_other(capsys, tmp_path):
+    sized, fitted = tmp_path / "a.gif", tmp_path / "b.gif"
+    run(capsys, "render", "rose", "--out", str(sized), "--canvas", "70x70", "--frames", "4")
+    run(capsys, "render", "rose", "--out", str(fitted), "--fit", "70x70", "--frames", "4")
+    assert gif(sized.read_bytes()).width == gif(fitted.read_bytes()).width == 70
+
+
+def test_stroke_width_reaches_the_gif(capsys, tmp_path):
+    thin, thick = tmp_path / "t.gif", tmp_path / "k.gif"
+    run(capsys, "render", "rose", "--out", str(thin), "--canvas", "60x60", "--frames", "4")
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(thick),
+        "--canvas",
+        "60x60",
+        "--frames",
+        "4",
+        "--stroke-width",
+        "4",
+    )
+    assert gif(thick.read_bytes()).frames[-1].pixels.count(1) > gif(thin.read_bytes()).frames[-1].pixels.count(1)
+
+
+def test_loop_reaches_the_gif(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "4", "--loop", "3")
+    assert gif(out.read_bytes()).loop == 2  # stored as repeats after the first
+
+
+def test_a_motifs_size_flag_is_not_stolen_by_the_canvas_flag(capsys, tmp_path):
+    # `size` is a real parameter on most of the catalogue, and reserving it for
+    # the pixel canvas would silently change `render rose --size 800`. It stays
+    # a motif flag; the pixel knob goes by `--canvas` instead.
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    run(capsys, "render", "rose", "--out", str(a), "--size", "100")
+    run(capsys, "render", "rose", "--out", str(b), "--size", "400")
+    ta, tb = load_design(a).bounds, load_design(b).bounds
+    assert tb.width > ta.width  # a bigger rose, not a bigger canvas
+
+
 def test_hold_zero_means_no_repeated_frames(capsys, tmp_path):
     out = tmp_path / "rose.gif"
     run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "0")
