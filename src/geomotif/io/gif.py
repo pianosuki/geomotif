@@ -25,13 +25,13 @@ The frames come from :mod:`geomotif.animate` and the pixels from
 from __future__ import annotations
 
 import pathlib
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
-from .raster import colours_in, rasterize
+from ._colour import NAMED
+from .raster import colours_in, quantize, rasterize, rasterize_rgba
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Iterable, Sequence
     from os import PathLike
 
     from ..core.types import Bounds, Design
@@ -39,24 +39,8 @@ if TYPE_CHECKING:
 
 __all__ = ["NAMED", "save_gif", "to_gif"]
 
-#: Colour names this writer understands, matching the ones the DXF writer can
-#: put a name to. A GIF holds literal red, green and blue, so a name it does
-#: not know cannot be passed downstream the way the SVG writer passes one --
-#: it has to be resolved here or refused here.
-NAMED: Mapping[str, bytes] = MappingProxyType(
-    {
-        "black": b"\x00\x00\x00",
-        "white": b"\xff\xff\xff",
-        "red": b"\xff\x00\x00",
-        "green": b"\x00\x80\x00",
-        "blue": b"\x00\x00\xff",
-        "yellow": b"\xff\xff\x00",
-        "cyan": b"\x00\xff\xff",
-        "aqua": b"\x00\xff\xff",
-        "magenta": b"\xff\x00\xff",
-        "fuchsia": b"\xff\x00\xff",
-    }
-)
+#: Colour names this writer understands; see :data:`geomotif.io._colour.NAMED`.
+#: Re-exported from here so this module's zero-dependency story survives.
 
 #: GIF measures a frame's delay in hundredths of a second, and nothing else.
 #: Two is the practical floor: browsers treat 0 and 1 as "as fast as you like"
@@ -79,6 +63,9 @@ def to_gif(
     background: str = "#ffffff",
     thickness: int = 1,
     dot_radius: int | None = None,
+    antialias: bool = False,
+    aa_level: int = 8,
+    dither: bool = True,
 ) -> bytes:
     """Render a sequence of designs as an animated GIF.
 
@@ -107,6 +94,17 @@ def to_gif(
         Stroke width in pixels.
     dot_radius : int, optional
         Radius for loose points. Defaults to ``thickness``.
+    antialias : bool
+        Supersample and blend edges. Off by default, so the output is exactly
+        the hard-edged picture it has always been.
+    aa_level : int
+        When antialiasing, how many shades an edge may blend into per colour
+        pair, which is what keeps the whole animation inside GIF's 256-colour
+        budget. Must be >= 1.
+    dither : bool
+        Error-diffuse the round-off onto a gradient, which keeps an
+        antialiased edge on a coloured ground from banding inside the palette
+        budget. On by default.
 
     Returns
     -------
@@ -116,9 +114,9 @@ def to_gif(
     Raises
     ------
     ValueError
-        If there are no frames, the rate is not positive, or the designs need
-        more than 256 colours between them -- which is GIF's limit, not this
-        writer's.
+        If there are no frames, the rate is not positive, the antialias level
+        is zero, or the designs' own colours (the inks and background) exceed
+        256 between them -- which is GIF's limit, not this writer's.
     """
     if not frames:
         raise ValueError("cannot write a GIF with no frames")
@@ -126,29 +124,51 @@ def to_gif(
         raise ValueError(f"fps must be > 0, got {fps}")
     if loop < 0:
         raise ValueError(f"loop must be >= 0, got {loop}")
+    if aa_level < 1:
+        raise ValueError(f"aa_level must be >= 1, got {aa_level}")
 
-    palette = colours_in(frames, ink=ink, background=background)
-    if len(palette) > 256:
+    seeds = colours_in(frames, ink=ink, background=background)
+    if len(seeds) > 256:
         raise ValueError(
-            f"a GIF has at most 256 colours and these designs need {len(palette)}; "
+            f"a GIF has at most 256 colours and these designs need {len(seeds)}; "
             f"restyle them onto fewer, or write them as SVG instead"
         )
     shared = _union(frames)
     delay = max(_MIN_DELAY, round(100.0 / fps))
 
-    rasters = [
-        rasterize(
-            frame,
-            width=width,
-            height=height,
-            padding=padding,
-            bounds=shared,
-            palette=palette,
-            thickness=thickness,
-            dot_radius=dot_radius,
+    if antialias:
+        frame_rgba = [
+            rasterize_rgba(
+                frame,
+                width=width,
+                height=height,
+                padding=padding,
+                bounds=shared,
+                ink=ink,
+                background=background,
+                thickness=thickness,
+                dot_radius=dot_radius,
+                aa_level=aa_level,
+            )
+            for frame in frames
+        ]
+        rasters = quantize(frame_rgba, seeds=seeds, max_colors=256, dither=dither)
+        palette = rasters[0].palette
+    else:
+        palette = seeds
+        rasters = tuple(
+            rasterize(
+                frame,
+                width=width,
+                height=height,
+                padding=padding,
+                bounds=shared,
+                palette=palette,
+                thickness=thickness,
+                dot_radius=dot_radius,
+            )
+            for frame in frames
         )
-        for frame in frames
-    ]
 
     depth = _depth(len(palette))
     parts = [_header(width, height, depth), _colour_table(palette, depth)]
@@ -252,16 +272,10 @@ def _short(value: int) -> bytes:
 
 def _rgb(colour: str) -> bytes:
     """Parse ``#rgb``, ``#rrggbb`` or a name from :data:`NAMED` into three bytes."""
-    text = colour.strip().lower()
-    if text in NAMED:
-        return NAMED[text]
-    text = text.lstrip("#")
-    if len(text) == 3:
-        text = "".join(c * 2 for c in text)
-    if len(text) != 6:
-        raise ValueError(_unreadable(colour))
+    from ._colour import rgb as parse
+
     try:
-        return bytes.fromhex(text)
+        return bytes(parse(colour))
     except ValueError:
         raise ValueError(_unreadable(colour)) from None
 

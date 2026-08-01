@@ -266,6 +266,22 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         help="margin around a raster drawing, in pixels",
     )
     render.add_argument(
+        "--antialias", action="store_true", help="smooth a raster drawing's edges"
+    )
+    render.add_argument(
+        "--aa-level",
+        type=_positive_int,
+        default=8,
+        metavar="N",
+        help="with --antialias, shades an edge may blend into per colour pair",
+    )
+    render.add_argument(
+        "--dither",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="error-diffuse a .gif's palette round-off (--no-dither turns it off)",
+    )
+    render.add_argument(
         "--paper",
         choices=sorted(PAPER),
         help="write a .svg at this paper size, in real millimetres, for a plotter",
@@ -805,6 +821,9 @@ def _save_animation(design: Design, target: pathlib.Path, args: argparse.Namespa
         thickness=args.stroke_width,
         dot_radius=args.dot_radius,
         padding=args.padding,
+        antialias=args.antialias,
+        aa_level=args.aa_level,
+        dither=args.dither,
     )
 
 

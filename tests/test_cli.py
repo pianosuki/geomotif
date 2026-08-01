@@ -173,6 +173,49 @@ def test_a_motifs_size_flag_is_not_stolen_by_the_canvas_flag(capsys, tmp_path):
     assert tb.width > ta.width  # a bigger rose, not a bigger canvas
 
 
+def test_antialias_reaches_and_enriches_the_gif(capsys, tmp_path):
+    sharp, soft = tmp_path / "s.gif", tmp_path / "o.gif"
+    run(capsys, "render", "rose", "--out", str(sharp), "--canvas", "60x60", "--frames", "4")
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(soft),
+        "--canvas",
+        "60x60",
+        "--frames",
+        "4",
+        "--antialias",
+    )
+    assert len(gif(soft.read_bytes()).palette) > len(gif(sharp.read_bytes()).palette)
+
+
+def test_no_dither_is_accepted(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    assert (
+        run(
+            capsys,
+            "render",
+            "rose",
+            "--out",
+            str(out),
+            "--canvas",
+            "40x40",
+            "--frames",
+            "3",
+            "--antialias",
+            "--no-dither",
+        )[0]
+        == 0
+    )
+
+
+def test_aa_level_zero_is_refused():
+    with pytest.raises(SystemExit):
+        main(["render", "rose", "--aa-level", "0", "--out", "x.gif"])
+
+
 def test_hold_zero_means_no_repeated_frames(capsys, tmp_path):
     out = tmp_path / "rose.gif"
     run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "0")

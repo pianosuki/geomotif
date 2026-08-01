@@ -4,7 +4,7 @@ import pytest
 
 from geomotif import Design, Path, Style, layer, styled, to_gif
 from geomotif.animate import draw_on, spin, sweep
-from geomotif.io.raster import rasterize
+from geomotif.io.raster import Raster, quantize, rasterize, rasterize_rgba
 from geomotif.motifs import KochSnowflake, Phyllotaxis, RegularPolygon, Rose
 from tests.readback import gif
 
@@ -432,3 +432,111 @@ def test_an_unknown_mode_is_refused():
 
     with pytest.raises(ValueError, match="mode must be one of"):
         Raster(2, 2, bytes(4), mode="cmyk")
+
+
+# --- antialiasing and quantisation -------------------------------------------
+
+
+def _rgba_shades(raster):
+    """The distinct RGB colours that are not pure background or the default ink."""
+    ink = (0x0B, 0x0B, 0x0B)
+    background = (0xFF, 0xFF, 0xFF)
+    seen = set()
+    for at in range(0, len(raster.pixels), 4):
+        seen.add((raster.pixels[at], raster.pixels[at + 1], raster.pixels[at + 2]))
+    return seen - {background, ink}
+
+
+def test_rasterize_rgba_makes_a_full_colour_frame():
+    from geomotif.io.raster import Raster
+
+    frame = rasterize_rgba(BOX, width=20, height=20)
+    assert frame.mode == "rgba"
+    assert len(frame.pixels) == 20 * 20 * 4
+    rebuilt = Raster(20, 20, frame.pixels, mode="rgba")  # passes its own length check
+    assert rebuilt.pixels == frame.pixels
+
+
+def test_a_diagonal_line_blends_more_than_the_hard_edge():
+    line = Design(paths=(Path(((0.0, 0.0), (100.0, 100.0))),))
+    sharp = rasterize_rgba(line, width=50, height=50, scale=1)
+    smooth = rasterize_rgba(line, width=50, height=50, scale=4)
+    assert len(_rgba_shades(smooth)) > len(_rgba_shades(sharp))
+
+
+def test_aa_level_bounds_how_many_shades_an_edge_makes():
+    line = Design(paths=(Path(((0.0, 0.0), (100.0, 100.0))),))
+    coarse = rasterize_rgba(line, width=50, height=50, scale=4, aa_level=2)
+    fine = rasterize_rgba(line, width=50, height=50, scale=4, aa_level=64)
+    assert len(_rgba_shades(fine)) > len(_rgba_shades(coarse))
+
+
+def test_quantize_returns_indexed_frames_sharing_one_palette():
+    frames = [
+        rasterize_rgba(SQUARE, width=30, height=30),
+        rasterize_rgba(TWO_STROKES, width=30, height=30),
+    ]
+    indexed = quantize(frames)
+    assert all(raster.mode == "indexed" for raster in indexed)
+    assert len({raster.palette for raster in indexed}) == 1
+    assert len(indexed[0].palette) <= 256
+
+
+def test_quantize_keeps_the_seed_colours_first_and_exact():
+    frame = rasterize_rgba(SQUARE, width=30, height=30, ink="#123456", background="#fedcba")
+    indexed = quantize([frame], seeds=("#fedcba", "#123456"))
+    assert indexed[0].palette[:2] == ("#fedcba", "#123456")
+    assert indexed[0].pixels.count(0) + indexed[0].pixels.count(1) > 0
+
+
+def test_more_seeds_than_the_budget_raise():
+    frame = rasterize_rgba(BOX, width=4, height=4)
+    with pytest.raises(ValueError, match="cannot hold"):
+        quantize([frame], seeds=("#ffffff", "#000000"), max_colors=1)
+
+
+def test_a_gif_never_drops_an_ink_even_over_256():
+    from types import MappingProxyType
+
+    from geomotif.core.types import PATH_STYLE_KEY
+
+    colours = [
+        f"#{r:02x}{g:02x}{b:02x}"
+        for r in range(16)
+        for g in range(16)
+        for b in range(2)
+    ][:260]
+    design = Design(
+        paths=tuple(Path(((float(i), 0.0), (float(i), 1.0))) for i in range(260)),
+        meta=MappingProxyType(
+            {PATH_STYLE_KEY: tuple(Style(stroke=colour) for colour in colours)}
+        ),
+    )
+    with pytest.raises(ValueError, match="256"):
+        to_gif([design])
+
+
+def test_dithering_spreads_a_gradient_instead_of_banding_it():
+    width, height = 40, 40
+    pixels = bytearray()
+    for _ in range(height):
+        for x in range(width):
+            value = round(255 * x / (width - 1))
+            pixels += bytes((value, value, value, 255))
+    gradient = Raster(width, height, bytes(pixels), mode="rgba")
+
+    plain = quantize([gradient], seeds=("#000000", "#ffffff"), max_colors=2, dither=False)[0]
+    dithered = quantize([gradient], seeds=("#000000", "#ffffff"), max_colors=2, dither=True)[0]
+    assert len(plain.palette) == 2  # the budget really is two colours
+
+    def transitions(raster):
+        return sum(
+            1 for i in range(1, len(raster.pixels)) if raster.pixels[i] != raster.pixels[i - 1]
+        )
+
+    assert transitions(dithered) > transitions(plain)
+
+
+def test_aa_level_out_of_range_is_refused_at_the_gif_level():
+    with pytest.raises(ValueError, match="aa_level"):
+        to_gif([SQUARE], antialias=True, aa_level=0)
