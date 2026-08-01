@@ -58,7 +58,7 @@ def svg_strokes(text: str) -> list[Stroke]:
 
 
 def svg_dots(text: str) -> list[Point]:
-    """The centre of every ``<circle>``."""
+    """The center of every ``<circle>``."""
     return [(float(c.get("cx", "0")), float(c.get("cy", "0"))) for c in svg_find(text, "circle")]
 
 
@@ -185,8 +185,8 @@ def dxf_entity_layers(text: str) -> list[tuple[str, str]]:
     ]
 
 
-def dxf_entity_colours(text: str) -> list[int | None]:
-    """The colour index of each drawn entity, or ``None`` where it inherits one."""
+def dxf_entity_colors(text: str) -> list[int | None]:
+    """The color index of each drawn entity, or ``None`` where it inherits one."""
     return [
         int(codes[62]) if 62 in codes else None
         for kind, codes in dxf_section(text, "ENTITIES")
@@ -229,7 +229,7 @@ class GifFrame:
 
 @dataclass(frozen=True, slots=True)
 class Gif:
-    """A decoded GIF: the screen it declares, its colours, and its frames."""
+    """A decoded GIF: the screen it declares, its colors, and its frames."""
 
     width: int
     height: int
@@ -243,7 +243,7 @@ def gif(data: bytes) -> Gif:
     assert data[:6] == b"GIF89a", f"not a GIF89a: {data[:6]!r}"
     width, height = _u16(data, 6), _u16(data, 8)
     packed = data[10]
-    assert packed & 0x80, "expected a global colour table"
+    assert packed & 0x80, "expected a global color table"
     size = 2 << (packed & 0x07)
     at = 13
     palette = [_rgb(data, at + 3 * i) for i in range(size)]
@@ -272,7 +272,7 @@ def gif(data: bytes) -> Gif:
         left, top = _u16(data, at), _u16(data, at + 2)
         fw, fh = _u16(data, at + 4), _u16(data, at + 6)
         assert (left, top) == (0, 0), "frames are written full-canvas"
-        assert data[at + 8] == 0, "expected no local colour table and no interlacing"
+        assert data[at + 8] == 0, "expected no local color table and no interlacing"
         at += 9
         minimum = data[at]
         at += 1
@@ -285,7 +285,7 @@ def gif(data: bytes) -> Gif:
 
 
 def _rgb(data: bytes, at: int) -> tuple[int, int, int]:
-    """One colour-table entry."""
+    """One color-table entry."""
     return (data[at], data[at + 1], data[at + 2])
 
 

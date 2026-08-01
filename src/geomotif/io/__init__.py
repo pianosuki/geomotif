@@ -24,11 +24,11 @@ animation from :mod:`geomotif.animate` is written as, since a moving picture
 has no vector form that plays everywhere.
 
 :mod:`geomotif.io.plotter` is the SVG writer again with a pen plotter in mind:
-real millimetres on a named sheet of paper, and a pass that joins strokes up
+real millimeters on a named sheet of paper, and a pass that joins strokes up
 and orders them so the pen wastes less time in the air.
 
 Every writer here is pure standard library, so the zero-dependency core stays
-zero-dependency all the way out to the file -- LZW compression, colour tables
+zero-dependency all the way out to the file -- LZW compression, color tables
 and all.
 """
 

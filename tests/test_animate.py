@@ -131,7 +131,7 @@ def test_spinning_a_full_turn_comes_back_to_where_it_started():
 
 
 def test_spinning_keeps_the_design_where_it_was():
-    # Rotating about the origin would swing an off-centre design out of frame.
+    # Rotating about the origin would swing an off-center design out of frame.
     shifted = SQUARE.transformed(__import__("geomotif").Affine.translate(500.0, 0.0))
     for frame in spin(shifted, 6):
         assert frame.bounds.center == pytest.approx(shifted.bounds.center)
@@ -262,7 +262,7 @@ def test_a_gif_round_trips_through_a_reader_that_is_not_this_writer():
 
 
 def decoded_palette(decoded):
-    """The writer's palette strings, rebuilt from the colour table it wrote."""
+    """The writer's palette strings, rebuilt from the color table it wrote."""
     return tuple(f"#{r:02x}{g:02x}{b:02x}" for r, g, b in decoded.palette)
 
 
@@ -289,24 +289,24 @@ def test_a_single_frame_is_a_plain_still_image():
     assert decoded.loop is None  # no looping block, because there is nothing to loop
 
 
-def test_the_colours_are_the_ones_that_were_asked_for():
+def test_the_colors_are_the_ones_that_were_asked_for():
     decoded = gif(to_gif([SQUARE], ink="#123456", background="#fedcba"))
     assert decoded.palette[:2] == [(0xFE, 0xDC, 0xBA), (0x12, 0x34, 0x56)]
 
 
-def test_a_short_hex_colour_is_understood():
+def test_a_short_hex_color_is_understood():
     assert gif(to_gif([SQUARE], ink="#f00")).palette[1] == (0xFF, 0x00, 0x00)
 
 
-def test_the_named_colours_the_dxf_writer_knows_are_understood_here_too():
+def test_the_named_colors_the_dxf_writer_knows_are_understood_here_too():
     # A styled design should not export to SVG and DXF and then fail on GIF
-    # for naming its colour rather than spelling it in hex.
+    # for naming its color rather than spelling it in hex.
     assert gif(to_gif([SQUARE], ink="red")).palette[1] == (0xFF, 0x00, 0x00)
     assert gif(to_gif([styled(SQUARE, stroke="Blue")])).palette[2] == (0x00, 0x00, 0xFF)
 
 
-def test_a_colour_that_is_not_one_is_refused():
-    with pytest.raises(ValueError, match="cannot write 'crimson' into a GIF colour table"):
+def test_a_color_that_is_not_one_is_refused():
+    with pytest.raises(ValueError, match="cannot write 'crimson' into a GIF color table"):
         to_gif([SQUARE], ink="crimson")
 
 
@@ -353,7 +353,7 @@ def test_colors_in_puts_the_background_first_and_the_ink_second():
     assert colors_in([SQUARE], ink="#000", background="#fff") == ("#fff", "#000")
 
 
-def test_colors_in_adds_each_styled_colour_once_in_the_order_it_appears():
+def test_colors_in_adds_each_styled_color_once_in_the_order_it_appears():
     from geomotif.io.raster import colors_in
 
     design = layer(
@@ -395,7 +395,7 @@ def test_a_stroke_of_one_point_still_marks_the_canvas():
     assert sum(1 for p in rasterize(single, width=20, height=20).pixels if p) > 0
 
 
-def test_a_colour_outside_the_palette_falls_back_to_the_ink():
+def test_a_color_outside_the_palette_falls_back_to_the_ink():
     # Only reachable by passing a palette the design's styles are not in.
     # Drawing in the default is better than dropping the stroke.
     design = styled(BOX, stroke="#abcdef")
@@ -451,7 +451,7 @@ def test_an_unknown_mode_is_refused():
 
 
 def _rgba_shades(raster):
-    """The distinct RGB colours that are not pure background or the default ink."""
+    """The distinct RGB colors that are not pure background or the default ink."""
     ink = (0x0B, 0x0B, 0x0B)
     background = (0xFF, 0xFF, 0xFF)
     seen = set()
@@ -460,7 +460,7 @@ def _rgba_shades(raster):
     return seen - {background, ink}
 
 
-def test_rasterize_rgba_makes_a_full_colour_frame():
+def test_rasterize_rgba_makes_a_full_color_frame():
     from geomotif.io.raster import Raster
 
     frame = rasterize_rgba(BOX, width=20, height=20)
@@ -495,7 +495,7 @@ def test_quantize_returns_indexed_frames_sharing_one_palette():
     assert len(indexed[0].palette) <= 256
 
 
-def test_quantize_keeps_the_seed_colours_first_and_exact():
+def test_quantize_keeps_the_seed_colors_first_and_exact():
     frame = rasterize_rgba(SQUARE, width=30, height=30, ink="#123456", background="#fedcba")
     indexed = quantize([frame], seeds=("#fedcba", "#123456"))
     assert indexed[0].palette[:2] == ("#fedcba", "#123456")
@@ -513,7 +513,7 @@ def test_a_gif_never_drops_an_ink_even_over_256():
 
     from geomotif.core.types import PATH_STYLE_KEY
 
-    colours = [
+    colors = [
         f"#{r:02x}{g:02x}{b:02x}"
         for r in range(16)
         for g in range(16)
@@ -522,7 +522,7 @@ def test_a_gif_never_drops_an_ink_even_over_256():
     design = Design(
         paths=tuple(Path(((float(i), 0.0), (float(i), 1.0))) for i in range(260)),
         meta=MappingProxyType(
-            {PATH_STYLE_KEY: tuple(Style(stroke=colour) for colour in colours)}
+            {PATH_STYLE_KEY: tuple(Style(stroke=color) for color in colors)}
         ),
     )
     with pytest.raises(ValueError, match="256"):
@@ -540,7 +540,7 @@ def test_dithering_spreads_a_gradient_instead_of_banding_it():
 
     plain = quantize([gradient], seeds=("#000000", "#ffffff"), max_colors=2, dither=False)[0]
     dithered = quantize([gradient], seeds=("#000000", "#ffffff"), max_colors=2, dither=True)[0]
-    assert len(plain.palette) == 2  # the budget really is two colours
+    assert len(plain.palette) == 2  # the budget really is two colors
 
     def transitions(raster):
         return sum(

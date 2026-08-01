@@ -3,7 +3,7 @@
  * Every one is monochrome line art on a transparent background, written by
  * geomotif's own SVG writer with a near-black stroke. That reads correctly on
  * the light theme and disappears on the dark one, and an <img> cannot inherit
- * the page's colour -- so dark mode inverts the image instead. For pure black
+ * the page's color -- so dark mode inverts the image instead. For pure black
  * on transparent, inversion is exactly "draw it in white".
  */
 

@@ -10,7 +10,7 @@ plotter can actually draw and what the eye reads as weaving anyway.
 Which strand goes over is not a free choice. Along one strand the crossings
 must alternate over, under, over, under -- and at each crossing the two strands
 must disagree. Written down, those are two kinds of "must differ", so the whole
-question is a two-colouring, and it has a solution for a single closed curve
+question is a two-coloring, and it has a solution for a single closed curve
 however tangled: between the two passes through any one crossing lies a closed
 loop, and a closed loop meets the rest of the curve an even number of times, so
 the two passes are always an odd number of crossings apart. What the interlacer
@@ -161,10 +161,10 @@ def _over_under(
 
     Two visits must differ if they are the two sides of one crossing, and two
     must differ if they are next to each other along a strand. Both are the
-    same constraint, so the answer is a two-colouring, found by breadth-first
+    same constraint, so the answer is a two-coloring, found by breadth-first
     search. A conflict can only arise where several strands are woven together
     in a way that admits no alternating diagram at all; the search keeps the
-    colour it first assigned and the crossing simply does not alternate.
+    color it first assigned and the crossing simply does not alternate.
     """
     visits: list[tuple[int, int, float]] = []
     neighbours: list[list[int]] = []
@@ -184,19 +184,19 @@ def _over_under(
                 neighbours[first].append(second)
                 neighbours[second].append(first)
 
-    colour: list[bool | None] = [None] * len(visits)
+    color: list[bool | None] = [None] * len(visits)
     for start in range(len(visits)):
-        if colour[start] is not None:
+        if color[start] is not None:
             continue
-        colour[start] = True
+        color[start] = True
         queue = [start]
         while queue:
             here = queue.pop()
             for other in neighbours[here]:
-                if colour[other] is None:
-                    colour[other] = not colour[here]
+                if color[other] is None:
+                    color[other] = not color[here]
                     queue.append(other)
-    return [bool(c) for c in colour]
+    return [bool(c) for c in color]
 
 
 def _walk(loop: Loop) -> tuple[list[float], float]:

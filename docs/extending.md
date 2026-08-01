@@ -154,7 +154,7 @@ the way [`clip_to`][geomotif.core.transform.clip_to] and
 [`resample`][geomotif.core.sampling.resample] do — is different. A
 [`Style`][geomotif.Style] rides in `Design.meta` as one entry per stroke,
 positionally. Drop, split, merge or reorder the strokes without saying so and
-every colour after the first change lands on the wrong geometry — silently,
+every color after the first change lands on the wrong geometry — silently,
 because a list of the wrong length is still a list.
 
 [`select_styles`][geomotif.core.types.select_styles] is how you say so. Give it

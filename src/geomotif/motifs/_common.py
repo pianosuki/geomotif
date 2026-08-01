@@ -1,6 +1,6 @@
 """Small geometry helpers shared between motif families.
 
-Private on purpose: these are implementation details of the catalogue rather
+Private on purpose: these are implementation details of the catalog rather
 than API. A motif family that needs one imports it; nothing outside
 :mod:`geomotif.motifs` should.
 """

@@ -18,7 +18,7 @@ geomotif render tiling.truchet --out plot.svg --paper a4 --optimize
 ## A real size
 
 `save_plotter_svg` writes `width="210mm"`, not `width="210"`, with a `viewBox`
-of the same numbers. One user unit is one millimetre, so `stroke_width=0.35` is
+of the same numbers. One user unit is one millimeter, so `stroke_width=0.35` is
 a 0.35 mm pen and the drawing arrives the size you asked for rather than
 whatever the receiving software guessed.
 
@@ -31,7 +31,7 @@ on_page(design, paper="a4", margin=10.0)  # the design, fitted, in mm, y-down
 ```
 
 The margin is worth more than it looks: most plotters cannot reach the last few
-millimetres of a sheet. `to_plotter_svg` and `save_plotter_svg` take it
+millimeters of a sheet. `to_plotter_svg` and `save_plotter_svg` take it
 directly, and `--margin` does the same on the command line:
 
 ```bash
@@ -61,16 +61,16 @@ difference rather than asserting it:
 | `mandala` | 37 → 37 | 1530 → **1238** |
 
 Neither pass ever changes the ink: the same curves are drawn in the same
-colours, in a better order. There is a test that the total drawn length comes
+colors, in a better order. There is a test that the total drawn length comes
 out identical.
 
 **Neither pass crosses a layer.** Strokes on different layers are drawn by
 different pens, and joining them would mean drawing one of them in the wrong
-colour. Nor are strokes of different colours joined within a layer.
+color. Nor are strokes of different colors joined within a layer.
 
 ## Layers are pens
 
-Everything here works in terms of [colour and layers](style.md). One layer per
+Everything here works in terms of [color and layers](style.md). One layer per
 pen, and the SVG comes out with the groups Inkscape and `vpype` both read:
 
 ```python

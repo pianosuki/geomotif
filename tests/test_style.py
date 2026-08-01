@@ -20,7 +20,7 @@ from geomotif import (
 from geomotif.core.types import PATH_STYLE_KEY
 from geomotif.motifs import Circle, RegularPolygon
 from tests.readback import (
-    dxf_entity_colours,
+    dxf_entity_colors,
     dxf_entity_layers,
     dxf_layer_table,
     svg_dots,
@@ -125,9 +125,9 @@ def test_styles_survive_a_transform():
 
 def test_resampling_drops_the_style_of_a_stroke_it_drops():
     # Three strokes and a budget of two points: the shortest is allocated
-    # nothing and disappears, and its colour must not slide onto a survivor.
-    def stroke(length: float, colour: str) -> Design:
-        return styled(Design(paths=(Path(((0.0, 0.0), (length, 0.0))),)), stroke=colour)
+    # nothing and disappears, and its color must not slide onto a survivor.
+    def stroke(length: float, color: str) -> Design:
+        return styled(Design(paths=(Path(((0.0, 0.0), (length, 0.0))),)), stroke=color)
 
     design = layer(stroke(100.0, "red"), stroke(50.0, "green"), stroke(0.1, "blue"))
     resampled = design.resampled(2)
@@ -137,7 +137,7 @@ def test_resampling_drops_the_style_of_a_stroke_it_drops():
 
 def test_clipping_carries_a_stroke_style_onto_every_fragment_it_becomes():
     # A line crossing the box twice comes back as two strokes, both the
-    # colour of the one they were cut from.
+    # color of the one they were cut from.
     crossing = Design(paths=(Path(((-10.0, 0.0), (-1.0, 0.0), (-1.0, 10.0), (10.0, 10.0))),))
     design = styled(crossing, stroke="red")
     clipped = clip_to(design, Bounds(-5.0, -5.0, 5.0, 5.0))
@@ -196,14 +196,14 @@ def test_svg_leaves_an_unstyled_design_exactly_as_it_was():
     assert to_svg(plain) == to_svg(styled(plain))
 
 
-def test_svg_writes_a_stroke_colour_only_where_it_differs():
+def test_svg_writes_a_stroke_color_only_where_it_differs():
     text = to_svg(layer(styled(TRIANGLE, stroke="crimson"), TRIANGLE))
-    coloured, plain = svg_find(text, "path")
-    assert coloured.get("stroke") == "crimson"
+    colored, plain = svg_find(text, "path")
+    assert colored.get("stroke") == "crimson"
     assert plain.get("stroke") is None
 
 
-def test_svg_gives_a_styled_dot_its_own_colour_and_radius():
+def test_svg_gives_a_styled_dot_its_own_color_and_radius():
     design = styled(Design(points=((0.0, 0.0), (10.0, 10.0))), stroke="crimson", width=3.0)
     circle = svg_find(to_svg(design), "circle")[0]
     assert circle.get("fill") == "crimson"
@@ -240,9 +240,9 @@ def test_dxf_leaves_unstyled_geometry_on_the_layer_it_was_given():
     assert {name for _, name in dxf_entity_layers(text)} == {"INK"}
 
 
-def test_dxf_writes_the_colours_it_can_name_and_leaves_the_rest():
+def test_dxf_writes_the_colors_it_can_name_and_leaves_the_rest():
     text = to_dxf(layer(styled(TRIANGLE, stroke="red"), styled(TRIANGLE, stroke="#ff8800")))
-    assert dxf_entity_colours(text) == [1, None]
+    assert dxf_entity_colors(text) == [1, None]
 
 
 def test_dxf_refuses_a_layer_name_it_could_not_write():

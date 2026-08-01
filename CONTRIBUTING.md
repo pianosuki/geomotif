@@ -77,7 +77,7 @@ through a spec file. Add motif-specific tests for whatever is *interesting*
 about yours: the property that makes it that shape rather than a similar one.
 
 **6. Regenerate the documentation.** `make docs-gen`, and commit
-`docs/catalogue.md` and any changed image. `make docs-check` and the test suite
+`docs/catalog.md` and any changed image. `make docs-check` and the test suite
 both fail if you forget.
 
 If the motif is yours rather than classical, consider

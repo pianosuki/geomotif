@@ -1,7 +1,7 @@
 # Animation
 
 A still image says what a design *is*. An animation says how it is made, which
-for most of this catalogue is the more interesting half — watching a Hilbert
+for most of this catalog is the more interesting half — watching a Hilbert
 curve fill its square tells you something the finished picture cannot.
 
 ```python
@@ -67,8 +67,8 @@ Two things are decided for you, because getting either wrong looks like a bug:
 their bounds, not its own — otherwise a drawing that grows would rescale on
 every frame and crawl about the canvas instead of standing still.
 
-**One colour table for every frame.** Styles pick up their own palette entries,
-so a two-pen design animates in two colours; but the table is worked out across
+**One color table for every frame.** Styles pick up their own palette entries,
+so a two-pen design animates in two colors; but the table is worked out across
 the whole animation, or an index that meant crimson in one frame and black in
 the next would make the result flicker.
 
@@ -76,7 +76,7 @@ GIF stores a delay in hundredths of a second and nothing finer, so `fps` is
 rounded to what the format can actually say — 20fps is 5 hundredths, and
 anything above 50fps hits the floor. `loop=0`, the default, repeats forever.
 
-A GIF holds at most 256 colours; a design that needs more is refused rather
+A GIF holds at most 256 colors; a design that needs more is refused rather
 than quantized, with a message saying so.
 
 ## Rasterizing on its own
@@ -93,7 +93,7 @@ raster.palette  # ("#ffffff", "#0b0b0b", ...)
 ```
 
 Lines are drawn with Bresenham's algorithm and nothing is antialiased, which is
-the right answer for an indexed image: there are only a handful of colours and
+the right answer for an indexed image: there are only a handful of colors and
 nothing for a blend to blend *with*.
 
 !!! note "This is the one raster format here"

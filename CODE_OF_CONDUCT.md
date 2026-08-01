@@ -19,7 +19,7 @@ version 2.1. What that asks for, in practice:
 
 ## Reporting
 
-Report unacceptable behaviour to pianosuki@protonmail.com. Reports are handled
+Report unacceptable behavior to pianosuki@protonmail.com. Reports are handled
 privately, and the person reporting will not be named without their agreement.
 
 Maintainers may edit, hide or delete contributions that do not meet this

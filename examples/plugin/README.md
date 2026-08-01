@@ -1,7 +1,7 @@
 # geomotif-superformula
 
 A worked example of a **third-party geomotif motif**: a complete, installable
-package that adds Gielis's superformula to geomotif's catalogue without
+package that adds Gielis's superformula to geomotif's catalog without
 geomotif knowing it exists.
 
 Once installed, it is indistinguishable from a builtin:

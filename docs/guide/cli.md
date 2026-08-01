@@ -53,7 +53,7 @@ knowing before they surprise you.
 
 A motif parameterized by a Python function, by another motif, or by a whole
 point set has no sensible flag. Those take their value from the motif's
-**registered example** instead, so every motif in the catalogue still renders:
+**registered example** instead, so every motif in the catalog still renders:
 
 ```bash
 geomotif render voronoi.cells --inset 0.2
@@ -71,7 +71,7 @@ example, not from the class defaults.
 A generic option and a motif parameter share one argparse namespace, and
 `points`, `count`, `step`, `spacing`, `seed`, `size`, `width`, `height`, `gap`,
 `curve`, `spread` and `resolution` are all parameter names somewhere in the
-catalogue. So the sampling options are:
+catalog. So the sampling options are:
 
 | Option | Means |
 |---|---|
@@ -134,7 +134,7 @@ themselves — `.svg`, `--paper` included, `.gif` and the matplotlib formats —
 it into their canvas as they write and rescale the grid away. See
 [Snapping to a grid](export.md#snapping-to-a-grid).
 
-For a plotter, `--paper a4` writes the SVG in real millimetres — `--landscape`
+For a plotter, `--paper a4` writes the SVG in real millimeters — `--landscape`
 turns the sheet on its side, `--margin` sets the border to leave unplotted (10 mm
 by default), and `--optimize` joins strokes that meet and orders them so the pen
 travels less. See [Plotting it for real](plotter.md):

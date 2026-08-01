@@ -6,7 +6,7 @@ animated format that plays everywhere with nothing installed -- a README, a
 chat window, an issue comment.
 
 It is also, unusually for a 1989 format, small enough to write by hand. The
-file is a colour table, a run of frames, and a trailer; the only real work is
+file is a color table, a run of frames, and a trailer; the only real work is
 **LZW**, and GIF's variant of it fits on a page: build a dictionary of byte
 strings as you go, emit each match as a code, widen the code as the dictionary
 fills, and start again from empty when it is full at 4096 entries. That is the
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 __all__ = ["NAMED", "save_gif", "to_gif"]
 
-#: Colour names this writer understands; see :data:`geomotif.io._color.NAMED`.
+#: color names this writer understands; see :data:`geomotif.io._color.NAMED`.
 #: Re-exported from here so this module's zero-dependency story survives.
 
 #: GIF measures a frame's delay in hundredths of a second, and nothing else.
@@ -70,7 +70,7 @@ def to_gif(
     """Render a sequence of designs as an animated GIF.
 
     Every frame is drawn against the **same** world rectangle -- the union of
-    all of their bounds -- and the same colour table, so a drawing that grows
+    all of their bounds -- and the same color table, so a drawing that grows
     stays put instead of swimming about as its own extent changes.
 
     Parameters
@@ -88,7 +88,7 @@ def to_gif(
         How many times to play; ``0`` means forever, which is what everyone
         expects of a GIF, and is the default. ``1`` plays it once and stops.
     ink, background : str
-        Default stroke colour and the colour behind everything. A stroke with
+        Default stroke color and the color behind everything. A stroke with
         a style of its own is drawn in that instead.
     thickness : int
         Stroke width in pixels.
@@ -98,12 +98,12 @@ def to_gif(
         Supersample and blend edges. Off by default, so the output is exactly
         the hard-edged picture it has always been.
     aa_level : int
-        When antialiasing, how many shades an edge may blend into per colour
-        pair, which is what keeps the whole animation inside GIF's 256-colour
+        When antialiasing, how many shades an edge may blend into per color
+        pair, which is what keeps the whole animation inside GIF's 256-color
         budget. Must be >= 1.
     dither : bool
         Error-diffuse the round-off onto a gradient, which keeps an
-        antialiased edge on a coloured ground from banding inside the palette
+        antialiased edge on a colored ground from banding inside the palette
         budget. On by default.
 
     Returns
@@ -115,7 +115,7 @@ def to_gif(
     ------
     ValueError
         If there are no frames, the rate is not positive, the antialias level
-        is zero, or the designs' own colours (the inks and background) exceed
+        is zero, or the designs' own colors (the inks and background) exceed
         256 between them -- which is GIF's limit, not this writer's.
     """
     if not frames:
@@ -130,7 +130,7 @@ def to_gif(
     seeds = colors_in(frames, ink=ink, background=background)
     if len(seeds) > 256:
         raise ValueError(
-            f"a GIF has at most 256 colours and these designs need {len(seeds)}; "
+            f"a GIF has at most 256 colors and these designs need {len(seeds)}; "
             f"restyle them onto fewer, or write them as SVG instead"
         )
     shared = _union(frames)
@@ -171,7 +171,7 @@ def to_gif(
         )
 
     depth = _depth(len(palette))
-    parts = [_header(width, height, depth), _colour_table(palette, depth)]
+    parts = [_header(width, height, depth), _color_table(palette, depth)]
     # loop=1 is the absence of the extension, not a count of one: the block
     # says how many times to repeat *after* the first play, and there is no
     # value of it that means "stop after one".
@@ -212,27 +212,27 @@ def _union(frames: Iterable[Design]) -> Bounds:
     return combined
 
 
-def _depth(colours: int) -> int:
-    """Return the number of bits a colour table of this size needs, at least one."""
+def _depth(colors: int) -> int:
+    """Return the number of bits a color table of this size needs, at least one."""
     bits = 1
-    while (1 << bits) < colours:
+    while (1 << bits) < colors:
         bits += 1
     return bits
 
 
 def _header(width: int, height: int, depth: int) -> bytes:
     """Return the signature and the logical screen descriptor."""
-    # 0x80 says a global colour table follows; the low three bits give its
+    # 0x80 says a global color table follows; the low three bits give its
     # size as 2**(n+1), which is why the depth is written one less than it is.
     packed = 0x80 | ((depth - 1) << 4) | (depth - 1)
     return b"GIF89a" + _short(width) + _short(height) + bytes([packed, 0, 0])
 
 
-def _colour_table(palette: Sequence[str], depth: int) -> bytes:
-    """Return the global colour table, padded to the power of two it has to be."""
+def _color_table(palette: Sequence[str], depth: int) -> bytes:
+    """Return the global color table, padded to the power of two it has to be."""
     table = bytearray()
-    for colour in palette:
-        table.extend(_rgb(colour))
+    for color in palette:
+        table.extend(_rgb(color))
     table.extend(bytes(3 * ((1 << depth) - len(palette))))
     return bytes(table)
 
@@ -257,7 +257,7 @@ def _frame(raster: Raster, *, delay: int, animated: bool) -> bytes:
         # canvas, so there is nothing to restore between them.
         parts.extend(b"\x21\xf9\x04" + bytes([0x04]) + _short(delay) + b"\x00\x00")
     parts.extend(b"\x2c" + _short(0) + _short(0) + _short(raster.width) + _short(raster.height))
-    parts.append(0x00)  # no local colour table, not interlaced
+    parts.append(0x00)  # no local color table, not interlaced
 
     minimum = max(2, _depth(len(raster.palette)))
     parts.append(minimum)
@@ -270,22 +270,22 @@ def _short(value: int) -> bytes:
     return value.to_bytes(2, "little")
 
 
-def _rgb(colour: str) -> bytes:
+def _rgb(color: str) -> bytes:
     """Parse ``#rgb``, ``#rrggbb`` or a name from :data:`NAMED` into three bytes."""
     from ._color import rgb as parse
 
     try:
-        return bytes(parse(colour))
+        return bytes(parse(color))
     except ValueError:
-        raise ValueError(_unreadable(colour)) from None
+        raise ValueError(_unreadable(color)) from None
 
 
-def _unreadable(colour: str) -> str:
+def _unreadable(color: str) -> str:
     """Say what went wrong, and what this writer can read instead."""
     return (
-        f"cannot write {colour!r} into a GIF colour table: expected '#3366ff', "
+        f"cannot write {color!r} into a GIF color table: expected '#3366ff', "
         f"'#36f', or one of {sorted(NAMED)}. A GIF stores literal red, green and "
-        f"blue, so unlike the SVG writer it cannot pass a colour through to "
+        f"blue, so unlike the SVG writer it cannot pass a color through to "
         f"something else to interpret"
     )
 

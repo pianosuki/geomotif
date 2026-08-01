@@ -28,7 +28,7 @@ extras, and nothing on the path from a motif to an SVG file needs either.
 
 **[Documentation](https://pianosuki.github.io/geomotif/)** ·
 **[Gallery](https://pianosuki.github.io/geomotif/gallery/)** ·
-**[Catalogue](docs/catalogue.md)** ·
+**[catalog](docs/catalog.md)** ·
 **[Changelog](CHANGELOG.md)**
 
 ---
@@ -77,7 +77,7 @@ table, and inverts it. Equal spacing means the same **real x,y distance**
 between every consecutive pair of points, however tightly the curve winds.
 
 Because that engine works on *polylines* rather than on formulas, it applies to
-every motif in the catalogue — including the ones with no closed-form
+every motif in the catalog — including the ones with no closed-form
 parametrization at all — and to yours. `step=` is the mode you want for plotter
 output and dot placement: the gap is fixed and the count falls out of the
 geometry.
@@ -158,7 +158,7 @@ outside the test suite.
 
 ## What's in the box
 
-**147 motifs in 19 families** — the [full catalogue](docs/catalogue.md), and
+**147 motifs in 19 families** — the [full catalog](docs/catalog.md), and
 the [gallery](https://pianosuki.github.io/geomotif/gallery/) with a picture of
 every one.
 
@@ -263,7 +263,7 @@ hand, and it is a great deal smaller — a mandala's recipe is 1.5 KB against
 
 A parameter that is itself a motif — the composers take one — nests as the same
 object, so a mandala's rings serialize without a second notation. Every motif
-in the catalogue round-trips exactly, bar the two whose parameter *is* a Python
+in the catalog round-trips exactly, bar the two whose parameter *is* a Python
 function: those are defined by code, not data, and say so when asked. Loading a
 spec never imports a module the file names, only value types from packages that
 already provide motifs here.
@@ -304,9 +304,9 @@ Without `--out` the points go to stdout as CSV, so the command pipes.
 
 → [The command line](https://pianosuki.github.io/geomotif/guide/cli/)
 
-## Colour, layers and pens
+## color, layers and pens
 
-A `Style` says which pen draws a stroke — a layer name, a colour, a width — and
+A `Style` says which pen draws a stroke — a layer name, a color, a width — and
 rides in `Design.meta` rather than in `Path`, because none of it changes the
 maths. Layers are what a two-pen drawing is made of:
 
@@ -321,7 +321,7 @@ drawing = layer(
 save_plotter_svg(optimize(drawing), "two-pens.svg", paper="a4")
 ```
 
-That file is measured in real millimetres, opens in Inkscape as two named
+That file is measured in real millimeters, opens in Inkscape as two named
 layers, and loads into [`vpype`](https://vpype.readthedocs.io/) as two layers —
 or skip the file with `to_vpype(design)`. `optimize` joins strokes whose ends
 meet and orders what is left so the pen wastes less time in the air: a Truchet
@@ -329,7 +329,7 @@ tiling goes from 72 strokes and 2742 units of pen-up travel to 13 and 533,
 drawing exactly the same ink. Neither pass ever crosses a layer, because
 strokes on different layers are drawn by different pens.
 
-→ [Colour and layers](https://pianosuki.github.io/geomotif/guide/style/) ·
+→ [color and layers](https://pianosuki.github.io/geomotif/guide/style/) ·
 [Plotting it for real](https://pianosuki.github.io/geomotif/guide/plotter/)
 
 ## Animation
@@ -346,7 +346,7 @@ save_gif(draw_on(HilbertCurve(depth=5).build(), frames=60), "hilbert.gif")
 length so the pen moves at a constant speed; `spin` turns it; `sweep` rebuilds
 a motif once per value of one of its parameters. Each returns a plain tuple of
 designs, so frames compose with every transform and every exporter. The GIF
-writer is hand-rolled — colour table, frame timing, LZW — so animation costs no
+writer is hand-rolled — color table, frame timing, LZW — so animation costs no
 dependency either.
 
 → [Animation](https://pianosuki.github.io/geomotif/guide/animation/)
@@ -400,7 +400,7 @@ gradually increases), `"out"` (gradually decreases) or `"in_out"`.
   large fraction of a tight turn dips noticeably below its along-curve length.
 - `by="parameter"` restores parametric spacing, which visually compresses
   toward tight sections — occasionally useful as a design effect.
-- Degenerate inputs are handled gracefully: an endpoint on the centre yields a
+- Degenerate inputs are handled gracefully: an endpoint on the center yields a
   radial line, and identical start and end with `turns=0` yields coincident
   points.
 

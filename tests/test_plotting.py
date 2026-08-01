@@ -51,14 +51,14 @@ def test_loose_points_are_always_drawn():
     assert sum(len(c.get_offsets()) for c in ax.collections) == 100
 
 
-def test_a_styled_stroke_is_drawn_in_its_own_colour():
+def test_a_styled_stroke_is_drawn_in_its_own_color():
     # What comes off the plotter is two pens, so what appears on screen is
-    # two colours -- without having to say so twice.
+    # two colors -- without having to say so twice.
     ax = plot_design(layer(styled(MIXED, stroke="red"), styled(SQUARE, stroke="blue")))
     assert [line.get_color() for line in ax.lines] == ["red", "red", "blue"]
 
 
-def test_an_unstyled_stroke_still_takes_the_figures_colour():
+def test_an_unstyled_stroke_still_takes_the_figures_color():
     ax = plot_design(MIXED, color="#123456")
     assert {line.get_color() for line in ax.lines} == {"#123456"}
 
@@ -86,7 +86,7 @@ def test_a_center_is_marked():
     assert len(ax.collections) == 1
 
 
-def test_endpoints_can_be_labelled():
+def test_endpoints_can_be_labeled():
     ax = plot_design(SQUARE, label_endpoints=True)
     assert [text.get_text() for text in ax.texts] == ["start", "end"]
 

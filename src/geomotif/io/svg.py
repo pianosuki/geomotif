@@ -20,7 +20,7 @@ to ``precision`` actually shrinks the file rather than throwing away detail
 that a later scale would have magnified.
 
 A design carrying styles (:mod:`geomotif.core.style`) writes its layers as the
-labelled groups Inkscape and ``vpype`` read, and its colours as attributes on
+labeled groups Inkscape and ``vpype`` read, and its colors as attributes on
 the individual elements. A design carrying none writes exactly the file it
 always did.
 """
@@ -111,7 +111,7 @@ def to_svg(
         Margin reserved on all four sides.
     stroke, stroke_width, fill : str, float, str, optional
         Applied to the group holding the strokes. ``fill="none"`` is the
-        default because most of this catalogue is line work; name a colour to
+        default because most of this catalog is line work; name a color to
         fill the closed paths instead.
     background : str, optional
         Draw a filled rectangle behind everything. Omitted by default, which
@@ -251,13 +251,13 @@ def _elements(
         inner = "  " * (indent + 1)
         lines.append(f'{pad}<g fill={quoteattr(defaults.stroke)} stroke="none">')
         for (x, y), style in zip(design.points, point_styles_of(design), strict=True):
-            # A dot's colour is a fill here, and its own width -- how heavy the
+            # A dot's color is a fill here, and its own width -- how heavy the
             # mark is -- is its radius, which is the same reading that makes
             # dot_radius default to stroke_width.
             radius = (
                 style.width if style is not None and style.width is not None else defaults.radius
             )
-            colour = (
+            color = (
                 f" fill={quoteattr(style.stroke)}"
                 if style is not None
                 and style.stroke is not None
@@ -266,7 +266,7 @@ def _elements(
             )
             lines.append(
                 f'{inner}<circle cx="{_num(x, precision)}" cy="{_num(y, precision)}" '
-                f'r="{_num(radius, _WIDTH_PRECISION)}"{colour}/>'
+                f'r="{_num(radius, _WIDTH_PRECISION)}"{color}/>'
             )
         lines.append(f"{pad}</g>")
     return lines
@@ -303,7 +303,7 @@ def _overrides(style: Style | None, defaults: _Ink) -> str:
     """Return the attributes a style adds to one element, or ``""`` for none.
 
     Only what actually differs from the group is written: a style that names
-    the colour the document already draws in should not cost an attribute on
+    the color the document already draws in should not cost an attribute on
     every one of four thousand strokes.
     """
     if style is None:

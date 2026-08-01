@@ -26,7 +26,7 @@ Two things follow from generating flags rather than writing them.
 **Not every parameter can be said on a command line.** A motif parameterized by
 a Python function, by another motif, or by a point set has no sensible flag.
 Those take their value from the motif's registered example instead, so every
-motif in the catalogue still renders -- ``geomotif render voronoi.cells`` gives
+motif in the catalog still renders -- ``geomotif render voronoi.cells`` gives
 you the example's point set, and ``--inset`` still works on top of it.
 
 **A generic flag and a motif parameter share one namespace.** The handful of
@@ -254,9 +254,9 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         metavar="PX",
         help="loose-point radius, in pixels (default: --thickness)",
     )
-    render.add_argument("--ink", default="#0b0b0b", help="default stroke colour, a name or #hex")
+    render.add_argument("--ink", default="#0b0b0b", help="default stroke color, a name or #hex")
     render.add_argument(
-        "--background", default="#ffffff", help="canvas colour, a name or #hex"
+        "--background", default="#ffffff", help="canvas color, a name or #hex"
     )
     render.add_argument(
         "--padding",
@@ -273,7 +273,7 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         type=_positive_int,
         default=8,
         metavar="N",
-        help="with --antialias, shades an edge may blend into per colour pair",
+        help="with --antialias, shades an edge may blend into per color pair",
     )
     render.add_argument(
         "--dither",
@@ -284,7 +284,7 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     render.add_argument(
         "--paper",
         choices=sorted(PAPER),
-        help="write a .svg at this paper size, in real millimetres, for a plotter",
+        help="write a .svg at this paper size, in real millimeters, for a plotter",
     )
     render.add_argument("--landscape", action="store_true", help="turn --paper on its side")
     render.add_argument(
@@ -292,7 +292,7 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         type=float,
         default=10.0,
         metavar="MM",
-        help="with --paper, border to leave unplotted, in millimetres",
+        help="with --paper, border to leave unplotted, in millimeters",
     )
     render.add_argument(
         "--optimize",
@@ -351,7 +351,7 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
 
 
 def _list(args: argparse.Namespace) -> int:
-    """Print the catalogue, grouped by family."""
+    """Print the catalog, grouped by family."""
     names = registry.names(family=args.family)
     if not names:
         raise KeyError(
@@ -603,7 +603,7 @@ def _default_for(param: ParamInfo, info: MotifInfo) -> object:
     """Return the value a flag starts from: the example, else the declared default.
 
     Starting from the example means ``geomotif render rose`` draws the rose
-    from the catalogue and ``--n 7`` changes one thing about it, rather than
+    from the catalog and ``--n 7`` changes one thing about it, rather than
     silently rendering a different motif than the gallery shows.
     """
     return info.example.get(param.name, param.default)
@@ -846,7 +846,7 @@ def _canvas(args: argparse.Namespace) -> tuple[int, int]:
 def _hold_for(args: argparse.Namespace) -> int:
     """How many copies of the finished drawing to sit on, for this invocation.
 
-    ``--hold`` wins when it is given; otherwise each motion keeps the behaviour
+    ``--hold`` wins when it is given; otherwise each motion keeps the behavior
     it has always had -- ``draw-on`` settles on a quarter of the run, and
     ``spin``, whose whole business is turning, holds nothing.
     """

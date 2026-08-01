@@ -1,7 +1,7 @@
-# Colour and layers
+# color and layers
 
 Geometry says where the ink goes. A [`Style`][geomotif.core.style.Style] says
-which pen puts it there — a layer name, a colour, a stroke width — and it rides
+which pen puts it there — a layer name, a color, a stroke width — and it rides
 along in `Design.meta` rather than in `Path`, because none of it changes the
 maths.
 
@@ -52,7 +52,7 @@ reshapes a design keeps them lined up with the geometry:
 | `a + b`, `layer(...)`, `radial_repeat`, `tile` | laid end to end, so both designs keep theirs |
 | `resampled` | carried; a stroke dropped for want of points takes its style with it |
 | `clip_to` | carried onto every fragment a stroke is cut into; dropped with what falls outside |
-| `save_points`, iteration | gone — those are coordinates, and a coordinate has no colour |
+| `save_points`, iteration | gone — those are coordinates, and a coordinate has no color |
 
 The end-to-end rule for `+` is the one that matters. A right-biased merge would
 hand the whole result the second design's styles, and `layer(red, blue)` would
@@ -82,17 +82,17 @@ else.
 **SVG** writes each layer as the group Inkscape and `vpype` read
 (`inkscape:groupmode="layer"`), and per-element `stroke`, `stroke-width` and
 `fill` attributes wherever a style differs from the document's own. A styled dot
-takes its colour as a fill and its `width` as a radius.
+takes its color as a fill and its `width` as a radius.
 
 **DXF** writes real DXF layers: every one is declared in the file's layer table
-and every entity carries its own. Colour is the part DXF barely models — R12
-knows 255 indexed colours and no arbitrary ones — so the seven it can name
+and every entity carries its own. color is the part DXF barely models — R12
+knows 255 indexed colors and no arbitrary ones — so the seven it can name
 (`red`, `yellow`, `green`, `cyan`, `blue`, `magenta`, `white`/`black`) are
-written as entity colours and anything else is left to the layer. Layer names
+written as entity colors and anything else is left to the layer. Layer names
 have to be ones R12 permits: at most 31 characters from letters, digits and
 `_$-.`, which the writer checks rather than leaving to the reader.
 
-**matplotlib** draws a styled stroke in its own colour and width, so a two-pen
+**matplotlib** draws a styled stroke in its own color and width, so a two-pen
 design looks on screen the way it will come off the plotter.
 
 **Specs and design files** carry styles too. They are written beside the
@@ -115,5 +115,5 @@ called `path-style`, so a motif's own parameters can never collide with them.
 
 Layers are what the plotter helpers work in terms of: `optimize` sorts and
 merges strokes within each layer and never across them, and `to_plotter_svg`
-writes the whole thing at a physical paper size in millimetres. See
+writes the whole thing at a physical paper size in millimeters. See
 [Plotting it for real](plotter.md).

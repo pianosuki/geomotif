@@ -30,7 +30,7 @@ def test_densify_returns_one_more_point_than_segments():
     assert points[-1] == (1.0, 0.0)
 
 
-def test_densify_honours_the_domain():
+def test_densify_honors_the_domain():
     points = densify(lambda u: (u, 0.0), samples=4, domain=(2.0, 6.0))
     assert points[0] == (2.0, 0.0)
     assert points[-1] == (6.0, 0.0)

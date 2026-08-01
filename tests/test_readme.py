@@ -1,4 +1,4 @@
-"""The README's claims about the catalogue, checked against the catalogue.
+"""The README's claims about the catalog, checked against the catalog.
 
 The README is hand-written, and it quotes numbers -- how many motifs, how many
 families, how many in each. Those are exactly the sentences that quietly become
@@ -59,7 +59,7 @@ def test_the_version_in_the_spec_example_is_the_current_one(readme):
 # --- the documentation's own front page -------------------------------------
 #
 # docs/index.md quotes the same numbers and is written by hand, unlike the
-# catalogue beside it. Nothing was checking it, and it spent a release saying
+# catalog beside it. Nothing was checking it, and it spent a release saying
 # 146 across 18.
 
 INDEX = README.parent / "docs" / "index.md"
@@ -71,7 +71,7 @@ def index() -> str:
 
 
 def test_the_front_page_states_the_real_totals(index):
-    match = re.search(r"\[(\d+) motifs\]\(catalogue\.md\) across (\d+) families", index)
+    match = re.search(r"\[(\d+) motifs\]\(catalog\.md\) across (\d+) families", index)
     assert match, "docs/index.md no longer states its motif and family counts"
     assert int(match.group(1)) == len(registry.names())
     assert int(match.group(2)) == len(registry.families())

@@ -1,6 +1,6 @@
 """A third-party geomotif motif, complete.
 
-The Gielis superformula, which is not in geomotif's own catalogue and does not
+The Gielis superformula, which is not in geomotif's own catalog and does not
 need to be. Once this package is installed, ``superformula`` is listed by
 ``geomotif list --family curve``, described by ``geomotif show superformula``,
 rendered by ``geomotif render superformula --m 7 --out s.svg``, serialized to a

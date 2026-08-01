@@ -260,7 +260,7 @@ def test_builtin_spiral_is_registered():
 
 def test_builtins_register_without_importing_their_module():
     # Motifs register as an import side effect, so a lookup must import the
-    # catalogue itself rather than reporting whatever the caller happened to
+    # catalog itself rather than reporting whatever the caller happened to
     # import first. Needs a fresh interpreter: within this session another
     # test has already imported geomotif.motifs, which would mask the bug.
     source = "from geomotif.core import registry; print(registry.names())"

@@ -86,7 +86,7 @@ def select_styles(
 
     Any operator that drops, splits or reorders a design's strokes has to say
     so, or the metadata it carries over lands on the wrong geometry -- a
-    clipped design whose colours have all shifted by one. ``paths`` and
+    clipped design whose colors have all shifted by one. ``paths`` and
     ``points`` give the *source* index of every element the result keeps, in
     the order it keeps them, which is something every such operator knows.
 

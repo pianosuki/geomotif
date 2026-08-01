@@ -50,7 +50,7 @@ Three things it does that `precision` cannot.
 
 **Any grid, not only powers of ten.** Decimal places give you ones, tenths and
 hundredths. `snapped(0.5)`, `snapped(0.25)` and `snapped(5.0)` are the asks
-that actually turn up — half-millimetre plotter steps, a pegboard, a tile size.
+that actually turn up — half-millimeter plotter steps, a pegboard, a tile size.
 
 **A rounding rule you chose.** The default `half-even` is what Python's `round`
 and therefore `precision` have always done: a coordinate exactly halfway goes
@@ -175,7 +175,7 @@ measurements.
 
     Both writers were validated against third-party parsers — `ezdxf` and
     `svgelements` — during development, and the test suite takes every motif in
-    the catalogue through both formats and parses them back with readers
+    the catalog through both formats and parses them back with readers
     written in nothing but the standard library. Neither third-party parser is
     a dependency.
 
@@ -211,7 +211,7 @@ object as the whole file, so a mandala's rings need no second notation. A
 parameter that is a value dataclass (`Bounds`, `Ring`, `IFSMap`) becomes a
 `{"$type": ...}` object naming its class.
 
-Every motif in the catalogue round-trips exactly, bar the two whose parameter
+Every motif in the catalog round-trips exactly, bar the two whose parameter
 *is* a Python function: `polar.expression` and `string-art.envelope` are
 parameterized by code rather than by data, and asking for their spec says so by
 name rather than writing a file that will not load.

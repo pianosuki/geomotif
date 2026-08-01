@@ -12,7 +12,7 @@ what makes this cheap: the neighbours are a handful rather than the whole set,
 and one triangulation answers every question asked below.
 
 The triangulation itself comes from scipy's Qhull binding, which makes this
-the one module in the catalogue behind an optional dependency::
+the one module in the catalog behind an optional dependency::
 
     pip install 'geomotif[scipy]'
 
@@ -238,10 +238,10 @@ def _cells(sites: tuple[Point, ...], region: Bounds) -> tuple[tuple[Point, ...],
 
 
 def _centroid(polygon: Sequence[Point]) -> Point:
-    """Return the centre of area of a simple polygon.
+    """Return the center of area of a simple polygon.
 
     A clip that pinches a cell down to a line leaves corners but no area to
-    take a centre of. The mean of those corners is the only answer available
+    take a center of. The mean of those corners is the only answer available
     and is the right one, so that case is answered rather than refused.
     """
     twice_area = 0.0
@@ -262,7 +262,7 @@ def _centroid(polygon: Sequence[Point]) -> Point:
 
 
 def _shrunk(polygon: Sequence[Point], inset: float) -> tuple[Point, ...]:
-    """Return ``polygon`` pulled toward its own centre of area by ``inset``."""
+    """Return ``polygon`` pulled toward its own center of area by ``inset``."""
     if inset == 0.0:
         return tuple(polygon)
     cx, cy = _centroid(polygon)
@@ -411,7 +411,7 @@ class VoronoiCells(PolygonMotif):
 
     Each cell is its own closed path, so a border shared by two of them is
     drawn twice -- the price of having each region be a thing in itself,
-    which is what you want to fill, colour, or cut. ``inset`` pulls every
+    which is what you want to fill, color, or cut. ``inset`` pulls every
     cell back from its neighbours and gives the cracked-mud look the diagram
     is usually drawn for.
 
@@ -460,7 +460,7 @@ class LloydRelaxation(Motif):
 
     Lloyd's algorithm, and the cheapest way to turn a clumped scatter into an
     even one that still looks unplanned. Each pass replaces every point with
-    the centre of area of its Voronoi cell; a point in a crowd is off-centre
+    the center of area of its Voronoi cell; a point in a crowd is off-center
     in its own cell and drifts away from the crowd, a point in a gap is
     already central and stays. The fixed point of that -- reached in a
     handful of passes -- is a centroidal diagram, which is what stippling,

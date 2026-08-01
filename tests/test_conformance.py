@@ -2,7 +2,7 @@
 
 Adding a motif costs no test-writing effort and still gets meaningful
 coverage: register it and every check below starts running against it. That
-is the point -- a catalogue of well over a hundred motifs cannot rely on each
+is the point -- a catalog of well over a hundred motifs cannot rely on each
 author remembering to assert that their design is finite and reproducible.
 
 Anything specific to one motif -- petal counts, known perimeters, analytic

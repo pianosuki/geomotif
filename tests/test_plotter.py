@@ -97,12 +97,12 @@ def test_the_page_is_y_down_like_everything_that_prints():
 # --- the file ---------------------------------------------------------------
 
 
-def test_the_svg_is_measured_in_real_millimetres():
+def test_the_svg_is_measured_in_real_millimeters():
     root = svg_root(to_plotter_svg(TruchetTiling().build(), paper="a4"))
     assert root.get("width") == "210mm"
     assert root.get("height") == "297mm"
     # The viewBox is the same numbers without the unit, so one user unit is
-    # one millimetre and a 0.35 stroke is a 0.35mm pen.
+    # one millimeter and a 0.35 stroke is a 0.35mm pen.
     assert root.get("viewBox") == "0 0 210 297"
 
 
@@ -198,7 +198,7 @@ def test_a_negative_tolerance_is_refused():
 
 def test_strokes_on_different_layers_are_never_joined():
     # They are drawn by different pens; joining them would draw one of them in
-    # the wrong colour.
+    # the wrong color.
     split = layer(
         styled(Design(paths=(Path(((0.0, 0.0), (10.0, 0.0))),)), layer="pen1"),
         styled(Design(paths=(Path(((10.0, 0.0), (20.0, 0.0))),)), layer="pen2"),
@@ -208,7 +208,7 @@ def test_strokes_on_different_layers_are_never_joined():
     assert [style and style.layer for style in styles_of(out)] == ["pen1", "pen2"]
 
 
-def test_strokes_of_different_colours_on_one_layer_are_not_joined_either():
+def test_strokes_of_different_colors_on_one_layer_are_not_joined_either():
     split = layer(
         styled(Design(paths=(Path(((0.0, 0.0), (10.0, 0.0))),)), stroke="red"),
         styled(Design(paths=(Path(((10.0, 0.0), (20.0, 0.0))),)), stroke="blue"),
@@ -299,7 +299,7 @@ def test_this_libraries_optimizer_holds_up_against_vpypes():
 
 def test_the_svg_this_writes_is_the_svg_vpype_reads(tmp_path):
     # The whole point of writing layers as Inkscape's groups and sizing the
-    # page in millimetres: the file goes straight into a plotter toolchain.
+    # page in millimeters: the file goes straight into a plotter toolchain.
     vpype = pytest.importorskip("vpype")
     two = layer(styled(SCATTERED, layer="pen1"), styled(TruchetTiling().build(), layer="pen2"))
     target = save_plotter_svg(two, tmp_path / "plot.svg", paper="a4")

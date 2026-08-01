@@ -1,6 +1,6 @@
 """An explorable gallery: one page, sliders, and every picture already drawn.
 
-The catalogue's parameters are the interesting part and a static gallery cannot
+The catalog's parameters are the interesting part and a static gallery cannot
 show them. What ``k`` does to a rose, what ``depth`` does to a dragon and what
 ``factor`` does to a times-table circle are all things you learn by dragging a
 slider and watching, and never by reading a default value.

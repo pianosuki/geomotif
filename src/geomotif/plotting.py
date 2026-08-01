@@ -55,7 +55,7 @@ type Panel = tuple[str, Design, dict[str, Any]]
 
 @dataclass(frozen=True, slots=True)
 class Palette:
-    """Every colour a figure is drawn in.
+    """Every color a figure is drawn in.
 
     Gathered into one value rather than left as module constants so that a
     dark-mode figure is a different argument, not a different code path.
@@ -84,7 +84,7 @@ LIGHT = Palette(
 )
 
 #: The same figure for a dark docs theme. Ink and paper swap; the series
-#: colour lightens, because #2a78d6 on near-black is barely there.
+#: color lightens, because #2a78d6 on near-black is barely there.
 DARK = Palette(
     page="#14141a",
     surface="#1b1b22",
@@ -126,9 +126,9 @@ def plot_design(
     title : str, optional
         Panel title, drawn in secondary ink.
     color : str, optional
-        Series colour for lines and markers. Defaults to the palette's. A
+        Series color for lines and markers. Defaults to the palette's. A
         stroke carrying a style of its own (:mod:`geomotif.core.style`) is
-        drawn in that colour and width instead, so a two-pen design looks on
+        drawn in that color and width instead, so a two-pen design looks on
         screen the way it will come off the plotter.
     show_paths : bool, optional
         Draw the strokes.
@@ -143,7 +143,7 @@ def plot_design(
         the markers. Without it the line connects the sample points
         themselves, which looks polygonal when the spacing is wide.
     center : (float, float), optional
-        Mark a point of interest -- a spiral's centre -- with a small cross.
+        Mark a point of interest -- a spiral's center -- with a small cross.
     label_endpoints : bool, optional
         Direct-label the design's first and last points "start" / "end".
     palette : Palette, optional
@@ -178,20 +178,20 @@ def plot_design(
             )
 
     markers: list[Point] = list(design.points)
-    colours = [_ink_for(style, ink) for style in point_styles_of(design)]
+    colors = [_ink_for(style, ink) for style in point_styles_of(design)]
     if show_points:
         markers = [p for path in design.paths for p in path.points] + markers
-        colours = [
+        colors = [
             _ink_for(style, ink)
             for path, style in zip(design.paths, styles_of(design), strict=True)
             for _ in path.points
-        ] + colours
+        ] + colors
     if markers:
         ax.scatter(
             [p[0] for p in markers],
             [p[1] for p in markers],
             s=dot_size,
-            color=colours,
+            color=colors,
             edgecolors=palette.surface,
             linewidths=0.6,
             zorder=3,
@@ -336,7 +336,7 @@ def spacing_label(spacing: SpacingLike | None) -> str:
 
 
 def _ink_for(style: Style | None, fallback: str) -> str:
-    """Return the colour a styled stroke asks for, or the figure's own."""
+    """Return the color a styled stroke asks for, or the figure's own."""
     if style is None or style.stroke is None:
         return fallback
     return style.stroke

@@ -149,15 +149,15 @@ def test_no_point_falls_inside_another_triangles_circumcircle():
     sites = _EXAMPLE_POINTS
     for tri in _triangles(sites):
         a, b, c = (sites[i] for i in tri)
-        centre, radius = _circumcircle(a, b, c)
+        center, radius = _circumcircle(a, b, c)
         for index, site in enumerate(sites):
             if index in tri:
                 continue
-            assert math.dist(centre, site) > radius - 1e-6
+            assert math.dist(center, site) > radius - 1e-6
 
 
 def _circumcircle(a, b, c):
-    """Return the centre and radius of the circle through three points."""
+    """Return the center and radius of the circle through three points."""
     d = 2.0 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]))
     sa, sb, sc = (p[0] ** 2 + p[1] ** 2 for p in (a, b, c))
     x = (sa * (b[1] - c[1]) + sb * (c[1] - a[1]) + sc * (a[1] - b[1])) / d
@@ -223,7 +223,7 @@ def test_the_cells_claim_each_interior_border_exactly_twice():
 # --- welding ----------------------------------------------------------------
 
 
-def test_welding_recognises_corners_that_agree_to_within_the_tolerance():
+def test_welding_recognizes_corners_that_agree_to_within_the_tolerance():
     cells = (
         ((0.0, 0.0), (1.0, 0.0), (1.0, 1.0)),
         ((1.0, 0.0), (1.0 + 1e-13, 1.0 - 1e-13), (2.0, 1.0)),
@@ -305,7 +305,7 @@ def test_the_centroid_of_a_triangle_is_the_mean_of_its_corners():
 
 
 def test_a_cell_pinched_down_to_a_line_still_has_a_middle():
-    # No area to take a centre of, so the corners' mean it is -- the
+    # No area to take a center of, so the corners' mean it is -- the
     # alternative being a division by zero somewhere deep in a relaxation.
     assert _centroid(((0.0, 0.0), (1.0, 0.0), (5.0, 0.0))) == pytest.approx((2.0, 0.0))
 
@@ -391,7 +391,7 @@ def test_no_iterations_leaves_the_points_where_they_are():
     assert LloydRelaxation(points=_EXAMPLE_SCATTER, iterations=0).relaxed() == _EXAMPLE_SCATTER
 
 
-def test_the_relaxed_points_are_the_centres_of_their_own_cells():
+def test_the_relaxed_points_are_the_centers_of_their_own_cells():
     sites = LloydRelaxation(points=_EXAMPLE_SCATTER, iterations=1).relaxed()
     region = _region_for(_EXAMPLE_SCATTER, None)
     for site, cell in zip(sites, _cells(_EXAMPLE_SCATTER, region), strict=True):

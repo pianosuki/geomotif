@@ -5,21 +5,21 @@ a set of curves and the formats that keep them curves are the ones worth
 writing. This module exists for the pixels, which vector cannot be -- the
 frames of an animation, and the stills of PNG and JPEG.
 
-The picture is **drawn once as a full-colour frame** -- one RGBA value per
+The picture is **drawn once as a full-color frame** -- one RGBA value per
 pixel, palette-free -- so that antialiasing, styling and every ink land in one
 place and every encoder reads the same quality. Two output shapes come out of
 it, in the :class:`Raster` type:
 
 - A **direct** RGBA (or RGB) bitmap, the natural input for PNG and JPEG, which
-  keep all 255 levels of colour and edge.
+  keep all 255 levels of color and edge.
 - An **indexed** bitmap -- one palette entry per pixel -- which is what GIF
   wants and what keeps a line drawing small. When antialiasing creates blends
   the index frame cannot hold on its own, the RGBA frame is run through
   :func:`quantize`, which shrinks it to a shared palette of at most 256
-  colours (with optional error-diffusion dithering) and never drops an ink.
+  colors (with optional error-diffusion dithering) and never drops an ink.
 
 Index 0 of a palette is the background and the strokes take whatever indices
-their styles worked out to, so a two-pen design rasterizes in two colours
+their styles worked out to, so a two-pen design rasterizes in two colors
 without being told twice.
 
 With antialiasing off (the default), rendering is just the whole-pixel,
@@ -76,7 +76,7 @@ class Raster:
         ``width * height`` indices (indexed), or ``width * height * 4`` RGBA
         or ``width * height * 3`` RGB bytes (direct), row-major.
     palette : tuple of str, optional
-        The colours an indexed bitmap's indices name, as ``#rrggbb``. Index 0
+        The colors an indexed bitmap's indices name, as ``#rrggbb``. Index 0
         is the background. Unused by a direct bitmap.
     mode : str
         ``"indexed"``, ``"rgb"`` or ``"rgba"``. Defaults to ``"indexed"`` so
@@ -163,10 +163,10 @@ def rasterize(
         animation -- there, pass the same bounds to every frame or the drawing
         will swim about as its extent changes.
     palette : sequence of str, optional
-        Colours the indices name, background first. Defaults to
+        colors the indices name, background first. Defaults to
         ``(background, ink)`` plus whatever the design's styles add.
     ink, background : str
-        Default stroke colour and the colour behind everything.
+        Default stroke color and the color behind everything.
     thickness : int
         Stroke width in pixels.
     dot_radius : int, optional
@@ -225,12 +225,12 @@ def rasterize_rgba(
     scale: int = _AA_SCALE,
     aa_level: int | None = None,
 ) -> Raster:
-    """Draw a design into a full-colour RGBA frame, supersampled and antialiased.
+    """Draw a design into a full-color RGBA frame, supersampled and antialiased.
 
     Every pixel is a real (r, g, b, a) value rather than a palette index, so
     the edges can blend into the background -- which is the whole point of
     antialiasing. The design is painted ``scale`` times as large and each
-    output pixel is the stroke colour over the background weighted by the
+    output pixel is the stroke color over the background weighted by the
     fraction of its sub-pixels the ink covered.
 
     Parameters
@@ -245,7 +245,7 @@ def rasterize_rgba(
         The world rectangle to map onto the canvas. Pass the same bounds to
         every frame of an animation or the drawing will swim about.
     ink, background : str
-        Default stroke colour and the colour behind everything.
+        Default stroke color and the color behind everything.
     thickness : int
         Stroke width in pixels.
     dot_radius : int, optional
@@ -255,8 +255,8 @@ def rasterize_rgba(
     aa_level : int, optional
         If given, each sub-pixel coverage fraction is rounded to one of
         ``aa_level`` steps before blending, so an indexed frame later sees at
-        most ``aa_level`` blended shades per colour pair. Leave ``None`` for a
-        PNG or JPEG, which keep full colour depth.
+        most ``aa_level`` blended shades per color pair. Leave ``None`` for a
+        PNG or JPEG, which keep full color depth.
 
     Returns
     -------
@@ -273,7 +273,7 @@ def rasterize_rgba(
         raise ValueError(f"scale must be >= 1, got {scale}")
 
     entries = colors_in([design], ink=ink, background=background)
-    entry_rgb = [_rgb(colour) for colour in entries]
+    entry_rgb = [_rgb(color) for color in entries]
     sub_w, sub_h = width * scale, height * scale
     sub = bytearray(sub_w * sub_h)
     radius = thickness if dot_radius is None else dot_radius
@@ -336,11 +336,11 @@ def quantize(
     """Shrink RGBA frames to one shared indexed palette of at most ``max_colors``.
 
     The palette is built once across every frame -- so an animation does not
-    flicker as the index a colour means changes -- and is **seeded** with the
-    colours given in ``seeds`` first, background first, keeping them exact. Any
-    remaining colour budget is filled from the blends the antialiasing made,
+    flicker as the index a color means changes -- and is **seeded** with the
+    colors given in ``seeds`` first, background first, keeping them exact. Any
+    remaining color budget is filled from the blends the antialiasing made,
     cut down with median-cut when there are more of them than budget. A seed
-    colour is never dropped: asking for more seeds than ``max_colors`` raises
+    color is never dropped: asking for more seeds than ``max_colors`` raises
     instead.
 
     Parameters
@@ -348,7 +348,7 @@ def quantize(
     frames : sequence of Raster
         ``"rgba"`` frames, all the same size, to share one palette.
     seeds : sequence of str
-        Colours that must survive exactly, background first, as ``#rrggbb`` or
+        colors that must survive exactly, background first, as ``#rrggbb`` or
         a name. These lead the palette, in order.
     max_colors : int
         The largest palette the output may hold. Must be >= 1.
@@ -356,7 +356,7 @@ def quantize(
         Whether to error-diffuse (Floyd-Steinberg) the rounding of each pixel
         onto its neighbours, which keeps antialiased gradients smooth within
         a small palette. On by default, since indexed output is where the
-        colour budget bites.
+        color budget bites.
 
     Returns
     -------
@@ -384,8 +384,8 @@ def quantize(
             seed_rgb.append(parsed)
     if len(seed_rgb) > max_colors:
         raise ValueError(
-            f"a palette of {max_colors} colours cannot hold the {len(seed_rgb)} "
-            f"colours requested; restyle the design onto fewer, or raise the budget"
+            f"a palette of {max_colors} colors cannot hold the {len(seed_rgb)} "
+            f"colors requested; restyle the design onto fewer, or raise the budget"
         )
 
     counts = Counter[tuple[int, int, int]]()
@@ -402,9 +402,9 @@ def quantize(
     if budget <= 0:
         tail: list[tuple[int, int, int]] = []
     elif len(pairs) <= budget:
-        tail = [colour for colour, _ in pairs]
+        tail = [color for color, _ in pairs]
     else:
-        tail = _median_cut([colour for colour, _ in pairs], counts, budget)
+        tail = _median_cut([color for color, _ in pairs], counts, budget)
     palette.extend(tail)
 
     hex_palette = tuple(f"#{r:02x}{g:02x}{b:02x}" for r, g, b in palette)
@@ -418,11 +418,11 @@ def quantize(
 
 
 def _median_cut(
-    colours: Sequence[tuple[int, int, int]],
+    colors: Sequence[tuple[int, int, int]],
     weights: Counter[tuple[int, int, int]],
     target: int,
 ) -> list[tuple[int, int, int]]:
-    """Split colours into ``target`` boxes, each averaged by its popularity.
+    """Split colors into ``target`` boxes, each averaged by its popularity.
 
     The standard algorithm: repeatedly split the box with the most members
     along its widest channel at the median, until there are ``target`` boxes,
@@ -430,7 +430,7 @@ def _median_cut(
     median keeps every box a similar share of the histogram rather than letting
     one busy region steal the whole budget.
     """
-    boxes: list[list[tuple[int, int, int]]] = [list(colours)]
+    boxes: list[list[tuple[int, int, int]]] = [list(colors)]
     while len(boxes) < target:
         biggest = max((box for box in boxes if len(box) > 1), key=len, default=None)
         if biggest is None:
@@ -441,10 +441,10 @@ def _median_cut(
 
     result: list[tuple[int, int, int]] = []
     for box in boxes:
-        total = sum(weights[colour] for colour in box) or 1
-        r = sum(colour[0] * weights[colour] for colour in box) // total
-        g = sum(colour[1] * weights[colour] for colour in box) // total
-        b = sum(colour[2] * weights[colour] for colour in box) // total
+        total = sum(weights[color] for color in box) or 1
+        r = sum(color[0] * weights[color] for color in box) // total
+        g = sum(color[1] * weights[color] for color in box) // total
+        b = sum(color[2] * weights[color] for color in box) // total
         result.append((r, g, b))
     return result
 
@@ -454,10 +454,10 @@ def _split_box(
 ) -> tuple[list[tuple[int, int, int]], list[tuple[int, int, int]]]:
     """Split a box in half at the median of its widest channel."""
     channel, _ = max(
-        (ch, max(colour[ch] for colour in box) - min(colour[ch] for colour in box))
+        (ch, max(color[ch] for color in box) - min(color[ch] for color in box))
         for ch in range(3)
     )
-    ordered = sorted(box, key=lambda colour: colour[channel])
+    ordered = sorted(box, key=lambda color: color[channel])
     half = len(ordered) // 2
     return ordered[:half], ordered[half:]
 
@@ -471,8 +471,8 @@ def _map_to_palette(frame: Raster, palette: list[tuple[int, int, int]], *, dithe
         for oy in range(height):
             for ox in range(width):
                 at = 4 * (oy * width + ox)
-                colour = (pixels[at], pixels[at + 1], pixels[at + 2])
-                out[oy * width + ox] = _nearest(colour, palette)
+                color = (pixels[at], pixels[at + 1], pixels[at + 2])
+                out[oy * width + ox] = _nearest(color, palette)
         return Raster(width, height, bytes(out))
 
     grid = [
@@ -507,14 +507,14 @@ def _scatter(
                 row[nx * 3 + ch] += error[ch] * weight / 16.0
 
 
-def _nearest(colour: tuple[float, float, float], palette: list[tuple[int, int, int]]) -> int:
-    """Return the palette index closest to a colour, ties to the earlier entry."""
+def _nearest(color: tuple[float, float, float], palette: list[tuple[int, int, int]]) -> int:
+    """Return the palette index closest to a color, ties to the earlier entry."""
     best, best_distance = 0, 1_000_000_000.0
     for index, entry in enumerate(palette):
         distance = (
-            (colour[0] - entry[0]) ** 2
-            + (colour[1] - entry[1]) ** 2
-            + (colour[2] - entry[2]) ** 2
+            (color[0] - entry[0]) ** 2
+            + (color[1] - entry[1]) ** 2
+            + (color[2] - entry[2]) ** 2
         )
         if distance < best_distance:
             best, best_distance = index, distance
@@ -532,7 +532,7 @@ def _bounds_of(design: Design) -> Bounds:
 def _placement(
     bounds: Bounds, width: int, height: int, padding: float
 ) -> Callable[[Point], tuple[int, int]]:
-    """Return the world-to-pixel mapping: uniform scale, centred, y flipped."""
+    """Return the world-to-pixel mapping: uniform scale, centerd, y flipped."""
     extent_x = max(bounds.width, _MIN_EXTENT)
     extent_y = max(bounds.height, _MIN_EXTENT)
     # A w-pixel row addresses 0..w-1, so the span a drawing can occupy is one
@@ -556,13 +556,13 @@ def _placement(
 
 
 def _index_for(style: Style | None, palette: Sequence[str]) -> int:
-    """Return the palette index a stroke draws in: its own colour, or the default."""
+    """Return the palette index a stroke draws in: its own color, or the default."""
     if style is None or style.stroke is None:
         return 1
     try:
         return palette.index(style.stroke)
     except ValueError:
-        # A colour the palette was not built from. Drawing it in the default
+        # A color the palette was not built from. Drawing it in the default
         # ink is better than dropping the stroke or growing the table here.
         return 1
 
@@ -623,10 +623,10 @@ def _stamp(
 
 
 def _disc(
-    pixels: bytearray, width: int, height: int, centre: tuple[int, int], radius: int, index: int
+    pixels: bytearray, width: int, height: int, center: tuple[int, int], radius: int, index: int
 ) -> None:
     """Fill a circle, which is what a loose point looks like."""
-    cx, cy = centre
+    cx, cy = center
     if radius <= 1:
         _stamp(pixels, width, height, cx, cy, index, 1)
         return

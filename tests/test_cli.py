@@ -19,7 +19,7 @@ def run(capsys, *argv):
 # --- list and show ---------------------------------------------------------
 
 
-def test_list_groups_the_catalogue_by_family(capsys):
+def test_list_groups_the_catalog_by_family(capsys):
     code, out, _ = run(capsys, "list")
     assert code == 0
     assert "spiral" in out
@@ -163,7 +163,7 @@ def test_loop_reaches_the_gif(capsys, tmp_path):
 
 
 def test_a_motifs_size_flag_is_not_stolen_by_the_canvas_flag(capsys, tmp_path):
-    # `size` is a real parameter on most of the catalogue, and reserving it for
+    # `size` is a real parameter on most of the catalog, and reserving it for
     # the pixel canvas would silently change `render rose --size 800`. It stays
     # a motif flag; the pixel knob goes by `--canvas` instead.
     a, b = tmp_path / "a.json", tmp_path / "b.json"
@@ -286,7 +286,7 @@ def test_hold_collides_with_no_motif_parameter(capsys, tmp_path):
     assert len(gif(out.read_bytes()).frames) == 8
 
 
-def test_paper_writes_an_svg_in_real_millimetres(capsys, tmp_path):
+def test_paper_writes_an_svg_in_real_millimeters(capsys, tmp_path):
     out = tmp_path / "rose.svg"
     run(capsys, "render", "rose", "--out", str(out), "--paper", "a5")
     assert svg_root(out.read_text()).get("width") == "148mm"
@@ -405,7 +405,7 @@ def test_fit_scales_onto_a_canvas(capsys, tmp_path):
     out = tmp_path / "f.json"
     run(capsys, "render", "rose", "--fit", "100x100", "--out", str(out))
     bounds = load_design(out).bounds
-    # Uniform scaling, centred in whichever axis has slack, so exactly one of
+    # Uniform scaling, centerd in whichever axis has slack, so exactly one of
     # the two fills the canvas and neither overflows it.
     assert max(bounds.width, bounds.height) == pytest.approx(100.0)
     assert bounds.max_x <= 100.0

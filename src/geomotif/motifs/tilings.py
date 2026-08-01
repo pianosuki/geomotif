@@ -671,7 +671,7 @@ class AmmannBeenker(Motif):
         """Return every tile as its four corners, counter-clockwise.
 
         Exposed because the tiles themselves are often what you want -- to
-        count them, to sort squares from rhombs, or to colour them.
+        count them, to sort squares from rhombs, or to color them.
         """
         n = self.families
         step = self.radius / self.size

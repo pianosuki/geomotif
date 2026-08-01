@@ -33,7 +33,7 @@ Writing your own takes one method::
 or none at all, if one of the bases in :mod:`geomotif.bases` already describes
 the kind of thing you are drawing -- then you write the maths and nothing else.
 
-Motif classes live in :mod:`geomotif.motifs`, not here: the catalogue is far
+Motif classes live in :mod:`geomotif.motifs`, not here: the catalog is far
 too large for a flat namespace. This module exports the core model, the motif
 bases, the spacing curves, the transform layer and the registry -- the things
 you build *with*. See :mod:`geomotif.core.registry` for lookup by name.

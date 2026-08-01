@@ -1,8 +1,8 @@
-"""Colour parsing shared by the raster-side writers.
+"""color parsing shared by the raster-side writers.
 
 Everything on the raster side ends in literal red, green and blue bytes, so a
 name has to be resolved here or refused here -- unlike the SVG writer, which
-can hand a colour to the renderer to interpret. The names match the ones the
+can hand a color to the renderer to interpret. The names match the ones the
 DXF writer can put a name to, and the :data:`NAMED` table is the same list the
 GIF writer always kept.
 """
@@ -17,10 +17,10 @@ if TYPE_CHECKING:
 
 __all__ = ["NAMED", "rgb"]
 
-#: A colour as three channel bytes. ``#rrggbb``.
+#: A color as three channel bytes. ``#rrggbb``.
 type RGB = tuple[int, int, int]
 
-#: Colour names this side of the library understands, matching the ones the DXF
+#: color names this side of the library understands, matching the ones the DXF
 #: writer can put a name to. A raster canvas holds literal red, green and blue,
 #: so a name it does not know cannot be passed downstream the way the SVG
 #: writer passes one -- it has to be resolved here or refused here.
@@ -40,27 +40,27 @@ NAMED: Mapping[str, RGB] = MappingProxyType(
 )
 
 
-def rgb(colour: str) -> RGB:
+def rgb(color: str) -> RGB:
     """Parse ``#rgb``, ``#rrggbb`` or a name from :data:`NAMED` into three bytes."""
-    text = colour.strip().lower()
+    text = color.strip().lower()
     if text in NAMED:
         return NAMED[text]
     text = text.lstrip("#")
     if len(text) == 3:
         text = "".join(c * 2 for c in text)
     if len(text) != 6:
-        raise ValueError(_unreadable(colour))
+        raise ValueError(_unreadable(color))
     try:
         return (int(text[0:2], 16), int(text[2:4], 16), int(text[4:6], 16))
     except ValueError:
-        raise ValueError(_unreadable(colour)) from None
+        raise ValueError(_unreadable(color)) from None
 
 
-def _unreadable(colour: str) -> str:
+def _unreadable(color: str) -> str:
     """Say what went wrong, and what this side of the library can read instead."""
     return (
-        f"cannot read {colour!r} as a colour: expected '#3366ff', '#36f', "
+        f"cannot read {color!r} as a color: expected '#3366ff', '#36f', "
         f"or one of {sorted(NAMED)}. Unlike the SVG writer, a raster canvas "
-        f"holds literal red, green and blue, so it cannot pass a colour "
+        f"holds literal red, green and blue, so it cannot pass a color "
         f"through to something else to interpret"
     )
