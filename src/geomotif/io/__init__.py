@@ -9,7 +9,7 @@ The coordinates             :func:`save_points`                   --
 The design, strokes and all :func:`save_design`                   JSON only
 The recipe that made it     :func:`save_spec`                     yes
 A picture of it             :func:`save_svg`, :func:`save_dxf`    --
-A still picture of it       :func:`save_png`                      --
+A still picture of it       :func:`save_png`, :func:`save_jpeg` --
 A moving picture of it      :func:`save_gif`                      --
 ==========================  ====================================  ===========
 
@@ -20,10 +20,11 @@ it is what the gallery manifest and the CLI's ``--spec`` flag are built on.
 SVG is for anything that displays -- a browser, a vector editor, these docs --
 and DXF for anything that cuts, mills or plots. The two disagree about which
 way y points, which each module handles rather than leaving to the caller.
-The two rasters are the still and the moving picture: :func:`save_png` writes
-the finished design as one frame, and :func:`save_gif` writes the animation
-from :mod:`geomotif.animate`, since a moving picture has no vector form that
-plays everywhere.
+The two rasters are the still and the moving picture: :func:`save_png` and
+:func:`save_jpeg` write the finished design as one frame (a PNG lossless, a
+JPEG lossy and smaller), and :func:`save_gif` writes the animation from
+:mod:`geomotif.animate`, since a moving picture has no vector form that plays
+everywhere.
 
 :mod:`geomotif.io.plotter` is the SVG writer again with a pen plotter in mind:
 real millimeters on a named sheet of paper, and a pass that joins strokes up
@@ -36,6 +37,7 @@ color tables, chunk CRCs and all.
 
 from .dxf import save_dxf, to_dxf
 from .gif import save_gif, to_gif
+from .jpeg import save_jpeg, to_jpeg
 from .plotter import save_plotter_svg, to_plotter_svg, to_vpype
 from .png import save_png, to_png
 from .points import PointFormat, load_design, save_design, save_points
@@ -57,6 +59,7 @@ __all__ = [
     "save_design",
     "save_dxf",
     "save_gif",
+    "save_jpeg",
     "save_plotter_svg",
     "save_png",
     "save_points",
@@ -64,6 +67,7 @@ __all__ = [
     "save_svg",
     "to_dxf",
     "to_gif",
+    "to_jpeg",
     "to_plotter_svg",
     "to_png",
     "to_spec",

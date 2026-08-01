@@ -103,8 +103,8 @@ The suffix of `--out` picks the writer:
 | `.dxf` | DXF R12 |
 | `.csv`, `.txt`, `.tsv`, `.json` | the structured design writer |
 | `.gif` | an animation — see `--motion`, `--frames`, `--hold` and `--fps` |
-| `.png` | a still picture — pure standard library, no install |
-| `.pdf`, `.jpg`, `.jpeg` | matplotlib — the one part of the CLI that needs the `plot` extra |
+| `.png`, `.jpg`, `.jpeg` | a still picture — pure standard library, no install |
+| `.pdf` | matplotlib — the one part of the CLI that needs the `plot` extra |
 
 Without `--out`, the points go to stdout as CSV, so the command pipes:
 
@@ -131,7 +131,7 @@ geomotif render spiral.golden --samples 300 --snap 1 --precision 0 > whole.csv
 
 `--snap` pairs with `--precision 0`, which writes `3` rather than `3.0`. It is
 exact for the coordinate formats and `.dxf`; the writers that place a design
-themselves — `.svg`, `--paper` included, `.gif`, `.png` and the matplotlib
+themselves — `.svg`, `--paper` included, `.gif`, `.png`, `.jpg` and the matplotlib
 formats — fit it into their canvas as they write and rescale the grid away. See
 [Snapping to a grid](export.md#snapping-to-a-grid).
 

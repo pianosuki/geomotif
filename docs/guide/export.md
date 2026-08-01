@@ -10,7 +10,7 @@ The core is zero-dependency all the way out to the file.
 | a picture | [`save_svg`][geomotif.io.svg.save_svg] | no |
 | something to cut, mill or plot | [`save_dxf`][geomotif.io.dxf.save_dxf] | no |
 | the *recipe*, not the points | [`save_spec`][geomotif.io.spec.save_spec] | yes |
-| a still picture | [`save_png`][geomotif.io.png.save_png] | no |
+| a still picture | [`save_png`][geomotif.io.png.save_png], [`save_jpeg`][geomotif.io.jpeg.save_jpeg] | no |
 | a moving picture | [`save_gif`][geomotif.io.gif.save_gif] | no |
 
 ## Coordinates

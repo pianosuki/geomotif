@@ -1,4 +1,4 @@
-"""Read geomotif's own SVG, DXF and GIF back, with nothing but the standard library.
+"""Read geomotif's own SVG, DXF, GIF, PNG and JPEG back, with nothing but the standard library.
 
 A writer nobody reads is a writer nobody has tested. Every format here is
 write-only as far as the library is concerned, so these parsers exist to close
@@ -11,15 +11,16 @@ None is a general parser and none belongs outside the test suite; the
 third-party readers this output was checked against (``svgelements``, ``ezdxf``,
 Pillow) are not dependencies and are not needed to run the suite.
 
-The GIF reader is the odd one, in that it has to *decompress*: a GIF's pixels
-are LZW and there is no reading them without implementing the other half of
-it. The PNG reader defilters and inflates for the same reason. That is exactly
-why they are here -- an encoder checked only against its own assumptions is
-not checked at all.
+Some of them have to *decompress*: a GIF's pixels are LZW, a PNG's rows are
+deflated, and a JPEG's scan is Huffman-coded into an 8x8 DCT -- and there is no
+reading any of those without implementing the other half. That is exactly why
+they are here -- an encoder checked only against its own assumptions is not
+checked at all.
 """
 
 from __future__ import annotations
 
+import math
 import struct
 import xml.etree.ElementTree as ET
 import zlib
@@ -421,4 +422,291 @@ def _defilter(raw: bytes, width: int, height: int, bpp: int) -> bytes:
                 raise AssertionError(f"unexpected filter type {filter_type}")
         out.extend(line)
         previous = line
+    return bytes(out)
+
+
+# --- JPEG -------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Jpeg:
+    """A decoded baseline JPEG, in the 4:2:0 subset geomotif writes."""
+
+    width: int
+    height: int
+    pixels: bytes  # RGB, one triple per pixel, row-major
+
+
+#: The path a block's 64 coefficients are read in, DC first (Annex A).
+_ZIGZAG = (
+    0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5,
+    12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51,
+    58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55, 62, 63,
+)
+
+#: Cosines for the IDCT, indexed ``_COS[h][f] = cos((2h+1) f pi / 16)``.
+_COS = [[math.cos((2 * row + 1) * freq * math.pi / 16) for freq in range(8)] for row in range(8)]
+
+
+def jpeg(data: bytes) -> Jpeg:
+    """Decode a baseline JPEG of the shape geomotif writes, Huffman and IDCT included."""
+    assert data[:2] == b"\xff\xd8", f"not a JPEG: {data[:2]!r}"
+    width: int | None = None
+    height: int | None = None
+    quant: dict[int, list[int]] = {}
+    huff: dict[tuple[int, int], tuple[tuple[int, ...], tuple[int, ...]]] = {}
+    scan: tuple[tuple[int, int, int], ...] = ()
+    at = 2
+    scan_at = 0
+    while at < len(data):
+        assert data[at] == 0xFF, f"marker expected at {at}"
+        marker = data[at + 1]
+        at += 2
+        if marker == 0xDA:  # start of scan: the entropy data follows this segment
+            length = int.from_bytes(data[at : at + 2], "big")
+            payload = data[at + 2 : at + length]
+            scan_at = at + length
+            components = payload[0]
+            scan = tuple(
+                (payload[1 + c * 2], payload[2 + c * 2] >> 4, payload[2 + c * 2] & 0xF)
+                for c in range(components)
+            )
+            break
+        if marker in (0xFF, 0xD8):
+            continue
+        length = int.from_bytes(data[at : at + 2], "big")
+        payload = data[at + 2 : at + length]
+        at += length
+        if marker == 0xDB:
+            _parse_quant(payload, quant)
+        elif marker == 0xC0:
+            height = int.from_bytes(payload[1:3], "big")
+            width = int.from_bytes(payload[3:5], "big")
+        elif marker == 0xC4:
+            _parse_huff(payload, huff)
+
+    assert width is not None, "missing SOF0"
+    assert height is not None, "missing SOF0"
+    assert scan, "missing SOS"
+
+    reader = _ScanReader(_scan_data(data, scan_at))
+    return _rebuild(reader, width, height, quant, huff, scan)
+
+
+def _parse_quant(payload: bytes, quant: dict[int, list[int]]) -> None:
+    """Read the quantization tables (precision 0, so one byte per entry)."""
+    i = 0
+    while i < len(payload):
+        tid = payload[i]
+        assert tid & 0xF0 == 0, "only 8-bit precision is understood"
+        quant[tid & 0x0F] = list(payload[i + 1 : i + 65])
+        i += 65
+
+
+def _parse_huff(
+    payload: bytes, huff: dict[tuple[int, int], tuple[tuple[int, ...], tuple[int, ...]]]
+) -> None:
+    """Read the Huffman tables: 16 length counts, then that many symbols."""
+    i = 0
+    while i < len(payload):
+        cls = payload[i] >> 4
+        tid = payload[i] & 0x0F
+        counts = tuple(payload[i + 1 : i + 17])
+        i += 17
+        total = sum(counts)
+        values = tuple(payload[i : i + total])
+        i += total
+        huff[(cls, tid)] = (counts, values)
+
+
+def _scan_data(data: bytes, at: int) -> bytes:
+    """The entropy-coded scan: undo byte-stuffing, stop at EOI."""
+    out = bytearray()
+    while at < len(data):
+        b = data[at]
+        at += 1
+        if b == 0xFF:
+            n = data[at]
+            at += 1
+            if n == 0x00:
+                out.append(0xFF)  # a stuffed 0xFF
+            elif n == 0xFF:
+                continue  # fill byte
+            elif n == 0xD9:
+                break  # EOI
+            else:
+                break  # another marker: nothing more to read
+        else:
+            out.append(b)
+    return bytes(out)
+
+
+class _ScanReader:
+    """Huffman bits of a JPEG scan, read most-significant-bit first."""
+
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+        self._bit = 0
+
+    def read(self, n: int) -> int:
+        value = 0
+        for _ in range(n):
+            value = (value << 1) | ((self._data[self._bit // 8] >> (7 - self._bit % 8)) & 1)
+            self._bit += 1
+        return value
+
+
+def _decode_huff(counts: tuple[int, ...], values: tuple[int, ...]) -> dict[tuple[int, int], int]:
+    """Map ``(length, code)`` to a symbol, from counts-per-length plus symbols.
+
+    The reference DC tables declare one more code slot than they fill, so the
+    walk hands out codes only while symbols remain, matching the writer.
+    """
+    table: dict[tuple[int, int], int] = {}
+    code, k = 0, 0
+    for length in range(1, 17):
+        for _ in range(counts[length - 1]):
+            if k >= len(values):
+                break
+            table[(length, code)] = values[k]
+            k += 1
+            code += 1
+        code <<= 1
+    return table
+
+
+def _read_symbol(reader: _ScanReader, table: dict[tuple[int, int], int]) -> int:
+    code = 0
+    for length in range(1, 17):
+        code = (code << 1) | reader.read(1)
+        if (length, code) in table:
+            return table[(length, code)]
+    raise AssertionError("no Huffman symbol matched")
+
+
+def _read_coefficient(reader: _ScanReader, size: int) -> int:
+    """The signed value a run of ``size`` bits stands for (DC and AC alike)."""
+    if size == 0:
+        return 0
+    value = reader.read(size)
+    if value < 1 << (size - 1):
+        return value - (1 << size) + 1
+    return value
+
+
+def _rebuild(
+    reader: _ScanReader,
+    width: int,
+    height: int,
+    quant: dict[int, list[int]],
+    huff: dict[tuple[int, int], tuple[tuple[int, ...], tuple[int, ...]]],
+    scan: tuple[tuple[int, int, int], ...],
+) -> Jpeg:
+    """Block-decode the scan into planes, then up-sample and convert to RGB."""
+    dc_table = {tid: _decode_huff(*source) for (cls, tid), source in huff.items() if cls == 0}
+    ac_table = {tid: _decode_huff(*source) for (cls, tid), source in huff.items() if cls == 1}
+
+    # Scan components are Y, Cb, Cr in that order, each (id, dc-id, ac-id).
+    _, y_dc, y_ac = scan[0]
+    _, cb_dc, cb_ac = scan[1]
+    _, cr_dc, cr_ac = scan[2]
+
+    mcu_w = (width + 15) // 16
+    mcu_h = (height + 15) // 16
+    y_w, y_h = mcu_w * 16, mcu_h * 16
+    c_w, c_h = mcu_w * 8, mcu_h * 8
+    y_plane = bytearray(y_w * y_h)
+    cb_plane = bytearray(c_w * c_h)
+    cr_plane = bytearray(c_w * c_h)
+    quant_y = quant[0]
+    quant_c = quant[1]
+    prev_dc = [0, 0, 0]
+
+    for my in range(mcu_h):
+        for mx in range(mcu_w):
+            for by, bx in ((my * 2, mx * 2), (my * 2, mx * 2 + 1), (my * 2 + 1, mx * 2), (my * 2 + 1, mx * 2 + 1)):
+                samples = _block(reader, prev_dc, 0, quant_y, dc_table[y_dc], ac_table[y_ac])
+                _place(y_plane, y_w, by, bx, samples)
+            cbv = _block(reader, prev_dc, 1, quant_c, dc_table[cb_dc], ac_table[cb_ac])
+            _place(cb_plane, c_w, my, mx, cbv)
+            crv = _block(reader, prev_dc, 2, quant_c, dc_table[cr_dc], ac_table[cr_ac])
+            _place(cr_plane, c_w, my, mx, crv)
+
+    return Jpeg(width, height, _to_rgb(y_plane, cb_plane, cr_plane, y_w, c_w, width, height))
+
+
+def _block(
+    reader: _ScanReader,
+    prev: list[int],
+    comp: int,
+    quant: list[int],
+    dc_table: dict[tuple[int, int], int],
+    ac_table: dict[tuple[int, int], int],
+) -> list[list[int]]:
+    """One 8x8 block, returned as a natural-order grid of samples (0..255)."""
+    diff = _read_coefficient(reader, _read_symbol(reader, dc_table))
+    prev[comp] += diff
+    zz = [0] * 64
+    zz[0] = prev[comp]
+    i = 1
+    while i < 64:
+        rs = _read_symbol(reader, ac_table)
+        if rs == 0x00:  # EOB: rest of the block is zero
+            break
+        if rs == 0xF0:  # ZRL: sixteen more zeros
+            i += 16
+            continue
+        run, size = rs >> 4, rs & 0x0F
+        i += run
+        if size and i < 64:
+            zz[i] = _read_coefficient(reader, size)
+        i += 1
+    coef = [[0] * 8 for _ in range(8)]
+    for v in range(8):
+        for u in range(8):
+            coef[v][u] = zz[_ZIGZAG[v * 8 + u]] * quant[v * 8 + u]
+    return _idct(coef)
+
+
+def _idct(coef: list[list[int]]) -> list[list[int]]:
+    """Inverse DCT of a natural-order coefficient block, clamped and re-centered."""
+    samples = [[0] * 8 for _ in range(8)]
+    for y in range(8):
+        for x in range(8):
+            total = 0.0
+            for v in range(8):
+                cv = math.sqrt(0.5) if v == 0 else 1.0
+                cosine_v = _COS[y][v]
+                for u in range(8):
+                    cu = math.sqrt(0.5) if u == 0 else 1.0
+                    total += cu * cv * coef[v][u] * _COS[x][u] * cosine_v
+            value = round(total * 0.25) + 128
+            samples[y][x] = max(0, min(255, value))
+    return samples
+
+
+def _place(plane: bytearray, width: int, by: int, bx: int, samples: list[list[int]]) -> None:
+    for y in range(8):
+        row = (by * 8 + y) * width + bx * 8
+        plane[row : row + 8] = bytes(samples[y])
+
+
+def _to_rgb(y_plane, cb_plane, cr_plane, y_w, c_w, width, height) -> bytes:
+    """Up-sample chroma to full size, then convert YCbCr to RGB."""
+    out = bytearray(width * height * 3)
+    for py in range(height):
+        cy = py // 2
+        for px in range(width):
+            cx = px // 2
+            yv = y_plane[py * y_w + px]
+            cbv = cb_plane[cy * c_w + cx] - 128
+            crv = cr_plane[cy * c_w + cx] - 128
+            r = yv + 1.402 * crv
+            g = yv - 0.344136 * cbv - 0.714136 * crv
+            b = yv + 1.772 * cbv
+            at = (py * width + px) * 3
+            out[at] = max(0, min(255, round(r)))
+            out[at + 1] = max(0, min(255, round(g)))
+            out[at + 2] = max(0, min(255, round(b)))
     return bytes(out)

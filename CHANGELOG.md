@@ -22,6 +22,12 @@ the one hard-coded GIF becomes a full set of knobs.
   RGB by default, RGBA on request, or indexed through the same median-cut
   quantizer the GIF uses; `--compression 0-9` tunes the deflate level. Renders
   from `render --out rose.png` with no matplotlib and no extra install.
+- **JPEG stills, pure standard library** (`geomotif.io.jpeg` — `save_jpeg`,
+  `to_jpeg`) — the same RGBA frame encoded as baseline JPEG: RGB to YCbCr
+  with 4:2:0 chroma subsampling, an 8x8 DCT, quality-scaled quantization, and
+  Huffman coding against the reference tables. `--quality 0-100` scales the
+  quantization (default 85). `.jpg` and `.jpeg` render from `render --out`
+  with no matplotlib and no extra install.
 - **Stills vs animation** — PNG and JPEG are single stills of the finished
   design; the animation flags are ignored rather than refused, so
   `render rose --motion spin --out rose.png` degrades gracefully to a still.

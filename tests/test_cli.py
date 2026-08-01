@@ -6,7 +6,7 @@ import pytest
 from geomotif import load_design
 from geomotif.cli import RESERVED, main
 from geomotif.core import registry
-from tests.readback import dxf_polylines, gif, png, svg_root, svg_strokes
+from tests.readback import dxf_polylines, gif, jpeg, png, svg_root, svg_strokes
 
 
 def run(capsys, *argv):
@@ -533,6 +533,59 @@ def test_render_png_refuses_an_out_of_range_compression(tmp_path):
         main(["render", "rose", "--out", str(tmp_path / "r.png"), "--compression", "10"])
 
 
+def test_render_writes_a_jpeg_a_figure_used_to_write(capsys, tmp_path):
+    out = tmp_path / "r.jpg"
+    assert run(capsys, "render", "rose", "--samples", "50", "--out", str(out))[0] == 0
+    decoded = jpeg(out.read_bytes())
+    assert (decoded.width, decoded.height) == (480, 480)
+    assert decoded.pixels  # a real payload, not an empty one
+
+
+def test_the_jpeg_extension_is_an_alias_for_jpg(capsys, tmp_path):
+    out = tmp_path / "r.jpeg"
+    assert run(capsys, "render", "rose", "--out", str(out))[0] == 0
+    assert jpeg(out.read_bytes()).width == 480
+
+
+def test_render_jpeg_takes_the_canvas_and_styling_without_matplotlib(capsys, tmp_path):
+    out = tmp_path / "r.jpg"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--canvas",
+        "90x40",
+        "--ink",
+        "magenta",
+        "--background",
+        "cyan",
+        "--stroke-width",
+        "3",
+        "--antialias",
+    )
+    decoded = jpeg(out.read_bytes())
+    assert (decoded.width, decoded.height) == (90, 40)
+
+
+def test_render_jpeg_ignores_animation_flags_and_stays_a_still(capsys, tmp_path):
+    out = tmp_path / "rose.jpg"
+    run(capsys, "render", "rose", "--motion", "spin", "--frames", "60", "--out", str(out))
+    assert jpeg(out.read_bytes()).height == 480  # one still, not a run of frames
+
+
+def test_render_jpeg_accepts_a_quality_level(capsys, tmp_path):
+    out = tmp_path / "r.jpg"
+    assert run(capsys, "render", "rose", "--out", str(out), "--quality", "92")[0] == 0
+    assert jpeg(out.read_bytes()).width == 480
+
+
+def test_render_jpeg_refuses_an_out_of_range_quality(tmp_path):
+    with pytest.raises(SystemExit):
+        main(["render", "rose", "--out", str(tmp_path / "r.jpg"), "--quality", "101"])
+
+
 # --- explore ---------------------------------------------------------------
 
 
@@ -715,8 +768,7 @@ def test_an_unavailable_motif_is_described_and_skipped(capsys, tmp_path, monkeyp
 def test_writing_a_figure_without_matplotlib_says_how_to_get_it(tmp_path, monkeypatch):
     monkeypatch.setitem(__import__("sys").modules, "geomotif.plotting", None)
     with pytest.raises(SystemExit, match=r"geomotif\[plot\]"):
-        main(["render", "rose", "--out", str(tmp_path / "r.jpg")])
-
+        main(["render", "rose", "--out", str(tmp_path / "r.pdf")])
 
 def test_the_version_is_reported(capsys):
     from geomotif import __version__
