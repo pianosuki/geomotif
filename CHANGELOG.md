@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 migration path to document — the lineage is recorded here only so the early
 history reads honestly.
 
-## [Unreleased]
+## [1.2.0] — 2026-08-01
 
 The raster overhaul: stills join the zero-dependency picture pipeline, and
 the one hard-coded GIF becomes a full set of knobs.
@@ -28,6 +28,12 @@ the one hard-coded GIF becomes a full set of knobs.
   Huffman coding against the reference tables. `--quality 0-100` scales the
   quantization (default 85). `.jpg` and `.jpeg` render from `render --out`
   with no matplotlib and no extra install.
+  - **Known limitation:** the writer passes this suite's own decoder and
+    opens cleanly in libjpeg and Pillow, but the fine-detail (AC) blocks
+    render slightly differently in external viewers than in this library's
+    reader. It is fine for a smaller file where exactness is not the point;
+    reach for PNG or GIF when an exact picture matters to another tool. This
+    is being narrowed.
 - **Stills vs animation** — PNG and JPEG are single stills of the finished
   design; the animation flags are ignored rather than refused, so
   `render rose --motion spin --out rose.png` degrades gracefully to a still.
@@ -37,6 +43,12 @@ the one hard-coded GIF becomes a full set of knobs.
 - **Antialiasing and dithering** — `--antialias` supersamples edges and blends
   them by coverage; `--aa-level N` and `--dither`/`--no-dither` control how the
   result is squeezed into GIF's 256-color budget.
+- **Transparent backgrounds** — `--transparent` leaves a `.png` or `.gif`'s
+  background empty so the drawing sits over whatever the page shows. A PNG is
+  written truecolor-with-alpha with the background at alpha 0 and antialiased
+  edges as straight alpha; a GIF flags index 0 as its transparent color in
+  every frame. A `.jpg` has no alpha, so the flag is ignored there the way an
+  animation flag is for a still.
 
 ### Changed
 
@@ -671,5 +683,6 @@ this name or number; `geomotif` 1.0.0 is the first release of anything.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
 
+[1.2.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.0
 [1.1.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.1.0
 [1.0.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.0.0

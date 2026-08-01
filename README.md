@@ -255,7 +255,7 @@ hand, and it is a great deal smaller — a mandala's recipe is 1.5 KB against
 
 ```json
 {
-  "geomotif": "1.1.0",
+  "geomotif": "1.2.0",
   "motif": "spiral.fibonacci",
   "params": { "quarters": 9, "size": 10.0 }
 }

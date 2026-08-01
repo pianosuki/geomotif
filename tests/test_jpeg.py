@@ -1,4 +1,3 @@
-
 import pytest
 
 from geomotif import Design, Path, to_jpeg
@@ -64,11 +63,7 @@ def test_a_still_holds_the_designs_ink_and_background():
     decoded = jpeg(data)
     # A corner is background; there is ink somewhere on the canvas.
     assert _pixel(decoded.pixels, 60, 0, 0) == (255, 255, 255)
-    assert any(
-        _pixel(decoded.pixels, 60, x, y)[0] < 128
-        for y in range(60)
-        for x in range(60)
-    )
+    assert any(_pixel(decoded.pixels, 60, x, y)[0] < 128 for y in range(60) for x in range(60))
 
 
 def test_a_still_is_one_complete_frame_not_an_animation():
@@ -83,11 +78,7 @@ def test_custom_ink_and_background_reach_the_pixels():
     data = to_jpeg(TWO_STROKES, width=60, height=60, ink="#123456", background="#fedcba")
     decoded = jpeg(data)
     assert _pixel(decoded.pixels, 60, 0, 0)[0] > 200  # warm background corner
-    assert any(
-        _pixel(decoded.pixels, 60, x, y)[0] < 100
-        for y in range(60)
-        for x in range(60)
-    )
+    assert any(_pixel(decoded.pixels, 60, x, y)[0] < 100 for y in range(60) for x in range(60))
 
 
 def test_size_is_varied_by_canvas_not_geometry():
