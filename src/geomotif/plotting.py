@@ -27,12 +27,14 @@ except ImportError:  # pragma: no cover
     ) from None
 
 from .core.sampling import resample
+from .core.style import point_styles_of, styles_of
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from .core.motif import SupportsBuild
     from .core.spacing import SpacingLike
+    from .core.style import Style
     from .core.types import Design, Point
 
 __all__ = [
@@ -124,7 +126,10 @@ def plot_design(
     title : str, optional
         Panel title, drawn in secondary ink.
     color : str, optional
-        Series colour for lines and markers. Defaults to the palette's.
+        Series colour for lines and markers. Defaults to the palette's. A
+        stroke carrying a style of its own (:mod:`geomotif.core.style`) is
+        drawn in that colour and width instead, so a two-pen design looks on
+        screen the way it will come off the plotter.
     show_paths : bool, optional
         Draw the strokes.
     show_points : bool, optional
@@ -157,23 +162,36 @@ def plot_design(
         # A faint line under visible markers, a solid one on its own: the
         # markers are the subject when they are there, and the line is not.
         alpha = 0.45 if show_points else 0.9
-        for path in drawn.paths:
+        for path, style in zip(drawn.paths, styles_of(drawn), strict=True):
             xs = [p[0] for p in path.points]
             ys = [p[1] for p in path.points]
             if path.closed and len(path.points) > 2:
                 xs.append(xs[0])
                 ys.append(ys[0])
-            ax.plot(xs, ys, color=ink, linewidth=linewidth, alpha=alpha, zorder=2)
+            ax.plot(
+                xs,
+                ys,
+                color=_ink_for(style, ink),
+                linewidth=_width_for(style, linewidth),
+                alpha=alpha,
+                zorder=2,
+            )
 
     markers: list[Point] = list(design.points)
+    colours = [_ink_for(style, ink) for style in point_styles_of(design)]
     if show_points:
         markers = [p for path in design.paths for p in path.points] + markers
+        colours = [
+            _ink_for(style, ink)
+            for path, style in zip(design.paths, styles_of(design), strict=True)
+            for _ in path.points
+        ] + colours
     if markers:
         ax.scatter(
             [p[0] for p in markers],
             [p[1] for p in markers],
             s=dot_size,
-            color=ink,
+            color=colours,
             edgecolors=palette.surface,
             linewidths=0.6,
             zorder=3,
@@ -315,6 +333,20 @@ def spacing_label(spacing: SpacingLike | None) -> str:
     # not, and "<...LinearSpacing object at 0x7f...>" is not a panel title.
     text = repr(spacing)
     return type(spacing).__name__ if text.startswith("<") else text
+
+
+def _ink_for(style: Style | None, fallback: str) -> str:
+    """Return the colour a styled stroke asks for, or the figure's own."""
+    if style is None or style.stroke is None:
+        return fallback
+    return style.stroke
+
+
+def _width_for(style: Style | None, fallback: float) -> float:
+    """Return the width a styled stroke asks for, or the figure's own."""
+    if style is None or style.width is None:
+        return fallback
+    return style.width
 
 
 def _style_axes(ax: Any, title: str | None, palette: Palette, *, grid: bool) -> None:

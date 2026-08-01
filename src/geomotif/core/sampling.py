@@ -9,6 +9,11 @@ Because it operates on polylines rather than on any particular curve, every
 motif in the library -- including fractals, tilings and string art, which
 have no closed-form parametrization at all -- gets arc-length placement and
 the whole spacing-curve family for free.
+
+It is also plain Python on tuples of floats, deliberately. An array library
+was tried here and lost: converting a design costs more than a single pass
+over its vertices saves, and its hypot disagrees with :func:`math.dist` in the
+last bit, which would move every point this table places.
 """
 
 from __future__ import annotations
@@ -20,10 +25,10 @@ from dataclasses import replace
 from typing import TYPE_CHECKING, Literal
 
 from .spacing import coerce_spacing
-from .types import Design, Path
+from .types import Design, Path, select_styles
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Callable, Iterable, Sequence
 
     from .motif import Distribution
     from .spacing import SpacingLike
@@ -86,11 +91,13 @@ def _vertices(points: Sequence[Point], *, closed: bool) -> tuple[Point, ...]:
 
 
 class ArcTable:
-    """Cumulative-length table over a polyline, with O(log n) inverse lookup.
+    """Cumulative-length table over a polyline, and the inverse of it.
 
-    Building the table is O(n); every subsequent "where is the point at
-    distance d?" query is a binary search plus one linear interpolation. That
-    is what keeps resampling to thousands of points cheap.
+    Building the table is O(n). A lone "where is the point at distance d?"
+    costs a binary search and one linear interpolation; asking for a whole run
+    of increasing distances -- which is what resampling does -- walks the table
+    once between them all instead, so the run is linear in the *table* rather
+    than n log n. See :meth:`points_at`.
     """
 
     __slots__ = ("_cumulative", "_vertices")
@@ -141,6 +148,81 @@ class ArcTable:
     def point_at_fraction(self, s: float) -> Point:
         """Return the point at fraction ``s`` of the total length."""
         return self.point_at(s * self._cumulative[-1])
+
+    def points_at(self, distances: Iterable[float]) -> tuple[Point, ...]:
+        """Return the point at each distance, in the order they were asked for.
+
+        Exactly what calling :meth:`point_at` on each in turn returns, and
+        several times faster for the run of lookups that resampling actually
+        performs. Those arrive in increasing order, so the segment holding one
+        is at or after the segment that held the last, and the whole run walks
+        the table once between them instead of binary-searching all of it every
+        time.
+
+        Order is exploited, never assumed: a distance that goes backwards seeks
+        again, so this has no precondition to get wrong and no fast and slow
+        version to keep in agreement.
+        """
+        cumulative = self._cumulative
+        vertices = self._vertices
+        total = cumulative[-1]
+        first, final = vertices[0], vertices[-1]
+        if total == 0.0:
+            return tuple(first for _ in distances)
+
+        limit = len(cumulative) - 1
+        placed: list[Point] = []
+        segment = 1
+        for distance in distances:
+            if distance <= 0.0:
+                placed.append(first)
+                continue
+            if distance >= total:
+                placed.append(final)
+                continue
+            if distance < cumulative[segment - 1]:
+                segment = max(bisect.bisect_left(cumulative, distance), 1)
+            while segment < limit and cumulative[segment] < distance:
+                segment += 1
+            start = cumulative[segment - 1]
+            span = cumulative[segment] - start
+            ax, ay = vertices[segment - 1]
+            bx, by = vertices[segment]
+            frac = 0.0 if span == 0.0 else (distance - start) / span
+            placed.append((ax + (bx - ax) * frac, ay + (by - ay) * frac))
+        return tuple(placed)
+
+    def segment(self, start: float, end: float) -> tuple[Point, ...]:
+        """Return the part of the polyline lying between two distances.
+
+        The ends are exact -- interpolated where they fall inside a segment --
+        and every vertex between them is kept as it was, so this is a *piece*
+        of the polyline rather than a resampling of one. That is what an
+        animation drawing itself on needs: the geometry so far, at the
+        resolution it was built at.
+
+        Distances outside the polyline clamp to its ends, and a range that
+        collapses to a point returns that one point.
+        """
+        if end < start:
+            start, end = end, start
+        start = max(start, 0.0)
+        end = min(end, self.total)
+        if end <= start:
+            return (self.point_at(start),)
+        kept = [self.point_at(start)]
+        kept.extend(
+            vertex
+            for distance, vertex in zip(self._cumulative, self._vertices, strict=True)
+            if start < distance < end
+        )
+        kept.append(self.point_at(end))
+        return tuple(kept)
+
+    def points_at_fractions(self, fractions: Iterable[float]) -> tuple[Point, ...]:
+        """Return the point at each fraction of the total length."""
+        total = self._cumulative[-1]
+        return self.points_at([s * total for s in fractions])
 
 
 def _lerp(a: Point, b: Point, t: float) -> Point:
@@ -231,7 +313,7 @@ def resample_path(
         if table.total == 0.0:
             return replace(path, points=(path.points[0],))
         howmany = int(table.total // step) + 1
-        return replace(path, points=tuple(table.point_at(i * step) for i in range(howmany)))
+        return replace(path, points=table.points_at([i * step for i in range(howmany)]))
 
     # The exclusivity check above already guarantees this, but it is not a
     # narrowing the type checker can follow, so restate it.
@@ -251,7 +333,7 @@ def resample_path(
         # Every vertex is the same place: emit that place, count times, rather
         # than failing. Degenerate input should degrade, not raise.
         return replace(path, points=(path.points[0],) * count)
-    return replace(path, points=tuple(table.point_at_fraction(s) for s in fractions))
+    return replace(path, points=table.points_at_fractions(fractions))
 
 
 def _allocate(count: int, lengths: Sequence[float]) -> list[int]:
@@ -367,7 +449,11 @@ def resample(
             )
 
     out: list[Path] = []
-    for path, n in zip(design.paths, allocation, strict=True):
+    # Which source stroke each surviving one came from: a path allocated no
+    # points is dropped entirely, and its style has to go with it rather than
+    # slide onto its neighbour.
+    kept: list[int] = []
+    for index, (path, n) in enumerate(zip(design.paths, allocation, strict=True)):
         match n:
             case 0:
                 continue
@@ -375,4 +461,5 @@ def resample(
                 out.append(replace(path, points=(path.points[0],)))
             case _:
                 out.append(resample_path(path, n, spacing=spacing, by=by))
-    return Design(tuple(out), design.points, design.meta)
+        kept.append(index)
+    return Design(tuple(out), design.points, select_styles(design.meta, paths=kept))

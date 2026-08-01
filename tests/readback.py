@@ -1,22 +1,29 @@
-"""Read geomotif's own SVG and DXF back, with nothing but the standard library.
+"""Read geomotif's own SVG, DXF and GIF back, with nothing but the standard library.
 
-A writer nobody reads is a writer nobody has tested. Both formats are
+A writer nobody reads is a writer nobody has tested. Every format here is
 write-only as far as the library is concerned, so these parsers exist to close
 the loop: whatever came out has to contain the strokes that went in, with the
 same vertices in the same order and the same idea of which ones are closed.
 
 They are deliberately strict and deliberately small -- they understand exactly
 the subset geomotif emits and complain about anything else, which is the point.
-Neither is a general parser and neither belongs outside the test suite; the
-third-party readers this output was checked against (``svgelements``, ``ezdxf``)
-are not dependencies and are not needed to run the suite.
+None is a general parser and none belongs outside the test suite; the
+third-party readers this output was checked against (``svgelements``, ``ezdxf``,
+Pillow) are not dependencies and are not needed to run the suite.
+
+The GIF reader is the odd one, in that it has to *decompress*: a GIF's pixels
+are LZW and there is no reading them without implementing the other half of
+it. That is exactly why it is here -- an encoder checked only against its own
+assumptions is not checked at all.
 """
 
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 
 SVG_NS = "http://www.w3.org/2000/svg"
+INKSCAPE_NS = "http://www.inkscape.org/namespaces/inkscape"
 
 type Point = tuple[float, float]
 #: A stroke as read back: its vertices, and whether it closed.
@@ -53,6 +60,15 @@ def svg_strokes(text: str) -> list[Stroke]:
 def svg_dots(text: str) -> list[Point]:
     """The centre of every ``<circle>``."""
     return [(float(c.get("cx", "0")), float(c.get("cy", "0"))) for c in svg_find(text, "circle")]
+
+
+def svg_layers(text: str) -> list[str]:
+    """The label of every group marked as a layer, in document order."""
+    return [
+        group.get(f"{{{INKSCAPE_NS}}}label", "")
+        for group in svg_find(text, "g")
+        if group.get(f"{{{INKSCAPE_NS}}}groupmode") == "layer"
+    ]
 
 
 def _subpaths(d: str) -> list[Stroke]:
@@ -153,6 +169,31 @@ def dxf_points(text: str) -> list[Point]:
     ]
 
 
+def dxf_layer_table(text: str) -> list[str]:
+    """Every layer the file declares, in the order the table lists them."""
+    return [
+        codes[2] for kind, codes in dxf_section(text, "TABLES") if kind == "LAYER" and 2 in codes
+    ]
+
+
+def dxf_entity_layers(text: str) -> list[tuple[str, str]]:
+    """Each drawn entity as ``(kind, layer)``; the VERTEX run is left out."""
+    return [
+        (kind, codes.get(8, ""))
+        for kind, codes in dxf_section(text, "ENTITIES")
+        if kind in {"POLYLINE", "POINT"}
+    ]
+
+
+def dxf_entity_colours(text: str) -> list[int | None]:
+    """The colour index of each drawn entity, or ``None`` where it inherits one."""
+    return [
+        int(codes[62]) if 62 in codes else None
+        for kind, codes in dxf_section(text, "ENTITIES")
+        if kind in {"POLYLINE", "POINT"}
+    ]
+
+
 def dxf_header(text: str) -> dict[str, list[str]]:
     """The header variables, each with the values that followed its name.
 
@@ -171,3 +212,129 @@ def dxf_header(text: str) -> dict[str, list[str]]:
         elif name is not None:
             variables[name].append(value)
     return variables
+
+
+# --- GIF -------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class GifFrame:
+    """One decoded frame: its size, its delay, and one palette index per pixel."""
+
+    width: int
+    height: int
+    delay: int
+    pixels: bytes
+
+
+@dataclass(frozen=True, slots=True)
+class Gif:
+    """A decoded GIF: the screen it declares, its colours, and its frames."""
+
+    width: int
+    height: int
+    palette: list[tuple[int, int, int]]
+    frames: list[GifFrame]
+    loop: int | None
+
+
+def gif(data: bytes) -> Gif:
+    """Decode a GIF89a of the shape geomotif writes, LZW and all."""
+    assert data[:6] == b"GIF89a", f"not a GIF89a: {data[:6]!r}"
+    width, height = _u16(data, 6), _u16(data, 8)
+    packed = data[10]
+    assert packed & 0x80, "expected a global colour table"
+    size = 2 << (packed & 0x07)
+    at = 13
+    palette = [_rgb(data, at + 3 * i) for i in range(size)]
+    at += 3 * size
+
+    frames: list[GifFrame] = []
+    loop: int | None = None
+    delay = 0
+    while at < len(data):
+        block = data[at]
+        at += 1
+        if block == 0x3B:  # trailer
+            break
+        if block == 0x21:  # extension
+            label = data[at]
+            at += 1
+            chunks, at = _subblocks(data, at)
+            if label == 0xF9:
+                delay = _u16(chunks, 1)
+            elif label == 0xFF and chunks.startswith(b"NETSCAPE2.0"):
+                # The eleven-byte name, then a sub-block whose first byte is
+                # its own id and whose next two are the repeat count.
+                loop = _u16(chunks, 12)
+            continue
+        assert block == 0x2C, f"unexpected block 0x{block:02x} at {at - 1}"
+        left, top = _u16(data, at), _u16(data, at + 2)
+        fw, fh = _u16(data, at + 4), _u16(data, at + 6)
+        assert (left, top) == (0, 0), "frames are written full-canvas"
+        assert data[at + 8] == 0, "expected no local colour table and no interlacing"
+        at += 9
+        minimum = data[at]
+        at += 1
+        compressed, at = _subblocks(data, at)
+        pixels = _lzw_decode(compressed, minimum)
+        assert len(pixels) == fw * fh, f"got {len(pixels)} pixels for a {fw}x{fh} frame"
+        frames.append(GifFrame(fw, fh, delay, pixels))
+
+    return Gif(width, height, palette, frames, loop)
+
+
+def _rgb(data: bytes, at: int) -> tuple[int, int, int]:
+    """One colour-table entry."""
+    return (data[at], data[at + 1], data[at + 2])
+
+
+def _u16(data: bytes, at: int) -> int:
+    """Read one of GIF's little-endian shorts."""
+    return int.from_bytes(data[at : at + 2], "little")
+
+
+def _subblocks(data: bytes, at: int) -> tuple[bytes, int]:
+    """Read a run of length-prefixed sub-blocks, up to the zero that ends it."""
+    out = bytearray()
+    while data[at]:
+        size = data[at]
+        out.extend(data[at + 1 : at + 1 + size])
+        at += 1 + size
+    return bytes(out), at + 1
+
+
+def _lzw_decode(data: bytes, minimum: int) -> bytes:
+    """The other half of the writer's compressor, and the reason it is trusted."""
+    clear, end = 1 << minimum, (1 << minimum) + 1
+    width = minimum + 1
+    table = [bytes([i]) for i in range(clear)] + [b"", b""]
+    out = bytearray()
+    previous: bytes | None = None
+    bit = 0
+    available = len(data) * 8
+    while bit + width <= available:
+        # Codes are packed least significant bit first, across byte boundaries.
+        chunk = int.from_bytes(data[bit // 8 : bit // 8 + 3].ljust(3, b"\x00"), "little")
+        code = (chunk >> (bit % 8)) & ((1 << width) - 1)
+        bit += width
+        if code == clear:
+            table = [bytes([i]) for i in range(clear)] + [b"", b""]
+            width = minimum + 1
+            previous = None
+            continue
+        if code == end:
+            break
+        if code < len(table):
+            entry = table[code]
+        else:
+            assert previous is not None, f"code {code} arrived before anything to extend"
+            assert code == len(table), f"undefined code {code}"
+            entry = previous + previous[:1]
+        out.extend(entry)
+        if previous is not None:
+            table.append(previous + entry[:1])
+            if len(table) == (1 << width) and width < 12:
+                width += 1
+        previous = entry
+    return bytes(out)

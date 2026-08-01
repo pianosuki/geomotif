@@ -55,6 +55,24 @@ def test_precision_rounds_decimals(tmp_path):
     assert out.read_text().splitlines()[2] == "0.0,3.14"
 
 
+def test_a_negative_precision_rounds_to_tens_and_hundreds(tmp_path):
+    # Documented, and pinned here rather than left as an accident of round():
+    # the SVG and DXF writers refuse a negative precision, and this one does
+    # something useful with it.
+    out = save_points([(123.4, -678.9)], tmp_path / "points.csv", precision=-2)
+    assert out.read_text().splitlines()[1] == "100,-700"
+
+
+def test_snapping_and_precision_zero_write_the_grid_exactly(tmp_path):
+    # The pairing the docs recommend: snapped() puts the points on the grid,
+    # precision=0 writes them as 3 rather than 3.0.
+    design = SpiralBetween((200, 0), (20, 0), turns=2).generate(40).snapped(5.0)
+    out = save_points(design, tmp_path / "points.csv", precision=0)
+    values = [int(cell) for line in out.read_text().splitlines()[1:] for cell in line.split(",")]
+    assert values
+    assert all(value % 5 == 0 for value in values)
+
+
 def test_explicit_fmt_overrides_suffix(tmp_path):
     out = save_points(POINTS, tmp_path / "points.dat", fmt="json")
     assert json.loads(out.read_text())

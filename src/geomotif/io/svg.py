@@ -18,27 +18,64 @@ the canvas before anything is written, rather than being scaled by a
 measured -- one unit of the file you are looking at -- and rounding coordinates
 to ``precision`` actually shrinks the file rather than throwing away detail
 that a later scale would have magnified.
+
+A design carrying styles (:mod:`geomotif.core.style`) writes its layers as the
+labelled groups Inkscape and ``vpype`` read, and its colours as attributes on
+the individual elements. A design carrying none writes exactly the file it
+always did.
 """
 
 from __future__ import annotations
 
+import itertools
 import pathlib
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from xml.sax.saxutils import escape, quoteattr
 
 from ..core.registry import NAME_KEY
+from ..core.style import by_layer, layer_names, point_styles_of, styles_of
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
     from os import PathLike
 
+    from ..core.style import Style
     from ..core.types import Design, Point
 
-__all__ = ["save_svg", "to_svg"]
+__all__ = ["UNITS", "save_svg", "to_svg"]
+
+SVG_NS = "http://www.w3.org/2000/svg"
+
+#: Where a layer's name lives. Inkscape's namespace rather than a geomotif one
+#: because Inkscape got there first and everything downstream -- ``vpype``
+#: included -- reads a layer by looking for exactly these two attributes.
+INKSCAPE_NS = "http://www.inkscape.org/namespaces/inkscape"
+
+#: The physical units an SVG length may carry, plus the empty string for a
+#: plain user unit. Checked against rather than escaped: everything else in
+#: this writer is a value going through ``quoteattr``, but ``units`` is glued
+#: onto a number *inside* an attribute, where an escape would be wrong and a
+#: quote character would end the attribute and start another.
+UNITS: tuple[str, ...] = ("", "px", "pt", "pc", "mm", "cm", "in", "em", "ex", "%")
 
 #: A design flat in one axis -- a horizontal line, a single point -- still
 #: needs a canvas taller than nothing to sit in. One unit holds a stroke.
 _MIN_EXTENT = 1.0
+
+#: Decimal places for a stroke width. Independent of the coordinate precision,
+#: which is routinely zero for a plotter file and would round a 0.3mm pen away.
+_WIDTH_PRECISION = 3
+
+
+@dataclass(frozen=True, slots=True)
+class _Ink:
+    """What the document draws in, before any individual style overrides it."""
+
+    stroke: str
+    stroke_width: float
+    fill: str
+    radius: float
 
 
 def to_svg(
@@ -56,6 +93,7 @@ def to_svg(
     precision: int = 3,
     group_by_path: bool = True,
     title: str | None = None,
+    units: str = "",
 ) -> str:
     """Render a design as an SVG document.
 
@@ -94,6 +132,13 @@ def to_svg(
     title : str, optional
         The document's ``<title>``. Defaults to the motif recorded in the
         design's metadata, which is what makes a gallery file self-labelling.
+    units : str, optional
+        A physical unit for the document's ``width`` and ``height``, from
+        :data:`UNITS` -- ``"mm"``, ``"in"``, ``"pt"`` and the rest. The
+        ``viewBox`` stays in plain numbers, so one user unit becomes one of
+        these and the drawing has a real size on paper. Empty by default,
+        which leaves the size in user units and is what anything on a screen
+        wants. See :mod:`geomotif.io.plotter`.
 
     Returns
     -------
@@ -103,8 +148,8 @@ def to_svg(
     Raises
     ------
     ValueError
-        If the design has no points, or ``padding`` leaves no room inside the
-        canvas asked for.
+        If the design has no points, ``padding`` leaves no room inside the
+        canvas asked for, or ``units`` is not one of :data:`UNITS`.
     """
     if not len(design):
         raise ValueError("cannot write an empty design to SVG: there is nothing to draw")
@@ -112,18 +157,24 @@ def to_svg(
         raise ValueError(f"padding must be >= 0, got {padding}")
     if precision < 0:
         raise ValueError(f"precision must be >= 0, got {precision}")
+    if units not in UNITS:
+        raise ValueError(f"units must be one of {UNITS}, got {units!r}")
 
     canvas_w, canvas_h = _canvas(design, width, height, padding)
     placed = design.fit(canvas_w, canvas_h, padding=padding, flip_y=flip_y)
     radius = stroke_width if dot_radius is None else dot_radius
+    layers = by_layer(placed) if layer_names(placed) else {None: placed}
 
     def num(value: float) -> str:
         return _num(value, precision)
 
+    namespaces = f'xmlns="{SVG_NS}"'
+    if any(name is not None for name in layers):
+        namespaces += f' xmlns:inkscape="{INKSCAPE_NS}"'
     lines = [
         '<?xml version="1.0" encoding="UTF-8"?>',
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{num(canvas_w)}" '
-        f'height="{num(canvas_h)}" viewBox="0 0 {num(canvas_w)} {num(canvas_h)}">',
+        f'<svg {namespaces} width="{num(canvas_w)}{units}" '
+        f'height="{num(canvas_h)}{units}" viewBox="0 0 {num(canvas_w)} {num(canvas_h)}">',
     ]
 
     label = title if title is not None else str(design.meta.get(NAME_KEY, "") or "")
@@ -135,26 +186,26 @@ def to_svg(
             f"fill={quoteattr(background)}/>"
         )
 
-    if placed.paths:
+    defaults = _Ink(stroke=stroke, stroke_width=stroke_width, fill=fill, radius=radius)
+    for name, part in layers.items():
+        body = _elements(
+            part,
+            defaults,
+            indent=1 if name is None else 2,
+            precision=precision,
+            group_by_path=group_by_path,
+        )
+        if name is None:
+            lines.extend(body)
+            continue
+        # Inkscape's own attributes, which is also what vpype reads a layer
+        # from. Anything else opens the file as a plain group and loses only
+        # the name.
         lines.append(
-            f"  <g fill={quoteattr(fill)} stroke={quoteattr(stroke)} "
-            f'stroke-width="{num(stroke_width)}" stroke-linecap="round" '
-            'stroke-linejoin="round">'
+            f'  <g inkscape:groupmode="layer" inkscape:label={quoteattr(name)} '
+            f"id={quoteattr(name)}>"
         )
-        subpaths = [
-            _subpath(path.points, closed=path.closed, precision=precision) for path in placed.paths
-        ]
-        if group_by_path:
-            lines.extend(f'    <path d="{d}"/>' for d in subpaths)
-        else:
-            lines.append(f'    <path d="{" ".join(subpaths)}"/>')
-        lines.append("  </g>")
-
-    if placed.points and radius > 0:
-        lines.append(f'  <g fill={quoteattr(stroke)} stroke="none">')
-        lines.extend(
-            f'    <circle cx="{num(x)}" cy="{num(y)}" r="{num(radius)}"/>' for x, y in placed.points
-        )
+        lines.extend(body)
         lines.append("  </g>")
 
     lines.append("</svg>")
@@ -169,6 +220,102 @@ def save_svg(design: Design, path: str | PathLike[str], **kwargs: Any) -> pathli
     target = pathlib.Path(path)
     target.write_text(to_svg(design, **kwargs))
     return target
+
+
+def _elements(
+    design: Design,
+    defaults: _Ink,
+    *,
+    indent: int,
+    precision: int,
+    group_by_path: bool,
+) -> list[str]:
+    """Return the stroke group and the dot group for one layer's geometry."""
+    pad = "  " * indent
+    lines: list[str] = []
+
+    if design.paths:
+        lines.append(
+            f"{pad}<g fill={quoteattr(defaults.fill)} stroke={quoteattr(defaults.stroke)} "
+            f'stroke-width="{_num(defaults.stroke_width, _WIDTH_PRECISION)}" '
+            'stroke-linecap="round" stroke-linejoin="round">'
+        )
+        lines.extend(
+            _strokes(
+                design, defaults, indent=indent + 1, precision=precision, merge=not group_by_path
+            )
+        )
+        lines.append(f"{pad}</g>")
+
+    if design.points and defaults.radius > 0:
+        inner = "  " * (indent + 1)
+        lines.append(f'{pad}<g fill={quoteattr(defaults.stroke)} stroke="none">')
+        for (x, y), style in zip(design.points, point_styles_of(design), strict=True):
+            # A dot's colour is a fill here, and its own width -- how heavy the
+            # mark is -- is its radius, which is the same reading that makes
+            # dot_radius default to stroke_width.
+            radius = (
+                style.width if style is not None and style.width is not None else defaults.radius
+            )
+            colour = (
+                f" fill={quoteattr(style.stroke)}"
+                if style is not None
+                and style.stroke is not None
+                and style.stroke != defaults.stroke
+                else ""
+            )
+            lines.append(
+                f'{inner}<circle cx="{_num(x, precision)}" cy="{_num(y, precision)}" '
+                f'r="{_num(radius, _WIDTH_PRECISION)}"{colour}/>'
+            )
+        lines.append(f"{pad}</g>")
+    return lines
+
+
+def _strokes(
+    design: Design,
+    defaults: _Ink,
+    *,
+    indent: int,
+    precision: int,
+    merge: bool,
+) -> list[str]:
+    """Return one ``<path>`` per stroke, or as few as their styles allow."""
+    pad = "  " * indent
+    drawn = [
+        (
+            _subpath(path.points, closed=path.closed, precision=precision),
+            _overrides(style, defaults),
+        )
+        for path, style in zip(design.paths, styles_of(design), strict=True)
+    ]
+    if not merge:
+        return [f'{pad}<path d="{d}"{attributes}/>' for d, attributes in drawn]
+    # One element can carry one set of attributes, so merging stops wherever
+    # the styling changes -- and never reorders, since order is drawing order.
+    return [
+        f'{pad}<path d="{" ".join(d for d, _ in run)}"{attributes}/>'
+        for attributes, run in itertools.groupby(drawn, key=lambda item: item[1])
+    ]
+
+
+def _overrides(style: Style | None, defaults: _Ink) -> str:
+    """Return the attributes a style adds to one element, or ``""`` for none.
+
+    Only what actually differs from the group is written: a style that names
+    the colour the document already draws in should not cost an attribute on
+    every one of four thousand strokes.
+    """
+    if style is None:
+        return ""
+    parts: list[str] = []
+    if style.stroke is not None and style.stroke != defaults.stroke:
+        parts.append(f"stroke={quoteattr(style.stroke)}")
+    if style.width is not None and style.width != defaults.stroke_width:
+        parts.append(f'stroke-width="{_num(style.width, _WIDTH_PRECISION)}"')
+    if style.fill is not None and style.fill != defaults.fill:
+        parts.append(f"fill={quoteattr(style.fill)}")
+    return f" {' '.join(parts)}" if parts else ""
 
 
 def _canvas(

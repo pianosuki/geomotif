@@ -8,7 +8,11 @@ Pure :mod:`argparse`, so the zero-dependency core stays that way::
     geomotif render rose --n 5 --samples 400 --out rose.svg
     geomotif render spiral.golden --samples 300 --ease power:2.5 --out s.csv
     geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
+    geomotif render fractal.hilbert --out h.gif --motion draw-on --frames 60
+    geomotif render fractal.hilbert --out h.gif --frames 60 --hold 12
+    geomotif render mandala --out m.svg --paper a4 --optimize    # for a plotter
     geomotif render --spec my-design.json --out out.svg
+    geomotif explore rose --out rose.html          # sliders for its parameters
     geomotif gallery --out docs/gallery
     geomotif demo
 
@@ -40,7 +44,7 @@ import json
 import pathlib
 import sys
 import textwrap
-from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args, get_origin
 
 from . import __version__
 from .core import registry
@@ -55,8 +59,11 @@ from .core.spacing import (
     SmoothstepSpacing,
     SpacingCurve,
 )
+from .core.transform import SNAP_MODES
 from .core.types import Bounds
-from .io import load_spec, save_design, save_dxf, save_svg, to_spec
+from .explore import DEFAULT_SIZE, DEFAULT_STEPS, save_html
+from .io import load_spec, save_design, save_dxf, save_gif, save_svg, to_spec
+from .io.plotter import PAPER, optimize, save_plotter_svg
 
 # Imported rather than repeated: "0 or negative writes whole integers" is part
 # of the export contract, and two copies of it would eventually disagree.
@@ -69,14 +76,45 @@ if TYPE_CHECKING:
     from .core.registry import MotifInfo, ParamInfo
     from .core.types import Design, Point
 
-__all__ = ["RESERVED", "build_parser", "main"]
+__all__ = ["MOTIONS", "RESERVED", "build_parser", "main"]
 
 #: Option names the command line keeps for itself. A motif parameter with one
 #: of these names gets no flag and falls back to its example value, because
 #: argparse has one namespace and the generic option has to win.
 RESERVED = frozenset(
-    {"by", "distribute", "ease", "fit", "out", "precision", "samples", "spec", "stride", "title"}
+    {
+        "by",
+        "distribute",
+        "ease",
+        "fit",
+        "fps",
+        "frames",
+        "hold",
+        "keep_duplicates",
+        "landscape",
+        "margin",
+        "motion",
+        "optimize",
+        "out",
+        "paper",
+        "precision",
+        "samples",
+        "snap",
+        "snap_mode",
+        "spec",
+        "stride",
+        "title",
+    }
 )
+
+#: How ``--motion`` turns one design into many. Sweeping a parameter is not
+#: here: it needs a parameter name and a range of values, which is two more
+#: flags and a small language to say them in -- write it in Python, where
+#: :func:`geomotif.animate.sweep` takes exactly the values you mean.
+MOTIONS = ("draw-on", "spin")
+
+#: Canvas for an animation when ``--fit`` did not say, in pixels.
+_GIF_SIZE = 480
 
 #: The ``name:arg:arg`` mini-syntax for ``--ease``. The arguments are handed to
 #: the constructor positionally, which is why ``power:2.5`` sets the exponent
@@ -102,6 +140,7 @@ _WRITERS = {
     ".txt": "design",
     ".tsv": "design",
     ".json": "design",
+    ".gif": "gif",
     ".png": "figure",
     ".pdf": "figure",
     ".jpg": "figure",
@@ -119,6 +158,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         "list": _list,
         "show": _show,
         "render": _render,
+        "explore": _explore,
         "gallery": _gallery,
         "demo": _demo,
     }
@@ -173,11 +213,70 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     render.add_argument("--by", choices=("length", "parameter"), default="length")
     render.add_argument("--distribute", choices=("length", "even", "per_path"), default="length")
     render.add_argument("--fit", type=_size, metavar="WxH", help="scale onto a canvas")
+    render.add_argument("--motion", choices=MOTIONS, default="draw-on", help="how a .gif animates")
+    render.add_argument("--frames", type=int, default=48, metavar="N", help="frames in a .gif")
+    render.add_argument(
+        "--hold",
+        type=_nonnegative_int,
+        metavar="N",
+        help="how long .gif sits on the finished drawing, in frames (default: a quarter of --frames)",
+    )
+    render.add_argument("--fps", type=float, default=20.0, metavar="X", help="a .gif's frame rate")
+    render.add_argument(
+        "--paper",
+        choices=sorted(PAPER),
+        help="write a .svg at this paper size, in real millimetres, for a plotter",
+    )
+    render.add_argument("--landscape", action="store_true", help="turn --paper on its side")
+    render.add_argument(
+        "--margin",
+        type=float,
+        default=10.0,
+        metavar="MM",
+        help="with --paper, border to leave unplotted, in millimetres",
+    )
+    render.add_argument(
+        "--optimize",
+        action="store_true",
+        help="join strokes that meet and order them so the pen travels less",
+    )
+    render.add_argument(
+        "--snap", type=float, metavar="STEP", help="move every point onto a grid this size"
+    )
+    render.add_argument(
+        "--snap-mode",
+        choices=SNAP_MODES,
+        default="half-even",
+        help="which way --snap sends a point between two grid lines",
+    )
+    render.add_argument(
+        "--keep-duplicates",
+        action="store_true",
+        help="with --snap, keep the points a coarse grid stacked up rather than dropping them",
+    )
     render.add_argument("--precision", type=int, metavar="N", help="decimal places to write")
     render.add_argument("--title", help="title for the SVG document or the figure")
     render.add_argument("--out", type=pathlib.Path, help=f"output file; {sorted(_WRITERS)}")
     if motif is not None:
         _add_motif_flags(render, motif)
+
+    explore = sub.add_parser(
+        "explore",
+        help="one HTML page with a slider per parameter",
+        description=(
+            "Write a self-contained page with a slider for every parameter a slider "
+            "can move. Every frame is rendered ahead of time and embedded, so the "
+            "page needs no server and works offline."
+        ),
+    )
+    explore.add_argument("names", nargs="*", help="registered motif names")
+    explore.add_argument("--family", help="every motif in this family as well")
+    explore.add_argument("--out", type=pathlib.Path, default=pathlib.Path("explore.html"))
+    explore.add_argument("--steps", type=int, default=DEFAULT_STEPS, help="values per slider")
+    explore.add_argument("--size", type=int, default=DEFAULT_SIZE, help="frame canvas, in units")
+    explore.add_argument(
+        "--samples", type=int, metavar="N", help="resample each frame, to keep the page small"
+    )
 
     gallery = sub.add_parser("gallery", help="render every motif to SVG, with a manifest")
     gallery.add_argument("--out", type=pathlib.Path, default=pathlib.Path("gallery"))
@@ -252,12 +351,42 @@ def _render(args: argparse.Namespace) -> int:
     """Build one motif and write it wherever ``--out`` says."""
     motif = _motif_from(args)
     design = _sample(motif, args)
+    if args.optimize:
+        design = optimize(design)
     if args.fit is not None:
         design = design.fit(*args.fit)
+    if args.snap is not None:
+        # Last, so --fit cannot scale the grid away underneath it. The writers
+        # that place a design themselves -- .svg, --paper, .gif, the matplotlib
+        # formats -- rescale it anyway; the guide says so.
+        design = design.snapped(
+            args.snap, mode=args.snap_mode, drop_duplicates=not args.keep_duplicates
+        )
     if args.out is None:
         return _to_stdout(design, args.precision)
     _write(design, args.out, args)
     print(f"wrote {args.out}", file=sys.stderr)
+    return 0
+
+
+def _explore(args: argparse.Namespace) -> int:
+    """Write one page with a slider per parameter, every frame already drawn."""
+    names = list(args.names)
+    if args.family is not None:
+        names.extend(name for name in registry.names(family=args.family) if name not in names)
+    if not names:
+        raise ValueError("nothing to explore: name a motif, or pass --family")
+
+    written = save_html(
+        names,
+        args.out,
+        steps=args.steps,
+        size=args.size,
+        samples=args.samples,
+        title=names[0] if len(names) == 1 else "geomotif",
+    )
+    size = written.stat().st_size
+    print(f"wrote {written} ({size // 1024} KB, {len(names)} motif(s))", file=sys.stderr)
     return 0
 
 
@@ -470,6 +599,17 @@ def _literal_choices(annotation: str, cls: type) -> tuple[str, ...] | None:
 # --- small parsers and writers ---------------------------------------------
 
 
+def _nonnegative_int(text: str) -> int:
+    """Parse a whole number that may not go below zero."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a whole number -- got {text!r}") from None
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"--hold must be >= 0, got {value}")
+    return value
+
+
 def _point(text: str) -> Point:
     """Parse ``x,y``."""
     try:
@@ -553,6 +693,16 @@ def _write(design: Design, target: pathlib.Path, args: argparse.Namespace) -> No
             f"do not know how to write {target.suffix!r}; expected one of {sorted(_WRITERS)}"
         )
     match kind:
+        case "svg" if args.paper is not None:
+            save_plotter_svg(
+                design,
+                target,
+                paper=args.paper,
+                landscape=args.landscape,
+                margin=args.margin,
+                precision=3 if args.precision is None else args.precision,
+                title=args.title,
+            )
         case "svg":
             precision = 3 if args.precision is None else args.precision
             save_svg(design, target, precision=precision, title=args.title)
@@ -561,8 +711,37 @@ def _write(design: Design, target: pathlib.Path, args: argparse.Namespace) -> No
             save_dxf(design, target, precision=precision)
         case "design":
             save_design(design, target, precision=args.precision)
+        case "gif":
+            _save_animation(design, target, args)
         case _:
             _save_figure(design, target, args)
+
+
+def _save_animation(design: Design, target: pathlib.Path, args: argparse.Namespace) -> None:
+    """Turn one design into frames and write them as an animated GIF."""
+    from .animate import draw_on, spin
+
+    width, height = args.fit if args.fit is not None else (_GIF_SIZE, _GIF_SIZE)
+    hold = _hold_for(args)
+    match args.motion:
+        case "spin":
+            frames = spin(design, args.frames, hold=hold)
+        case _:
+            frames = draw_on(design, args.frames, hold=hold)
+    save_gif(frames, target, width=round(width), height=round(height), fps=args.fps)
+
+
+def _hold_for(args: argparse.Namespace) -> int:
+    """How many copies of the finished drawing to sit on, for this invocation.
+
+    ``--hold`` wins when it is given; otherwise each motion keeps the behaviour
+    it has always had -- ``draw-on`` settles on a quarter of the run, and
+    ``spin``, whose whole business is turning, holds nothing.
+    """
+    if args.motion == "spin" and args.hold is None:
+        return 0
+    held = args.hold if args.hold is not None else max(1, args.frames // 4)
+    return cast("int", held)
 
 
 def _save_figure(design: Design, target: pathlib.Path, args: argparse.Namespace) -> None:

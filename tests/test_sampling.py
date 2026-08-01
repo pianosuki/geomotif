@@ -1,5 +1,6 @@
 import itertools
 import math
+import random
 
 import pytest
 
@@ -76,6 +77,77 @@ def test_arc_table_handles_zero_length():
 def test_arc_table_rejects_empty_input():
     with pytest.raises(ValueError):
         ArcTable(())
+
+
+@pytest.mark.parametrize(
+    "order",
+    [
+        "increasing",  # what resampling actually asks for, and the fast case
+        "decreasing",  # the walk has to seek backwards rather than run off
+        "shuffled",  # no order at all: still every answer, still in place
+    ],
+)
+def test_a_batch_of_lookups_answers_exactly_as_one_at_a_time_would(order):
+    # points_at walks the table once for a run of ordered distances instead of
+    # bisecting it per distance. That is only allowed to be faster, never
+    # different -- including to the last bit, since a resampled design's
+    # coordinates are compared against goldens elsewhere.
+    table = ArcTable(circle().points)
+    wanted = [i * table.total / 400 for i in range(401)]
+    match order:
+        case "decreasing":
+            wanted.reverse()
+        case "shuffled":
+            wanted = random.Random(7).sample(wanted, len(wanted))
+    assert table.points_at(wanted) == tuple(table.point_at(d) for d in wanted)
+
+
+def test_a_batch_of_lookups_clamps_and_interpolates_like_a_single_one():
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0)))
+    assert table.points_at([-5.0, 2.5, 999.0]) == ((0.0, 0.0), (2.5, 0.0), (10.0, 0.0))
+    assert table.points_at_fractions([0.0, 0.5, 1.0]) == ((0.0, 0.0), (5.0, 0.0), (10.0, 0.0))
+
+
+def test_a_batch_of_lookups_on_a_zero_length_polyline_gives_its_one_place():
+    table = ArcTable(((3.0, 3.0), (3.0, 3.0)))
+    assert table.points_at([0.0, 1.0, 2.0]) == ((3.0, 3.0),) * 3
+
+
+# --- segment ----------------------------------------------------------------
+
+
+def test_a_segment_keeps_the_vertices_between_its_ends_as_they_were():
+    # A piece of the polyline, not a resampling of one: the ends are exact and
+    # everything between them arrives at the resolution it was built at.
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (20.0, 10.0)))
+    assert table.segment(5.0, 25.0) == ((5.0, 0.0), (10.0, 0.0), (10.0, 10.0), (15.0, 10.0))
+
+
+def test_a_segment_spanning_everything_is_the_polyline_itself():
+    points = ((0.0, 0.0), (10.0, 0.0), (10.0, 10.0))
+    table = ArcTable(points)
+    assert table.segment(0.0, table.total) == points
+
+
+def test_a_segment_clamps_to_the_ends_rather_than_running_past_them():
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0)))
+    assert table.segment(-99.0, 999.0) == ((0.0, 0.0), (10.0, 0.0))
+
+
+def test_a_segment_given_its_ends_backwards_reads_them_the_right_way_round():
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0)))
+    assert table.segment(8.0, 2.0) == table.segment(2.0, 8.0)
+
+
+def test_a_segment_that_collapses_to_a_point_is_that_point():
+    table = ArcTable(((0.0, 0.0), (10.0, 0.0)))
+    assert table.segment(4.0, 4.0) == ((4.0, 0.0),)
+
+
+def test_a_closed_polylines_segment_can_cross_the_seam():
+    square = ArcTable(((0.0, 0.0), (10.0, 0.0), (10.0, 10.0), (0.0, 10.0)), closed=True)
+    assert square.total == pytest.approx(40.0)
+    assert square.segment(35.0, 40.0)[-1] == (0.0, 0.0)  # back round to the start
 
 
 def test_equal_spacing_is_equal_real_distance():

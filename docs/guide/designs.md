@@ -85,7 +85,7 @@ are where a motif becomes a pattern. They take a design and return a design, so
 they compose with each other and with anything a motif built:
 
 ```python
-from geomotif import clip_to, jitter, layer, mirror_axis, radial_repeat, symmetry_group, tile
+from geomotif import clip_to, jitter, layer, mirror_axis, radial_repeat, snap, symmetry_group, tile
 
 petal = my_motif.build()
 cell = my_cell.build()
@@ -95,14 +95,22 @@ lattice = tile(cell, 8, 8, dx=20, dy=20, stagger=0.5)  # brickwork if stagger !=
 mirrored = mirror_axis(design, math.pi / 4)
 group = symmetry_group(design, "D6")  # the dihedral groups by name
 loose = jitter(design, 0.5, seed=7)  # reproducible irregularity
+aligned = snap(design, 0.5)  # every point onto a half-unit grid
 inside = clip_to(design, bounds)  # segment-level, not point-level
 stack = layer(background, middle, foreground)
 ```
 
-Two of those have a detail worth calling out.
+Three of those have a detail worth calling out.
 
 `jitter` takes a `seed`, and records the resolved seed in the design's `meta`.
 Reproducibility is not "call it again and hope"; it is in the output.
+
+`snap` is `jitter`'s opposite number and the rounding you would otherwise have
+to do per file. It takes any grid rather than a number of decimal places, and
+drops the points a coarse grid stacked on top of each other, because those are
+zero-length segments the plotter would spend time on for no ink. It is also the
+one operator here that gives something up: grid alignment costs you a little of
+the exact arc-length spacing. See [Snapping to a grid](export.md#snapping-to-a-grid).
 
 `clip_to` clips **segments**, not points. Dropping the points that fall outside
 a rectangle leaves a stroke that jumps the gap; clipping the segments cuts each

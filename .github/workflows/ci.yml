@@ -47,7 +47,10 @@ jobs:
           cache: pip
           cache-dependency-path: pyproject.toml
       - run: pip install -e . --group dev
-      - run: pytest
+      # With coverage on one leg of the matrix only: the gate is about the
+      # code, not the interpreter, and measuring it nine times over says the
+      # same thing nine times more slowly.
+      - run: pytest ${{ matrix.python-version == '3.12' && runner.os == 'Linux' && '--cov' || '' }}
 
   bare:
     # The zero-dependency promise, checked rather than asserted: the core
@@ -67,6 +70,26 @@ jobs:
         run: |
           ! pip list --format=freeze | grep -E '^(matplotlib|scipy)=='
       - run: pytest
+
+  plotter:
+    # The vpype claims, checked rather than asserted: that this optimizer lands
+    # within a quarter of vpype's own linemerge/linesort, and that the plotter
+    # SVG written here is one vpype's reader accepts, layers and page size and
+    # all. Those tests skip themselves without vpype, so on a job that does not
+    # install it they would be advertised and never run. Its own job because
+    # vpype brings numpy, shapely and click, and nothing else here wants them.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+      - run: pip install -e . --group dev --group plotter
+      - name: vpype really is installed
+        run: python -c "import vpype, vpype_cli"
+      - run: pytest tests/test_plotter.py -q
 
   plugin:
     # The third-party contract, checked rather than asserted: a package that

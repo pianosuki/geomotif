@@ -3,7 +3,6 @@ site_description: >-
   Generate and plot geometric designs, with true arc-length point placement
   and pluggable spacing curves.
 site_author: Scott Weer
-# TODO: update these once the repository is published
 site_url: https://pianosuki.github.io/geomotif/
 repo_url: https://github.com/pianosuki/geomotif
 repo_name: pianosuki/geomotif
@@ -64,7 +63,7 @@ extra_css:
 plugins:
   - search
   # SUMMARY.md files are generated beside the pages they list, so the nav below
-  # never has to name 146 motifs or 30 modules.
+  # never has to name every motif in the catalogue or every module in the tree.
   - literate-nav
   - mkdocstrings:
       handlers:
@@ -112,7 +111,10 @@ nav:
   - Guide:
       - guide/points.md
       - guide/designs.md
+      - guide/style.md
       - guide/export.md
+      - guide/animation.md
+      - guide/plotter.md
       - guide/plotting.md
       - guide/cli.md
   - Extending:

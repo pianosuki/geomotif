@@ -20,19 +20,40 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
 
     from .motif import Distribution
     from .spacing import SpacingLike
-    from .transform import Affine
+    from .transform import Affine, SnapMode
 
-__all__ = ["EMPTY_META", "Bounds", "Design", "Path", "Point"]
+__all__ = [
+    "EMPTY_META",
+    "PATH_STYLE_KEY",
+    "POINT_STYLE_KEY",
+    "Bounds",
+    "Design",
+    "Path",
+    "Point",
+    "select_styles",
+]
 
 type Point = tuple[float, float]
 
 #: Shared read-only default for :attr:`Design.meta`, so the common case of
 #: "no metadata" costs no allocation and cannot be mutated by a caller.
 EMPTY_META: Mapping[str, object] = MappingProxyType({})
+
+#: Reserved :attr:`Design.meta` keys holding one style per stroke and one per
+#: loose point -- see :mod:`geomotif.core.style` for what goes in them. The
+#: mechanics live here, rather than there, because the operations that reshape
+#: a design have to keep the lists lined up with the geometry, and they are
+#: defined in this module.
+#:
+#: Hyphenated deliberately: no Python parameter can be named ``path-style``, so
+#: a motif's own parameters can never collide with these where
+#: :func:`~geomotif.core.registry.spec` lays the two side by side in ``meta``.
+PATH_STYLE_KEY = "path-style"
+POINT_STYLE_KEY = "point-style"
 
 
 def _clean_points(points: Iterable[Point], *, owner: str) -> tuple[Point, ...]:
@@ -53,6 +74,89 @@ def _clean_points(points: Iterable[Point], *, owner: str) -> tuple[Point, ...]:
             raise ValueError(f"{owner}[{index}] must be finite, got ({fx}, {fy})")
         cleaned.append((fx, fy))
     return tuple(cleaned)
+
+
+def select_styles(
+    meta: Mapping[str, object],
+    *,
+    paths: Sequence[int] | None = None,
+    points: Sequence[int] | None = None,
+) -> Mapping[str, object]:
+    """Return ``meta`` with its style lists following reshaped geometry.
+
+    Any operator that drops, splits or reorders a design's strokes has to say
+    so, or the metadata it carries over lands on the wrong geometry -- a
+    clipped design whose colours have all shifted by one. ``paths`` and
+    ``points`` give the *source* index of every element the result keeps, in
+    the order it keeps them, which is something every such operator knows.
+
+    Parameters
+    ----------
+    meta : mapping
+        The metadata to rewrite. Returned unchanged, and uncopied, when it
+        carries no styles at all -- which is the usual case.
+    paths, points : sequence of int, optional
+        Source indices, one per element of the result. ``None`` leaves that
+        list alone, which is the right answer for an operation that reshaped
+        only the other one.
+
+    Returns
+    -------
+    Mapping[str, object]
+        Ready to hand to :class:`Design`. A rewritten mapping is read-only; a
+        styleless one is the argument itself, so it is exactly as read-only as
+        what was passed in.
+    """
+    if PATH_STYLE_KEY not in meta and POINT_STYLE_KEY not in meta:
+        return meta
+    updated = dict(meta)
+    for key, indices in ((PATH_STYLE_KEY, paths), (POINT_STYLE_KEY, points)):
+        stored = _style_list(meta, key)
+        if indices is None or stored is None:
+            continue
+        updated[key] = tuple(
+            stored[index] if 0 <= index < len(stored) else None for index in indices
+        )
+    return MappingProxyType(updated)
+
+
+def _style_list(meta: Mapping[str, object], key: str) -> tuple[object, ...] | None:
+    """Return the styles stored under ``key``, or ``None`` if there are none.
+
+    Typed as ``object`` rather than as the style class: this module is the one
+    every other imports, including the one that defines what a style *is*, so
+    it knows only that the value is a tuple as long as the geometry.
+    """
+    stored = meta.get(key)
+    return stored if isinstance(stored, tuple) else None
+
+
+def _padded_styles(meta: Mapping[str, object], key: str, count: int) -> tuple[object, ...]:
+    """Return the styles under ``key`` stretched or trimmed to exactly ``count``."""
+    stored = _style_list(meta, key) or ()
+    if len(stored) == count:
+        return stored
+    return (*stored[:count], *(None,) * max(0, count - len(stored)))
+
+
+def _concatenated_styles(left: Design, right: Design) -> dict[str, tuple[object, ...]]:
+    """Lay two designs' style lists end to end, so overlaying keeps both.
+
+    Without this the right-biased ``meta`` merge would hand the whole result
+    the second design's styles, and ``layer(red, blue)`` would come out
+    entirely blue -- which is the one thing a layer exists to prevent.
+    """
+    merged: dict[str, tuple[object, ...]] = {}
+    for key, sizes in (
+        (PATH_STYLE_KEY, (len(left.paths), len(right.paths))),
+        (POINT_STYLE_KEY, (len(left.points), len(right.points))),
+    ):
+        if key not in left.meta and key not in right.meta:
+            continue
+        merged[key] = _padded_styles(left.meta, key, sizes[0]) + _padded_styles(
+            right.meta, key, sizes[1]
+        )
+    return merged
 
 
 @dataclass(frozen=True, slots=True)
@@ -204,6 +308,8 @@ class Design:
         ``meta`` is merged right-biased. A composed design no longer describes
         a single motif, so composers that care about reproducibility should
         set their own ``meta`` on the result rather than trust the merge.
+        Styles are the exception: they describe individual strokes rather than
+        the design as a whole, so the two lists are laid end to end instead.
         """
         if not isinstance(other, Design):
             return NotImplemented
@@ -213,6 +319,9 @@ class Design:
             meta = self.meta
         else:
             meta = MappingProxyType({**self.meta, **other.meta})
+        styles = _concatenated_styles(self, other)
+        if styles:
+            meta = MappingProxyType({**meta, **styles})
         return Design(self.paths + other.paths, self.points + other.points, meta)
 
     @property
@@ -254,6 +363,27 @@ class Design:
         from .sampling import resample
 
         return resample(self, count, step=step, spacing=spacing, distribute=distribute)
+
+    def snapped(
+        self,
+        step: float = 1.0,
+        *,
+        mode: SnapMode = "half-even",
+        drop_duplicates: bool = True,
+    ) -> Design:
+        """Return this design with every point moved onto a grid of ``step``.
+
+        Rounding the geometry rather than each file as it is written, so every
+        exporter agrees and a plot shows what the file will hold. Defaults to
+        whole units.
+
+        See :func:`geomotif.core.transform.snap` for the full contract.
+        """
+        # Imported here rather than at module scope: the transform layer is
+        # built on top of these types, so a top-level import would be circular.
+        from .transform import snap
+
+        return snap(self, step, mode=mode, drop_duplicates=drop_duplicates)
 
     def fit(
         self,

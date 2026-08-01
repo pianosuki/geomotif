@@ -11,7 +11,10 @@ help: ## Show this help
 
 .PHONY: install
 install: ## Install/sync the dev environment (creates .venv via uv)
-	$(UV) sync --group dev
+	@# The plotter group as well as dev: without vpype the four tests that
+	@# check this optimizer against vpype's skip themselves, and a skipped
+	@# test reads as a passing one.
+	$(UV) sync --group dev --group plotter
 
 .PHONY: lint
 lint: ## Lint the code with ruff
@@ -38,8 +41,8 @@ test: ## Run the test suite
 	$(UV) run pytest
 
 .PHONY: test-cov
-test-cov: ## Run the test suite with a coverage report
-	$(UV) run pytest --cov=geomotif --cov-report=term-missing
+test-cov: ## Run the test suite with a coverage report, and the coverage gate
+	$(UV) run pytest --cov
 
 .PHONY: check
 check: lint format-check typecheck test ## Run all checks (lint, format-check, typecheck, test) -- what CI runs

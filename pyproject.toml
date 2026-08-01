@@ -57,6 +57,17 @@ dev = [
     "ruff>=0.16",
     "mypy>=1.14",
 ]
+plotter = [
+    # vpype is not a dependency of anything here -- geomotif.io.plotter imports
+    # it behind a guard -- but the plotter tests measure this optimizer against
+    # vpype's own linemerge/linesort and read the plotter SVG back with vpype's
+    # reader. Without it installed somewhere those tests silently skip, and the
+    # changelog's claim that they run would be true only of the source.
+    #
+    # Its own group rather than dev: it brings numpy, shapely and click, and
+    # nine of the ten CI jobs have no use for any of them.
+    "vpype>=1.14",
+]
 docs = [
     # Pinned below 2.0 deliberately. MkDocs 2.0 removes the plugin system
     # outright -- mkdocstrings, literate-nav and the Material theme all stop
@@ -88,6 +99,22 @@ testpaths = ["tests"]
 # by tests/test_gendocs.py, which is what keeps the committed generated files
 # from drifting away from the code.
 pythonpath = ["tools"]
+
+[tool.coverage.run]
+source = ["geomotif"]
+branch = true
+
+[tool.coverage.report]
+# A floor, not a target -- the suite sits well above it. It is here so that a
+# feature arriving with no tests shows up as a failure rather than as a number
+# nobody read.
+fail_under = 95
+show_missing = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+    "@overload",
+]
 
 [tool.ruff]
 # Pinned to the supported floor, not the newest interpreter, so a
@@ -155,7 +182,9 @@ warn_unreachable = true
 enable_error_code = ["ignore-without-code", "redundant-expr", "truthy-bool"]
 
 [[tool.mypy.overrides]]
-module = ["matplotlib.*", "scipy.*"]
+# vpype is not a dependency at all -- it is imported behind a guard by
+# geomotif.io.plotter and is only present on a machine that plots.
+module = ["matplotlib.*", "scipy.*", "vpype.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]

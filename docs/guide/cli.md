@@ -11,7 +11,10 @@ geomotif render rose --n 5 --samples 400 --out rose.svg
 geomotif render spiral.golden --samples 300 --ease power:2.5 --out s.csv
 geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
 geomotif render --spec my-design.json --out out.svg
-geomotif gallery --out gallery                  # all 146, plus a manifest
+geomotif render tiling.truchet --out plot.svg --paper a4 --optimize
+geomotif render fractal.hilbert --out h.gif --frames 60   # an animation
+geomotif explore rose --out rose.html           # sliders for its parameters
+geomotif gallery --out gallery                  # all 147, plus a manifest
 geomotif demo                                   # the spacing showcase (needs matplotlib)
 ```
 
@@ -99,7 +102,8 @@ The suffix of `--out` picks the writer:
 | `.svg` | SVG |
 | `.dxf` | DXF R12 |
 | `.csv`, `.txt`, `.tsv`, `.json` | the structured design writer |
-| `.png`, `.pdf`, `.jpg` | matplotlib — the one part of the CLI that needs the `plot` extra |
+| `.gif` | an animation — see `--motion`, `--frames`, `--hold` and `--fps` |
+| `.png`, `.pdf`, `.jpg`, `.jpeg` | matplotlib — the one part of the CLI that needs the `plot` extra |
 
 Without `--out`, the points go to stdout as CSV, so the command pipes:
 
@@ -111,6 +115,40 @@ done
 
 `--fit 800x600` scales onto a canvas, `--precision N` sets the decimals written,
 and `--title` sets the SVG document title or the figure title.
+
+`--snap STEP` puts every coordinate on a grid of that size — `--snap 0.5` for
+half units, `--snap 5` for a five-unit lattice, neither of which `--precision`
+can express. It runs last, after `--fit`, so the grid is the one the file is
+actually written on. `--snap-mode` chooses which way a point between two grid
+lines goes (`half-even`, the default, then `half-up`, `floor`, `ceil`,
+`trunc`), and `--keep-duplicates` keeps the points a coarse grid stacked up
+rather than dropping them:
+
+```bash
+geomotif render spiral.golden --samples 300 --snap 1 --precision 0 > whole.csv
+```
+
+`--snap` pairs with `--precision 0`, which writes `3` rather than `3.0`. It is
+exact for the coordinate formats and `.dxf`; the writers that place a design
+themselves — `.svg`, `--paper` included, `.gif` and the matplotlib formats — fit
+it into their canvas as they write and rescale the grid away. See
+[Snapping to a grid](export.md#snapping-to-a-grid).
+
+For a plotter, `--paper a4` writes the SVG in real millimetres — `--landscape`
+turns the sheet on its side, `--margin` sets the border to leave unplotted (10 mm
+by default), and `--optimize` joins strokes that meet and orders them so the pen
+travels less. See [Plotting it for real](plotter.md):
+
+```bash
+geomotif render tiling.truchet --out plot.svg --paper a4 --optimize
+```
+
+For an animation, `--out something.gif` with `--motion draw-on` (the default) or
+`--motion spin`, plus `--frames` and `--fps` — see [Animation](animation.md).
+By default `draw-on` settles on a quarter of `--frames` again, so a loop pauses
+on the finished drawing rather than restarting the instant it arrives; `--hold N`
+sets that pause in frames yourself, and `--hold 0` turns it off so a loop
+restarts at once.
 
 !!! tip "Negative coordinates"
 
@@ -129,6 +167,28 @@ your mind about the resolution later:
 geomotif render --spec my-design.json --samples 4000 --out big.svg
 ```
 
+## The explore command
+
+```bash
+geomotif explore rose --out rose.html
+geomotif explore --family spiral --out spirals.html --steps 7
+```
+
+writes a single self-contained HTML page with a **slider for every parameter a
+slider can move**. Every frame is rendered ahead of time by geomotif's own SVG
+writer and embedded in the document, so the page needs no server, no build step
+and no JavaScript library, and works from a `file://` URL forever.
+
+One parameter moves at a time: each slider sweeps its own with the others left
+at the motif's example values. Rendering every *combination* would be a
+combinatorial explosion and a hundred-megabyte file; this way a motif costs a
+few hundred kilobytes and opens instantly. `--samples N` resamples each frame if
+that is still too much, and `--steps` sets how many values a slider offers.
+
+Numbers and booleans get sliders. A parameter that is a point, a set of
+coordinates or another motif does not — there is no single axis to drag it along
+— and the page lists it as held still.
+
 ## The gallery command
 
 ```bash
@@ -137,7 +197,7 @@ geomotif gallery --out gallery --size 320
 
 renders every available motif to SVG at its registered example, and writes a
 `manifest.json` beside them holding each one's name, family, summary and spec.
-All 146 take about two seconds. On an install without the optional extras it
+All 147 take about two seconds. On an install without the optional extras it
 writes what it can and reports the rest as skipped rather than failing.
 
 The [documentation gallery](../gallery/index.md) is the same idea with pages

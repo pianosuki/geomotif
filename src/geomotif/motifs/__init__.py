@@ -47,6 +47,8 @@ Module        Contents
               endless staircase, the cafe wall, moire
 `voronoi`     Nearest-point maps and their dual triangulation, plus
               Lloyd's relaxation -- the one family needing ``[scipy]``
+`symmetry`    Points constrained by a symmetry group and solved for
+              rather than evaluated -- experimental
 ============  ==========================================================
 
 Composed figures -- mandalas, kaleidoscopes, snowflakes -- are motifs made
@@ -214,6 +216,7 @@ from .stringart import (
     StringArtEnvelope,
     StringArtPolygon,
 )
+from .symmetry import Connection, SymmetricPointSet
 from .tilings import (
     AmmannBeenker,
     CairoPentagonal,
@@ -258,6 +261,7 @@ __all__ = [
     "CircularCelticKnot",
     "Cochleoid",
     "CompleteGraph",
+    "Connection",
     "Cornoid",
     "Cube",
     "CyclicGraph",
@@ -371,6 +375,7 @@ __all__ = [
     "StringArtEnvelope",
     "StringArtPolygon",
     "Superellipse",
+    "SymmetricPointSet",
     "TenfoldGirih",
     "Terdragon",
     "Tetrahedron",

@@ -2,9 +2,9 @@
 
 # The catalogue
 
-146 motifs in 18 families, as of geomotif
-1.0.0. Every one of them resamples by arc length, takes every
-spacing curve, and exports to SVG, DXF, CSV, TXT, JSON and a spec file.
+147 motifs in 19 families, as of geomotif
+1.1.0. Every one of them resamples by arc length, takes every
+spacing curve, and exports to SVG, DXF, GIF, CSV, TXT, JSON and a spec file.
 
 The pictures are in [the gallery](gallery/index.md); this page is the same
 list in a form you can search and read.
@@ -218,6 +218,12 @@ list in a form you can search and read.
 | `string-art.corner` | `StringArtCorner` | Two arms, laced so the far end of one meets the near end of the other. |
 | `string-art.envelope` | `StringArtEnvelope` | The general engine: nail `i` on one curve, to nail `rule(i)` on another. |
 | `string-art.polygon` | `StringArtPolygon` | A strung corner at every corner of a regular polygon. |
+
+## symmetry
+
+| Motif | Class | Summary |
+|---|---|---|
+| `symmetry.point-set` | `SymmetricPointSet` | Points arranged by a symmetry group, spaced by iterative relaxation. |
 
 ## tiling
 

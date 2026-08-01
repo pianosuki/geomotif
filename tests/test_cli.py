@@ -1,11 +1,12 @@
 import json
+import re
 
 import pytest
 
 from geomotif import load_design
 from geomotif.cli import RESERVED, main
 from geomotif.core import registry
-from tests.readback import dxf_polylines, svg_root, svg_strokes
+from tests.readback import dxf_polylines, gif, svg_root, svg_strokes
 
 
 def run(capsys, *argv):
@@ -89,6 +90,117 @@ def test_render_writes_dxf(capsys, tmp_path):
     out = tmp_path / "rose.dxf"
     run(capsys, "render", "rose", "--out", str(out))
     assert dxf_polylines(out.read_text())
+
+
+def test_render_writes_an_animated_gif(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--fit", "60x60")
+    decoded = gif(out.read_bytes())
+    # Six drawn frames plus the hold that keeps a loop from restarting the
+    # instant the drawing finishes.
+    assert len(decoded.frames) > 6
+    assert (decoded.width, decoded.height) == (60, 60)
+
+
+def test_a_spinning_gif_holds_nothing_and_repeats_exactly(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--motion", "spin", "--frames", "8")
+    assert len(gif(out.read_bytes()).frames) == 8
+
+
+def test_the_frame_rate_reaches_the_file(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "4", "--fps", "10")
+    assert gif(out.read_bytes()).frames[0].delay == 10
+
+
+def test_hold_zero_means_no_repeated_frames(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "0")
+    assert len(gif(out.read_bytes()).frames) == 6
+
+
+def test_hold_n_holds_exactly_that_many_frames(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "4")
+    decoded = gif(out.read_bytes()).frames
+    # Six drawn frames, then four copies of the finished one to sit on.
+    assert len(decoded) == 10
+    assert decoded[-4:] == [decoded[5]] * 4
+
+
+def test_omitting_hold_keeps_the_default_quarter(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "8")
+    assert len(gif(out.read_bytes()).frames) == 8 + max(1, 8 // 4)
+
+
+def test_spin_respects_hold(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--motion",
+        "spin",
+        "--frames",
+        "6",
+        "--hold",
+        "3",
+    )
+    assert len(gif(out.read_bytes()).frames) == 9
+
+
+def test_spin_with_hold_zero_repeats_exactly(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--motion",
+        "spin",
+        "--frames",
+        "6",
+        "--hold",
+        "0",
+    )
+    assert len(gif(out.read_bytes()).frames) == 6
+
+
+def test_a_negative_hold_is_refused():
+    with pytest.raises(SystemExit):
+        main(["render", "rose", "--hold", "-1", "--out", "x.gif"])
+
+
+def test_hold_collides_with_no_motif_parameter(capsys, tmp_path):
+    # The reserved name is what lets --hold reach the GIF rather than a
+    # parameter that happens to be called the same thing.
+    out = tmp_path / "rose.gif"
+    assert run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "2")[0] == 0
+    assert len(gif(out.read_bytes()).frames) == 8
+
+
+def test_paper_writes_an_svg_in_real_millimetres(capsys, tmp_path):
+    out = tmp_path / "rose.svg"
+    run(capsys, "render", "rose", "--out", str(out), "--paper", "a5")
+    assert svg_root(out.read_text()).get("width") == "148mm"
+
+
+def test_paper_can_be_turned_on_its_side(capsys, tmp_path):
+    out = tmp_path / "rose.svg"
+    run(capsys, "render", "rose", "--out", str(out), "--paper", "a5", "--landscape")
+    assert svg_root(out.read_text()).get("width") == "210mm"
+
+
+def test_optimize_joins_the_strokes_up(capsys, tmp_path):
+    plain, tidied = tmp_path / "a.svg", tmp_path / "b.svg"
+    run(capsys, "render", "tiling.truchet", "--out", str(plain))
+    run(capsys, "render", "tiling.truchet", "--out", str(tidied), "--optimize")
+    assert len(svg_strokes(tidied.read_text())) < len(svg_strokes(plain.read_text()))
 
 
 def test_render_writes_a_design_file(capsys, tmp_path):
@@ -207,6 +319,39 @@ def test_precision_reaches_the_writer(capsys):
     )
 
 
+def _cells(out):
+    """Every coordinate of the CSV on stdout, header dropped."""
+    return [cell for line in out.splitlines()[1:] for cell in line.split(",")]
+
+
+def test_snap_puts_every_coordinate_on_the_grid(capsys):
+    _, out, _ = run(capsys, "render", "polygon.regular", "--sides", "7", "--snap", "25")
+    assert _cells(out)
+    assert all(float(cell) % 25.0 == pytest.approx(0.0) for cell in _cells(out))
+
+
+def test_snap_mode_reaches_the_transform(capsys):
+    args = ("render", "polygon.regular", "--sides", "4", "--samples", "8", "--snap", "1000")
+    _, down, _ = run(capsys, *args, "--snap-mode", "floor", "--keep-duplicates")
+    _, up, _ = run(capsys, *args, "--snap-mode", "ceil", "--keep-duplicates")
+    assert down != up
+    assert all(float(cell) <= 0.0 for cell in _cells(down))
+    assert all(float(cell) >= 0.0 for cell in _cells(up))
+
+
+def test_snap_drops_the_stacked_points_unless_told_not_to(capsys):
+    args = ("render", "polygon.regular", "--sides", "5", "--samples", "40", "--snap", "100")
+    _, dropped, _ = run(capsys, *args)
+    _, kept, _ = run(capsys, *args, "--keep-duplicates")
+    assert len(kept.splitlines()) == 41  # the header, then every point asked for
+    assert 1 < len(dropped.splitlines()) < len(kept.splitlines())
+
+
+def test_snap_applies_after_fit_so_the_grid_is_the_one_written(capsys):
+    _, out, _ = run(capsys, "render", "rose", "--samples", "50", "--fit", "100x100", "--snap", "10")
+    assert all(float(cell) % 10.0 == pytest.approx(0.0) for cell in _cells(out))
+
+
 def test_a_spec_can_be_rendered_instead_of_a_name(capsys, tmp_path):
     from geomotif import save_spec
 
@@ -247,6 +392,34 @@ def test_render_writes_a_figure(capsys, tmp_path):
     out = tmp_path / "r.png"
     assert run(capsys, "render", "rose", "--samples", "50", "--out", str(out))[0] == 0
     assert out.stat().st_size > 0
+
+
+# --- explore ---------------------------------------------------------------
+
+
+def test_explore_writes_one_self_contained_page(capsys, tmp_path):
+    out = tmp_path / "rose.html"
+    assert run(capsys, "explore", "rose", "--out", str(out), "--steps", "3")[0] == 0
+    markup = out.read_text()
+    assert markup.startswith("<!DOCTYPE html>")
+    assert 'src="' not in markup  # nothing to fetch, from anywhere
+
+
+def test_explore_takes_a_whole_family(capsys, tmp_path):
+    out = tmp_path / "sacred.html"
+    run(capsys, "explore", "--family", "sacred", "--out", str(out), "--steps", "3")
+    markup = out.read_text()
+    # Every motif on the page is from the family, and a family is more than one
+    # motif. A motif with nothing to sweep is dropped rather than shown blank.
+    shown = re.findall(r'<section class="motif[^"]*" id="([^"]+)"', markup)
+    assert len(shown) > 1
+    assert set(shown) <= set(registry.names(family="sacred"))
+
+
+def test_explore_with_nothing_to_explore_says_so(capsys, tmp_path):
+    code, _, err = run(capsys, "explore", "--out", str(tmp_path / "x.html"))
+    assert code == 2
+    assert "name a motif" in err
 
 
 # --- gallery and demo ------------------------------------------------------

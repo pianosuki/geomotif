@@ -67,15 +67,16 @@ including the ones with no closed-form parametrization at all, and to yours.
 
 ## What is in the box
 
-[146 motifs](catalogue.md) across 18 families: the spirals, the primitives, the
+[147 motifs](catalogue.md) across 19 families: the spirals, the primitives, the
 named curves, the roulettes, the polar and harmonic family, the fractals, the
 graph and number art, string art, the tilings — periodic and aperiodic — sacred
 geometry, guilloché, Islamic strapwork, Celtic knotwork, the polyhedra, the
-optical illusions, the Voronoi family, and the composers that build motifs out
-of other motifs.
+optical illusions, the Voronoi family, symmetric point sets, and the composers
+that build motifs out of other motifs.
 
 Every one of them is a small declarative object, resamples by arc length, takes
-every spacing curve, and exports to SVG, DXF, CSV, TXT, JSON and a spec file.
+every spacing curve, and exports to SVG, DXF, CSV, TXT, JSON, a spec file, an
+animated GIF, and an SVG measured in real millimetres for a pen plotter.
 
 [See all of them →](gallery/index.md){ .md-button }
 
@@ -117,9 +118,10 @@ protocol and is accepted everywhere a motif is.
 
 Worth saying plainly, so you can tell quickly whether it is the wrong tool:
 
-- **Not a rendering engine.** No fills, gradients, shading or rasterization
-  beyond the matplotlib helper. It produces geometry; something else colours it
-  in.
+- **Not a rendering engine.** No fills, gradients, shading or antialiasing. It
+  produces geometry; something else colours it in. The rasterizer behind the
+  GIF writer draws hard-edged indexed pixels and exists to make an animation
+  play, not to render one.
 - **Not a CAD kernel.** No booleans, no constraint solving, and no offsetting
   beyond a simple parallel stroke.
 - **Not a vector-graphics I/O library.** SVG and DXF *out*, not in.
@@ -132,12 +134,18 @@ Worth saying plainly, so you can tell quickly whether it is the wrong tool:
   has several strokes.
 - **[Designs, paths and transforms](guide/designs.md)** — the data model, and
   the operators that turn one shape into a pattern.
-- **[Exporting](guide/export.md)** — SVG, DXF, CSV, TXT, JSON, and the spec
-  format that records the recipe instead of the points.
-- **[Plotting](guide/plotting.md)** — the matplotlib helpers, behind the `plot`
-  extra.
-- **[The command line](guide/cli.md)** — `geomotif render`, `geomotif gallery`,
-  and where the flags come from.
+- **[Colour and layers](guide/style.md)** — which pen draws which stroke, and
+  what a layer is for.
+- **[Exporting](guide/export.md)** — SVG, DXF, CSV, TXT, JSON, the spec format
+  that records the recipe instead of the points, and snapping to a grid.
+- **[Animation](guide/animation.md)** — drawing a design on, spinning it,
+  sweeping a parameter, and writing the frames as a GIF.
+- **[Plotting it for real](guide/plotter.md)** — paper sizes in real
+  millimetres, less time with the pen in the air, and the `vpype` bridge.
+- **[Plotting a graph](guide/plotting.md)** — the matplotlib helpers, behind
+  the `plot` extra.
+- **[The command line](guide/cli.md)** — `geomotif render`, `geomotif explore`,
+  `geomotif gallery`, and where the flags come from.
 - **[Extending](extending.md)** — the base classes, the conformance contract,
   and publishing a motif as a plugin.
 - **[API reference](reference/index.md)** — every public module, generated from

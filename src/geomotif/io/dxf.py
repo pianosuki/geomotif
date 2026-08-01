@@ -15,6 +15,12 @@ Unlike SVG, DXF is y-up, the same convention the motifs are written in, so
 nothing is mirrored on the way out and a design keeps its own measurements. If
 you want it scaled, scale the design -- :meth:`Design.fit` -- and the file will
 say so in its own units.
+
+Layers are the one part of :mod:`geomotif.core.style` that DXF models natively:
+a styled design writes each of its layers into the file's layer table and puts
+every entity on its own. Colour is the part DXF barely models at all -- R12
+knows 255 indexed colours and no arbitrary ones -- so the seven it can name are
+written and anything else is left to the layer.
 """
 
 from __future__ import annotations
@@ -23,10 +29,13 @@ import pathlib
 import re
 from typing import TYPE_CHECKING
 
+from ..core.style import point_styles_of, styles_of
+
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Iterator
     from os import PathLike
 
+    from ..core.style import Style
     from ..core.types import Design, Point
 
 __all__ = ["save_dxf", "to_dxf"]
@@ -39,6 +48,29 @@ _LAYER = re.compile(r"^[A-Za-z0-9_$\-.]{1,31}$")
 #: Group code for the layer an entity sits on.
 _LAYER_CODE = 8
 
+#: Group code for an entity's own colour, overriding its layer's.
+_COLOUR_CODE = 62
+
+#: Colour index 7 is the one that reads as ink on whatever the background is:
+#: white on a dark canvas, black on a light one.
+_DEFAULT_COLOUR = 7
+
+#: The AutoCAD Colour Index numbers that have names. A style naming any other
+#: colour keeps its layer's, because inventing a nearest match out of 255
+#: indexed slots would be a guess the file could not be talked out of.
+_ACI: dict[str, int] = {
+    "red": 1,
+    "yellow": 2,
+    "green": 3,
+    "cyan": 4,
+    "aqua": 4,
+    "blue": 5,
+    "magenta": 6,
+    "fuchsia": 6,
+    "white": 7,
+    "black": 7,
+}
+
 
 def to_dxf(design: Design, *, layer: str = "0", precision: int = 4) -> str:
     """Render a design as a DXF R12 document.
@@ -50,10 +82,10 @@ def to_dxf(design: Design, *, layer: str = "0", precision: int = 4) -> str:
         carry the closed flag rather than a repeated final vertex -- and loose
         points become ``POINT`` entities.
     layer : str, optional
-        Layer for every entity. ``"0"`` is the layer every DXF file already
-        has; any other name is declared in the file's layer table, so the
-        result is valid on its own rather than relying on the reader to invent
-        the layer.
+        Layer for geometry that does not name one of its own. ``"0"`` is the
+        layer every DXF file already has; any other name is declared in the
+        file's layer table, so the result is valid on its own rather than
+        relying on the reader to invent the layer.
     precision : int, optional
         Decimal places for coordinates.
 
@@ -65,19 +97,15 @@ def to_dxf(design: Design, *, layer: str = "0", precision: int = 4) -> str:
     Raises
     ------
     ValueError
-        If the design is empty, the precision is negative, or the layer name
-        is not one R12 permits.
+        If the design is empty, the precision is negative, or a layer name --
+        the argument's or a style's -- is not one R12 permits.
     """
     if not len(design):
         raise ValueError("cannot write an empty design to DXF: there is nothing to draw")
     if precision < 0:
         raise ValueError(f"precision must be >= 0, got {precision}")
-    if not _LAYER.match(layer):
-        raise ValueError(
-            f"{layer!r} is not a DXF R12 layer name: at most 31 characters from "
-            f"letters, digits and _$-."
-        )
 
+    used = _layers_used(design, layer)
     bounds = design.bounds
 
     def num(value: float) -> str:
@@ -94,7 +122,7 @@ def to_dxf(design: Design, *, layer: str = "0", precision: int = 4) -> str:
             _tag(9, "$EXTMAX"),
             _point(bounds.max_x, bounds.max_y, num),
         ),
-        *_section("TABLES", *_layer_table(layer)),
+        *_section("TABLES", *_layer_table(used)),
         *_section("ENTITIES", *_entities(design, layer, num)),
         _tag(0, "EOF"),
     ]
@@ -137,35 +165,87 @@ def _section(name: str, *body: str) -> Iterator[str]:
     yield _tag(0, "ENDSEC")
 
 
-def _layer_table(layer: str) -> Iterator[str]:
-    """Declare the layer, so the file does not lean on the reader to invent it."""
+def _layers_used(design: Design, fallback: str) -> tuple[str, ...]:
+    """Return every layer the file will name, in drawing order, validating each."""
+    names = [fallback]
+    for style in (*styles_of(design), *point_styles_of(design)):
+        if style is not None and style.layer is not None and style.layer not in names:
+            names.append(style.layer)
+    for name in names:
+        if not _LAYER.match(name):
+            raise ValueError(
+                f"{name!r} is not a DXF R12 layer name: at most 31 characters from "
+                f"letters, digits and _$-."
+            )
+    return tuple(names)
+
+
+def _layer_table(layers: Iterable[str]) -> Iterator[str]:
+    """Declare the layers, so the file does not lean on the reader to invent them."""
+    names = tuple(layers)
     yield _tag(0, "TABLE")
     yield _tag(2, "LAYER")
-    yield _tag(70, 1)
-    yield _tag(0, "LAYER")
-    yield _tag(2, layer)
-    yield _tag(70, 0)  # not frozen, not locked
-    yield _tag(62, 7)  # colour index 7: white on dark, black on light
-    yield _tag(6, "CONTINUOUS")
+    yield _tag(70, len(names))
+    for name in names:
+        yield _tag(0, "LAYER")
+        yield _tag(2, name)
+        yield _tag(70, 0)  # not frozen, not locked
+        yield _tag(_COLOUR_CODE, _DEFAULT_COLOUR)
+        yield _tag(6, "CONTINUOUS")
     yield _tag(0, "ENDTAB")
 
 
-def _entities(design: Design, layer: str, num: Callable[[float], str]) -> Iterator[str]:
+def _entities(design: Design, fallback: str, num: Callable[[float], str]) -> Iterator[str]:
     """Emit one entity per stroke, then one per loose point."""
-    for stroke in design.paths:
-        yield from _polyline(stroke.points, closed=stroke.closed, layer=layer, num=num)
-    for x, y in design.points:
+    for stroke, style in zip(design.paths, styles_of(design), strict=True):
+        yield from _polyline(
+            stroke.points,
+            closed=stroke.closed,
+            layer=_layer_of(style, fallback),
+            colour=_colour_of(style),
+            num=num,
+        )
+    for (x, y), style in zip(design.points, point_styles_of(design), strict=True):
         yield _tag(0, "POINT")
-        yield _tag(_LAYER_CODE, layer)
+        yield _tag(_LAYER_CODE, _layer_of(style, fallback))
+        yield from _colour_tag(style)
         yield _point(x, y, num)
 
 
+def _layer_of(style: Style | None, fallback: str) -> str:
+    """Return the layer an entity sits on: its own, or the document's."""
+    if style is None or style.layer is None:
+        return fallback
+    return style.layer
+
+
+def _colour_of(style: Style | None) -> int | None:
+    """Return the colour index a style asks for, or ``None`` to inherit the layer's."""
+    if style is None or style.stroke is None:
+        return None
+    return _ACI.get(style.stroke.strip().lower())
+
+
+def _colour_tag(style: Style | None) -> Iterator[str]:
+    """Emit an entity's own colour, if it has one DXF can name."""
+    colour = _colour_of(style)
+    if colour is not None:
+        yield _tag(_COLOUR_CODE, colour)
+
+
 def _polyline(
-    points: Iterable[Point], *, closed: bool, layer: str, num: Callable[[float], str]
+    points: Iterable[Point],
+    *,
+    closed: bool,
+    layer: str,
+    colour: int | None,
+    num: Callable[[float], str],
 ) -> Iterator[str]:
     """Emit one POLYLINE, its VERTEX run, and the SEQEND that ends it."""
     yield _tag(0, "POLYLINE")
     yield _tag(_LAYER_CODE, layer)
+    if colour is not None:
+        yield _tag(_COLOUR_CODE, colour)
     yield _tag(66, 1)  # vertices follow -- required in R12
     # Bit 1 of the flags is "closed": the closing segment is the reader's job,
     # which is why a closed path never repeats its first point here either.

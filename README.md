@@ -158,7 +158,7 @@ outside the test suite.
 
 ## What's in the box
 
-**146 motifs in 18 families** — the [full catalogue](docs/catalogue.md), and
+**147 motifs in 19 families** — the [full catalogue](docs/catalogue.md), and
 the [gallery](https://pianosuki.github.io/geomotif/gallery/) with a picture of
 every one.
 
@@ -180,6 +180,7 @@ every one.
 | **solid** | 7 | the five Platonic solids and the truncated icosahedron as wireframes, through an orthographic, isometric or perspective projection |
 | **illusion** | 6 | Penrose triangle and stairs, impossible cube, Necker cube, café wall, moiré. The two Penrose figures are built in space and then flattened: their walks genuinely fail to close, by exactly the amount an isometric view cannot show |
 | **voronoi** | 4 | Delaunay, Voronoi, cells with an optional inset, and Lloyd's relaxation. The only motifs with a dependency — they declare `requires="scipy"`, so a machine without it can still list and describe them |
+| **symmetry** | 1 | the experimental one: points constrained to the orbits of a `Cn`/`Dn` group and relaxed until neighbours sit the same distance apart — fifteen points with five-fold mirror symmetry, and the arithmetic that says which counts are possible at all |
 | **mandala** | 5 | the composers: rings of a repeated unit, a kaleidoscope under a `Cn`/`Dn` group, a snowflake grown from a seed, spokes and layered rings — whose unit is *any* object with a `build()` method, including yours |
 
 Anything registered is reachable by name, with its parameters introspectable:
@@ -220,6 +221,7 @@ rosette = radial_repeat(petal, 12)  # the mandala workhorse
 lattice = tile(cell, 8, 8, dx=20, dy=20, stagger=0.5)
 turned = design.transformed(Affine.rotate(math.pi / 6))
 loose = jitter(design, 0.5, seed=7)  # reproducible irregularity
+aligned = design.snapped(0.5)  # every point onto a half-unit grid
 ```
 
 `Affine` composes with `@` — `(m @ n)(p) == m(n(p))`, so the right-hand
@@ -230,16 +232,17 @@ transform applies first.
 ## Exporting
 
 ```python
-from geomotif import save_design, save_dxf, save_points, save_spec, save_svg
+from geomotif import save_design, save_dxf, save_gif, save_points, save_spec, save_svg
 
 save_points(design, "points.csv")  # x,y — for anything that just wants numbers
 save_design(design, "design.txt")  # strokes kept apart, a blank line between them
 save_svg(design, "design.svg", width=800)  # anything that displays
 save_dxf(design, "design.dxf", layer="CUTS")  # anything that cuts, mills or plots
+save_gif(frames, "design.gif")  # an animation, LZW and all
 save_spec(motif, "design.json")  # the recipe, not the points
 ```
 
-Both the SVG and DXF writers are pure standard library — the core stays
+Every writer is pure standard library — the core stays
 dependency-free all the way out to the file. SVG fits the design into the
 canvas before writing, so `stroke_width` means one unit of the file you are
 looking at; DXF is R12, using `POLYLINE`/`VERTEX` rather than the R14-era
@@ -252,7 +255,7 @@ hand, and it is a great deal smaller — a mandala's recipe is 1.5 KB against
 
 ```json
 {
-  "geomotif": "1.0.0",
+  "geomotif": "1.1.0",
   "motif": "spiral.fibonacci",
   "params": { "quarters": 9, "size": 10.0 }
 }
@@ -276,7 +279,11 @@ geomotif render rose --n 5 --samples 400 --out rose.svg
 geomotif render spiral.golden --samples 300 --ease power:2.5 --out s.csv
 geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
 geomotif render --spec my-design.json --out out.svg
-geomotif gallery --out gallery                  # all 146, plus a manifest
+geomotif render tiling.truchet --out plot.svg --paper a4 --optimize
+geomotif render fractal.hilbert --out hilbert.gif --frames 60
+geomotif render fractal.hilbert --out hilbert.gif --frames 60 --hold 12
+geomotif explore rose --out rose.html           # sliders for its parameters
+geomotif gallery --out gallery                  # all 147, plus a manifest
 geomotif demo
 ```
 
@@ -286,7 +293,7 @@ spec format. Two consequences worth knowing:
 
 - **Not every parameter can be said on a command line.** A motif taking a
   Python function, another motif, or a point set has no sensible flag; those
-  take their value from the motif's registered example, so all 146 render.
+  take their value from the motif's registered example, so all 147 render.
   `geomotif render voronoi.cells --inset 0.2` works — the point set is the
   example's, the inset is yours.
 - **The sampling options are `--samples`, `--stride` and `--ease`**, not the
@@ -296,6 +303,53 @@ spec format. Two consequences worth knowing:
 Without `--out` the points go to stdout as CSV, so the command pipes.
 
 → [The command line](https://pianosuki.github.io/geomotif/guide/cli/)
+
+## Colour, layers and pens
+
+A `Style` says which pen draws a stroke — a layer name, a colour, a width — and
+rides in `Design.meta` rather than in `Path`, because none of it changes the
+maths. Layers are what a two-pen drawing is made of:
+
+```python
+from geomotif import layer, styled
+from geomotif.io.plotter import optimize, save_plotter_svg
+
+drawing = layer(
+    styled(outline.build(), layer="black", stroke="#000"),
+    styled(shading.build(), layer="red", stroke="#c00"),
+)
+save_plotter_svg(optimize(drawing), "two-pens.svg", paper="a4")
+```
+
+That file is measured in real millimetres, opens in Inkscape as two named
+layers, and loads into [`vpype`](https://vpype.readthedocs.io/) as two layers —
+or skip the file with `to_vpype(design)`. `optimize` joins strokes whose ends
+meet and orders what is left so the pen wastes less time in the air: a Truchet
+tiling goes from 72 strokes and 2742 units of pen-up travel to 13 and 533,
+drawing exactly the same ink. Neither pass ever crosses a layer, because
+strokes on different layers are drawn by different pens.
+
+→ [Colour and layers](https://pianosuki.github.io/geomotif/guide/style/) ·
+[Plotting it for real](https://pianosuki.github.io/geomotif/guide/plotter/)
+
+## Animation
+
+```python
+from geomotif.animate import draw_on, spin, sweep
+from geomotif.io.gif import save_gif
+from geomotif.motifs import HilbertCurve
+
+save_gif(draw_on(HilbertCurve(depth=5).build(), frames=60), "hilbert.gif")
+```
+
+`draw_on` reveals a design the way a pen would, measuring progress in arc
+length so the pen moves at a constant speed; `spin` turns it; `sweep` rebuilds
+a motif once per value of one of its parameters. Each returns a plain tuple of
+designs, so frames compose with every transform and every exporter. The GIF
+writer is hand-rolled — colour table, frame timing, LZW — so animation costs no
+dependency either.
+
+→ [Animation](https://pianosuki.github.io/geomotif/guide/animation/)
 
 ## Plotting
 
