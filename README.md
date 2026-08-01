@@ -281,6 +281,7 @@ geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
 geomotif render --spec my-design.json --out out.svg
 geomotif render tiling.truchet --out plot.svg --paper a4 --optimize
 geomotif render fractal.hilbert --out hilbert.gif --frames 60
+geomotif render fractal.hilbert --out hilbert.gif --frames 60 --hold 12
 geomotif explore rose --out rose.html           # sliders for its parameters
 geomotif gallery --out gallery                  # all 147, plus a manifest
 geomotif demo

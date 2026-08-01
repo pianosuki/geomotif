@@ -96,6 +96,7 @@ def spin(
     *,
     turns: float = 1.0,
     about: Point | None = None,
+    hold: int = 0,
 ) -> tuple[Design, ...]:
     """Return frames of a design turning about a point.
 
@@ -110,18 +111,26 @@ def spin(
     about : (float, float), optional
         Centre of rotation. Defaults to the middle of the design's bounds,
         which is what keeps it inside the canvas.
+    hold : int
+        Extra copies of the finished drawing to append, so an animation that
+        loops pauses on the result instead of restarting the instant it
+        arrives.
 
     Returns
     -------
     tuple of Design
-        The last frame stops one step short of the first, so a looping
-        animation does not show the same picture twice in a row.
+        ``frames + hold`` of them. The last frame stops one step short of the
+        first, so a looping animation does not show the same picture twice in
+        a row.
     """
     if frames < 1:
         raise ValueError(f"frames must be >= 1, got {frames}")
+    if hold < 0:
+        raise ValueError(f"hold must be >= 0, got {hold}")
     centre = about if about is not None else (design.bounds.center if len(design) else (0.0, 0.0))
     step = math.tau * turns / frames
-    return tuple(design.transformed(Affine.rotate(i * step, about=centre)) for i in range(frames))
+    turned = tuple(design.transformed(Affine.rotate(i * step, about=centre)) for i in range(frames))
+    return tuple(list(turned) + [turned[-1]] * hold)
 
 
 def sweep(motif: SupportsBuild, parameter: str, values: Iterable[object]) -> tuple[Design, ...]:

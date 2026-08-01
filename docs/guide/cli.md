@@ -102,7 +102,7 @@ The suffix of `--out` picks the writer:
 | `.svg` | SVG |
 | `.dxf` | DXF R12 |
 | `.csv`, `.txt`, `.tsv`, `.json` | the structured design writer |
-| `.gif` | an animation — see `--motion`, `--frames` and `--fps` |
+| `.gif` | an animation — see `--motion`, `--frames`, `--hold` and `--fps` |
 | `.png`, `.pdf`, `.jpg`, `.jpeg` | matplotlib — the one part of the CLI that needs the `plot` extra |
 
 Without `--out`, the points go to stdout as CSV, so the command pipes:
@@ -145,6 +145,10 @@ geomotif render tiling.truchet --out plot.svg --paper a4 --optimize
 
 For an animation, `--out something.gif` with `--motion draw-on` (the default) or
 `--motion spin`, plus `--frames` and `--fps` — see [Animation](animation.md).
+By default `draw-on` settles on a quarter of `--frames` again, so a loop pauses
+on the finished drawing rather than restarting the instant it arrives; `--hold N`
+sets that pause in frames yourself, and `--hold 0` turns it off so a loop
+restarts at once.
 
 !!! tip "Negative coordinates"
 

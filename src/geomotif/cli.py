@@ -9,6 +9,7 @@ Pure :mod:`argparse`, so the zero-dependency core stays that way::
     geomotif render spiral.golden --samples 300 --ease power:2.5 --out s.csv
     geomotif render fractal.hilbert --depth 6 --out h.dxf --fit 800x800
     geomotif render fractal.hilbert --out h.gif --motion draw-on --frames 60
+    geomotif render fractal.hilbert --out h.gif --frames 60 --hold 12
     geomotif render mandala --out m.svg --paper a4 --optimize    # for a plotter
     geomotif render --spec my-design.json --out out.svg
     geomotif explore rose --out rose.html          # sliders for its parameters
@@ -43,7 +44,7 @@ import json
 import pathlib
 import sys
 import textwrap
-from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
+from typing import TYPE_CHECKING, Any, Literal, cast, get_args, get_origin
 
 from . import __version__
 from .core import registry
@@ -88,6 +89,7 @@ RESERVED = frozenset(
         "fit",
         "fps",
         "frames",
+        "hold",
         "keep_duplicates",
         "landscape",
         "margin",
@@ -213,6 +215,12 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     render.add_argument("--fit", type=_size, metavar="WxH", help="scale onto a canvas")
     render.add_argument("--motion", choices=MOTIONS, default="draw-on", help="how a .gif animates")
     render.add_argument("--frames", type=int, default=48, metavar="N", help="frames in a .gif")
+    render.add_argument(
+        "--hold",
+        type=_nonnegative_int,
+        metavar="N",
+        help="how long .gif sits on the finished drawing, in frames (default: a quarter of --frames)",
+    )
     render.add_argument("--fps", type=float, default=20.0, metavar="X", help="a .gif's frame rate")
     render.add_argument(
         "--paper",
@@ -591,6 +599,17 @@ def _literal_choices(annotation: str, cls: type) -> tuple[str, ...] | None:
 # --- small parsers and writers ---------------------------------------------
 
 
+def _nonnegative_int(text: str) -> int:
+    """Parse a whole number that may not go below zero."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a whole number -- got {text!r}") from None
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"--hold must be >= 0, got {value}")
+    return value
+
+
 def _point(text: str) -> Point:
     """Parse ``x,y``."""
     try:
@@ -703,14 +722,26 @@ def _save_animation(design: Design, target: pathlib.Path, args: argparse.Namespa
     from .animate import draw_on, spin
 
     width, height = args.fit if args.fit is not None else (_GIF_SIZE, _GIF_SIZE)
+    hold = _hold_for(args)
     match args.motion:
         case "spin":
-            frames = spin(design, args.frames)
+            frames = spin(design, args.frames, hold=hold)
         case _:
-            # A quarter of the run held at the end, so a loop pauses on the
-            # finished drawing rather than restarting the instant it arrives.
-            frames = draw_on(design, args.frames, hold=max(1, args.frames // 4))
+            frames = draw_on(design, args.frames, hold=hold)
     save_gif(frames, target, width=round(width), height=round(height), fps=args.fps)
+
+
+def _hold_for(args: argparse.Namespace) -> int:
+    """How many copies of the finished drawing to sit on, for this invocation.
+
+    ``--hold`` wins when it is given; otherwise each motion keeps the behaviour
+    it has always had -- ``draw-on`` settles on a quarter of the run, and
+    ``spin``, whose whole business is turning, holds nothing.
+    """
+    if args.motion == "spin" and args.hold is None:
+        return 0
+    held = args.hold if args.hold is not None else max(1, args.frames // 4)
+    return cast("int", held)
 
 
 def _save_figure(design: Design, target: pathlib.Path, args: argparse.Namespace) -> None:

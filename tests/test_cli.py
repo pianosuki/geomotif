@@ -114,6 +114,76 @@ def test_the_frame_rate_reaches_the_file(capsys, tmp_path):
     assert gif(out.read_bytes()).frames[0].delay == 10
 
 
+def test_hold_zero_means_no_repeated_frames(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "0")
+    assert len(gif(out.read_bytes()).frames) == 6
+
+
+def test_hold_n_holds_exactly_that_many_frames(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "4")
+    decoded = gif(out.read_bytes()).frames
+    # Six drawn frames, then four copies of the finished one to sit on.
+    assert len(decoded) == 10
+    assert decoded[-4:] == [decoded[5]] * 4
+
+
+def test_omitting_hold_keeps_the_default_quarter(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "8")
+    assert len(gif(out.read_bytes()).frames) == 8 + max(1, 8 // 4)
+
+
+def test_spin_respects_hold(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--motion",
+        "spin",
+        "--frames",
+        "6",
+        "--hold",
+        "3",
+    )
+    assert len(gif(out.read_bytes()).frames) == 9
+
+
+def test_spin_with_hold_zero_repeats_exactly(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--motion",
+        "spin",
+        "--frames",
+        "6",
+        "--hold",
+        "0",
+    )
+    assert len(gif(out.read_bytes()).frames) == 6
+
+
+def test_a_negative_hold_is_refused():
+    with pytest.raises(SystemExit):
+        main(["render", "rose", "--hold", "-1", "--out", "x.gif"])
+
+
+def test_hold_collides_with_no_motif_parameter(capsys, tmp_path):
+    # The reserved name is what lets --hold reach the GIF rather than a
+    # parameter that happens to be called the same thing.
+    out = tmp_path / "rose.gif"
+    assert run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "2")[0] == 0
+    assert len(gif(out.read_bytes()).frames) == 8
+
+
 def test_paper_writes_an_svg_in_real_millimetres(capsys, tmp_path):
     out = tmp_path / "rose.svg"
     run(capsys, "render", "rose", "--out", str(out), "--paper", "a5")

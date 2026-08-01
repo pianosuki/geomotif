@@ -142,6 +142,17 @@ def test_spin_refuses_no_frames():
         spin(SQUARE, 0)
 
 
+def test_spin_can_hold_the_finished_drawing():
+    frames = spin(SQUARE, 8, hold=3)
+    assert len(frames) == 11
+    assert frames[-3:] == (frames[7],) * 3
+
+
+def test_spin_refuses_a_negative_hold():
+    with pytest.raises(ValueError, match="hold must be >= 0"):
+        spin(SQUARE, 8, hold=-1)
+
+
 # --- sweep ------------------------------------------------------------------
 
 

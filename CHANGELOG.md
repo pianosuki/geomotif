@@ -80,10 +80,11 @@ group makes it impossible is still an open question.
   needs. All three are usable on their own. The GIF writer understands the
   same colour names the DXF writer does, so a styled design that exports to
   one exports to the other.
-- `geomotif render NAME --out x.gif` with `--motion draw-on|spin`, `--frames`
-  and `--fps`. `--fit` doubles as the pixel canvas, which is 480×480 without
-  it, and `draw-on` appends a quarter of `--frames` again as a hold on the
-  finished drawing.
+- `geomotif render NAME --out x.gif` with `--motion draw-on|spin`, `--frames`,
+  `--hold` and `--fps`. `--fit` doubles as the pixel canvas, which is 480×480
+  without it. `draw-on` appends a quarter of `--frames` again as a hold on the
+  finished drawing, so a loop pauses rather than restarting the instant it
+  arrives; `--hold N` sets that pause yourself, and `--hold 0` turns it off.
 - `ArcTable.segment` — the part of a polyline between two distances, with the
   ends interpolated and every vertex between them kept.
 - **Plotter output** (`geomotif.io.plotter`) — `to_plotter_svg` and

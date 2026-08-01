@@ -36,7 +36,7 @@ transform them, restyle them, export one as SVG, or hand the lot to `save_gif`.
 
 ```python
 draw_on(design, frames=60, trail=200.0, hold=10)
-spin(design, frames=48, turns=-1.0)
+spin(design, frames=48, turns=-1.0, hold=6)
 sweep(Rose(), "n", range(2, 12))
 ```
 
@@ -47,8 +47,10 @@ back open — half a square is not a square, and drawing it as one would close a
 gap the pen has not been round yet.
 
 `trail` draws only the last *n* units rather than everything so far, which
-turns the pen into a comet. `hold` repeats the finished drawing, so a looping
-animation pauses on the result instead of restarting the instant it arrives.
+turns the pen into a comet. `hold` — on both `draw_on` and `spin` — repeats the
+finished drawing, so a looping animation pauses on the result instead of
+restarting the instant it arrives. From the command line the same pause is
+`--hold N`; it defaults to a quarter of `--frames`, and `--hold 0` turns it off.
 
 ## Writing the GIF
 
