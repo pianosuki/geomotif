@@ -6,7 +6,7 @@ import pytest
 from geomotif import load_design
 from geomotif.cli import RESERVED, main
 from geomotif.core import registry
-from tests.readback import dxf_polylines, gif, svg_root, svg_strokes
+from tests.readback import dxf_polylines, gif, png, svg_root, svg_strokes
 
 
 def run(capsys, *argv):
@@ -486,14 +486,51 @@ def test_an_unwritable_suffix_lists_the_ones_that_work(capsys, tmp_path):
     assert ".svg" in err
 
 
-def test_render_writes_a_figure(capsys, tmp_path):
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
+def test_render_writes_a_truecolor_png(capsys, tmp_path):
     out = tmp_path / "r.png"
     assert run(capsys, "render", "rose", "--samples", "50", "--out", str(out))[0] == 0
-    assert out.stat().st_size > 0
+    decoded = png(out.read_bytes())
+    assert (decoded.width, decoded.height) == (480, 480)
+    assert decoded.color_type == 2
+
+
+def test_render_png_takes_the_canvas_and_styling_without_matplotlib(capsys, tmp_path):
+    out = tmp_path / "r.png"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--canvas",
+        "90x40",
+        "--ink",
+        "magenta",
+        "--background",
+        "cyan",
+        "--stroke-width",
+        "3",
+        "--antialias",
+    )
+    decoded = png(out.read_bytes())
+    assert (decoded.width, decoded.height) == (90, 40)
+
+
+def test_render_png_ignores_animation_flags_and_stays_a_still(capsys, tmp_path):
+    out = tmp_path / "rose.png"
+    run(capsys, "render", "rose", "--motion", "spin", "--frames", "60", "--out", str(out))
+    assert png(out.read_bytes()).height == 480  # one still, not a run of frames
+
+
+def test_render_png_accepts_a_compression_level(capsys, tmp_path):
+    out = tmp_path / "r.png"
+    assert run(capsys, "render", "rose", "--out", str(out), "--compression", "9")[0] == 0
+    assert png(out.read_bytes()).width == 480
+
+
+def test_render_png_refuses_an_out_of_range_compression(tmp_path):
+    with pytest.raises(SystemExit):
+        main(["render", "rose", "--out", str(tmp_path / "r.png"), "--compression", "10"])
 
 
 # --- explore ---------------------------------------------------------------
@@ -678,7 +715,7 @@ def test_an_unavailable_motif_is_described_and_skipped(capsys, tmp_path, monkeyp
 def test_writing_a_figure_without_matplotlib_says_how_to_get_it(tmp_path, monkeypatch):
     monkeypatch.setitem(__import__("sys").modules, "geomotif.plotting", None)
     with pytest.raises(SystemExit, match=r"geomotif\[plot\]"):
-        main(["render", "rose", "--out", str(tmp_path / "r.png")])
+        main(["render", "rose", "--out", str(tmp_path / "r.jpg")])
 
 
 def test_the_version_is_reported(capsys):

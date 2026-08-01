@@ -62,7 +62,7 @@ from .core.spacing import (
 from .core.transform import SNAP_MODES
 from .core.types import Bounds
 from .explore import DEFAULT_SIZE, DEFAULT_STEPS, save_html
-from .io import load_spec, save_design, save_dxf, save_gif, save_svg, to_spec
+from .io import load_spec, save_design, save_dxf, save_gif, save_png, save_svg, to_spec
 from .io.plotter import PAPER, optimize, save_plotter_svg
 
 # Imported rather than repeated: "0 or negative writes whole integers" is part
@@ -151,7 +151,7 @@ _WRITERS = {
     ".tsv": "design",
     ".json": "design",
     ".gif": "gif",
-    ".png": "figure",
+    ".png": "png",
     ".pdf": "figure",
     ".jpg": "figure",
     ".jpeg": "figure",
@@ -280,6 +280,14 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         action=argparse.BooleanOptionalAction,
         default=True,
         help="error-diffuse a .gif's palette round-off (--no-dither turns it off)",
+    )
+    render.add_argument(
+        "--compression",
+        type=_nonnegative_int,
+        default=6,
+        choices=range(10),
+        metavar="0-9",
+        help="zlib level a .png is deflated at (0 fast, 9 small)",
     )
     render.add_argument(
         "--paper",
@@ -794,6 +802,8 @@ def _write(design: Design, target: pathlib.Path, args: argparse.Namespace) -> No
             save_design(design, target, precision=args.precision)
         case "gif":
             _save_animation(design, target, args)
+        case "png":
+            _save_still(design, target, args)
         case _:
             _save_figure(design, target, args)
 
@@ -854,6 +864,32 @@ def _hold_for(args: argparse.Namespace) -> int:
         return 0
     held = args.hold if args.hold is not None else max(1, args.frames // 4)
     return cast("int", held)
+
+
+def _save_still(design: Design, target: pathlib.Path, args: argparse.Namespace) -> None:
+    """Render the finished design as one raster still: a PNG, with no extra install.
+
+    Where a GIF is the moving picture (a run of frames), a still is the
+    picture that does not move: the completed design drawn once. The animation
+    flags -- ``--motion``, ``--frames``, ``--hold`` -- simply do not apply and
+    are ignored, so ``render rose --motion spin --out rose.png`` degrades
+    gracefully to a still of the final shape.
+    """
+    width, height = _canvas(args)
+    save_png(
+        design,
+        target,
+        width=width,
+        height=height,
+        ink=args.ink,
+        background=args.background,
+        thickness=args.stroke_width,
+        dot_radius=args.dot_radius,
+        padding=args.padding,
+        antialias=args.antialias,
+        aa_level=args.aa_level,
+        compression=args.compression,
+    )
 
 
 def _save_figure(design: Design, target: pathlib.Path, args: argparse.Namespace) -> None:

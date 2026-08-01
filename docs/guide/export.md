@@ -10,6 +10,7 @@ The core is zero-dependency all the way out to the file.
 | a picture | [`save_svg`][geomotif.io.svg.save_svg] | no |
 | something to cut, mill or plot | [`save_dxf`][geomotif.io.dxf.save_dxf] | no |
 | the *recipe*, not the points | [`save_spec`][geomotif.io.spec.save_spec] | yes |
+| a still picture | [`save_png`][geomotif.io.png.save_png] | no |
 | a moving picture | [`save_gif`][geomotif.io.gif.save_gif] | no |
 
 ## Coordinates
@@ -229,6 +230,7 @@ name rather than writing a file that will not load.
 - Sending points somewhere else → `save_points`.
 - Driving a pen plotter, laser or mill → `save_dxf`, or `save_design` to `.txt`.
 - Putting it on a web page or into an editor → `save_svg`.
+- A single finished picture, anywhere and with nothing installed → `save_png`.
 - Showing how it is drawn rather than what it is → `save_gif`, and
   [Animation](animation.md).
 - Actually plotting it → `save_plotter_svg`, and

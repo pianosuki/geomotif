@@ -9,6 +9,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 migration path to document — the lineage is recorded here only so the early
 history reads honestly.
 
+## [Unreleased]
+
+The raster overhaul: stills join the zero-dependency picture pipeline, and
+the one hard-coded GIF becomes a full set of knobs.
+
+### Added
+
+- **PNG stills, pure standard library** (`geomotif.io.png` — `save_png`,
+  `to_png`) — a design renders once, antialiased or hard-edged, into a
+  full-color frame and is encoded with `zlib` and per-chunk CRCs. Truecolor
+  RGB by default, RGBA on request, or indexed through the same median-cut
+  quantizer the GIF uses; `--compression 0-9` tunes the deflate level. Renders
+  from `render --out rose.png` with no matplotlib and no extra install.
+- **Stills vs animation** — PNG and JPEG are single stills of the finished
+  design; the animation flags are ignored rather than refused, so
+  `render rose --motion spin --out rose.png` degrades gracefully to a still.
+- **Canvas and styling flags for raster output** — `--canvas WxH` (the pixel
+  canvas, independent of the geometry-fitting `--fit`), `--stroke-width`,
+  `--dot-radius`, `--ink`, `--background`, `--padding`, and `--loop` for GIF.
+- **Antialiasing and dithering** — `--antialias` supersamples edges and blends
+  them by coverage; `--aa-level N` and `--dither`/`--no-dither` control how the
+  result is squeezed into GIF's 256-color budget.
+
+### Changed
+
+- **`colors_in` is the name; `colours_in` is deprecated.** The British spelling
+  shipped in 1.1.0 keeps working and warns it will go away in a major.
+- **American spelling is the house style**, documented in `docs/style-guide.md`
+  and enforced by `tests/test_spelling.py` — including the docs reference page
+  being renamed to `catalog.md`.
+
 ## [1.1.0] — 2026-07-31
 
 The stretch release: color and layers, symmetric point sets, a faster

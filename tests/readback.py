@@ -13,13 +13,16 @@ Pillow) are not dependencies and are not needed to run the suite.
 
 The GIF reader is the odd one, in that it has to *decompress*: a GIF's pixels
 are LZW and there is no reading them without implementing the other half of
-it. That is exactly why it is here -- an encoder checked only against its own
-assumptions is not checked at all.
+it. The PNG reader defilters and inflates for the same reason. That is exactly
+why they are here -- an encoder checked only against its own assumptions is
+not checked at all.
 """
 
 from __future__ import annotations
 
+import struct
 import xml.etree.ElementTree as ET
+import zlib
 from dataclasses import dataclass
 
 SVG_NS = "http://www.w3.org/2000/svg"
@@ -337,4 +340,85 @@ def _lzw_decode(data: bytes, minimum: int) -> bytes:
             if len(table) == (1 << width) and width < 12:
                 width += 1
         previous = entry
+    return bytes(out)
+
+
+# --- PNG -------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class Png:
+    """A decoded PNG, in the subset geomotif writes: 8-bit, color types 2/6/3."""
+
+    width: int
+    height: int
+    color_type: int
+    palette: list[tuple[int, int, int]]
+    pixels: bytes
+
+
+def png(data: bytes) -> Png:
+    """Decode a PNG of the shape geomotif writes, defilter and inflate included."""
+    assert data[:8] == b"\x89PNG\r\n\x1a\n", f"not a PNG: {data[:8]!r}"
+    width: int | None = None
+    height: int | None = None
+    color_type: int | None = None
+    palette: list[tuple[int, int, int]] = []
+    idat = bytearray()
+    at = 8
+    while at < len(data):
+        size = int.from_bytes(data[at : at + 4], "big")
+        kind = data[at + 4 : at + 8]
+        body = data[at + 8 : at + 8 + size]
+        at += 12 + size
+        if kind == b"IHDR":
+            width, height, bit_depth, color_type, _, _, _ = struct.unpack(">IIBBBBB", body)
+            assert bit_depth == 8, f"bit depth {bit_depth}"
+        elif kind == b"PLTE":
+            assert len(body) % 3 == 0, "a palette is a run of RGB triples"
+            palette = [(body[i], body[i + 1], body[i + 2]) for i in range(0, len(body), 3)]
+        elif kind == b"IDAT":
+            idat.extend(body)
+        elif kind == b"IEND":
+            break
+        else:
+            raise AssertionError(f"unexpected chunk {kind!r}")
+    if width is None or height is None or color_type is None:
+        raise AssertionError("missing IHDR")
+    bpp = {2: 3, 6: 4, 3: 1}[color_type]
+    return Png(width, height, color_type, palette, _defilter(zlib.decompress(bytes(idat)), width, height, bpp))
+
+
+def _defilter(raw: bytes, width: int, height: int, bpp: int) -> bytes:
+    """Undo the per-scanline filter, which the writer always sets to none."""
+    stride = width * bpp
+    out = bytearray()
+    previous = bytearray(stride)
+    at = 0
+    for _ in range(height):
+        filter_type = raw[at]
+        at += 1
+        line = bytearray(raw[at : at + stride])
+        at += stride
+        for index in range(stride):
+            left = line[index - bpp] if index >= bpp else 0
+            up = previous[index]
+            corner = previous[index - bpp] if index >= bpp else 0
+            if filter_type == 0:
+                pass
+            elif filter_type == 1:
+                line[index] = (line[index] + left) & 0xFF
+            elif filter_type == 2:
+                line[index] = (line[index] + up) & 0xFF
+            elif filter_type == 3:
+                line[index] = (line[index] + (left + up) // 2) & 0xFF
+            elif filter_type == 4:
+                predictor = left + up - corner
+                pa, pb, pc = abs(predictor - left), abs(predictor - up), abs(predictor - corner)
+                nearer = left if (pa <= pb and pa <= pc) else (up if pb <= pc else corner)
+                line[index] = (line[index] + nearer) & 0xFF
+            else:
+                raise AssertionError(f"unexpected filter type {filter_type}")
+        out.extend(line)
+        previous = line
     return bytes(out)

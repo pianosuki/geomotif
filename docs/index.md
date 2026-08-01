@@ -118,10 +118,10 @@ protocol and is accepted everywhere a motif is.
 
 Worth saying plainly, so you can tell quickly whether it is the wrong tool:
 
-- **Not a rendering engine.** No fills, gradients, shading or antialiasing. It
-  produces geometry; something else colors it in. The rasterizer behind the
-  GIF writer draws hard-edged indexed pixels and exists to make an animation
-  play, not to render one.
+- **Not a rendering engine.** No fills, gradients or shading. It produces
+  geometry; something else mostly colors it in. The raster side (the GIF and
+  PNG writers) draws strokes as pixels — antialiasing edges on request — so a
+  picture plays or ships, not so that a canvas can be composited.
 - **Not a CAD kernel.** No booleans, no constraint solving, and no offsetting
   beyond a simple parallel stroke.
 - **Not a vector-graphics I/O library.** SVG and DXF *out*, not in.
