@@ -120,6 +120,7 @@ nav:
   - Extending:
       - extending.md
       - api-policy.md
+      - style-guide.md
   - catalog: catalog.md
   - Gallery: gallery/
   - Reference: reference/

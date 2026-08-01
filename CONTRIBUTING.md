@@ -107,6 +107,9 @@ individual rule:
 - **The core stays zero-dependency.** A motif that needs a package declares
   `requires=` and is listable without it. CI installs the package with no
   extras at all and runs the suite, so this is checked rather than asserted.
+- **American spelling, everywhere.** The agreed replacements and the one
+  deliberate exception are in [the style guide](docs/style-guide.md), and a
+  test spells out that the prose and identifiers are American.
 
 ## Tests
 

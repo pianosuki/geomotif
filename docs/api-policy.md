@@ -57,6 +57,13 @@ A new motif, a new spacing curve, a new keyword argument with a
 behavior-preserving default, and a new export format are all **minor**
 releases. Anything that would make correct 1.x code stop working is **major**.
 
+Spelling follows from this: a public name (an `__all__` export, a public
+parameter, a CLI flag, a registry name, a spec key) that is later seen to be
+wrongly spelled can only be fixed as a breaking change. The agreed spellings
+and the single deliberate exception are in [the style guide](style-guide.md);
+check a public name there before it ships, because the fix gets expensive
+after release.
+
 ## Experimental
 
 A module or class whose docstring says **experimental** is exempt from the

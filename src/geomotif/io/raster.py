@@ -498,7 +498,7 @@ def _map_to_palette(frame: Raster, palette: list[tuple[int, int, int]], *, dithe
 def _scatter(
     grid: list[list[float]], width: int, height: int, y: int, x: int, error: tuple[float, float, float]
 ) -> None:
-    """Diffuse an RGB quantisation error onto Floyd-Steinberg's four neighbours."""
+    """Diffuse an RGB quantization error onto Floyd-Steinberg's four neighbours."""
     for dy, dx, weight in ((0, 1, 7), (1, -1, 3), (1, 0, 5), (1, 1, 1)):
         ny, nx = y + dy, x + dx
         if 0 <= ny < height and 0 <= nx < width:

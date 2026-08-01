@@ -447,7 +447,7 @@ def test_an_unknown_mode_is_refused():
         Raster(2, 2, bytes(4), mode="cmyk")
 
 
-# --- antialiasing and quantisation -------------------------------------------
+# --- antialiasing and quantization -------------------------------------------
 
 
 def _rgba_shades(raster):
