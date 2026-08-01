@@ -338,8 +338,8 @@ def test_snap_carries_the_style_of_a_stroke_that_survived():
 
     doomed = styled(Design((Path(((0.1, 0.1), (0.2, 0.2))),)), stroke="#a00")
     kept = styled(Design((Path(((0.0, 0.0), (5.0, 5.0))),)), stroke="#00a")
-    # The collapsed stroke takes its colour with it rather than leaving the
-    # list one long and shifting every colour after it onto the wrong stroke.
+    # The collapsed stroke takes its color with it rather than leaving the
+    # list one long and shifting every color after it onto the wrong stroke.
     assert styles_of(snap(layer(doomed, kept))) == (Style(stroke="#00a"),)
 
 

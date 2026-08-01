@@ -25,7 +25,7 @@ from geomotif.motifs import ArchimedeanSpiral
 design = ArchimedeanSpiral(b=10.0).generate(200)
 ```
 
-You can ask for the parametric behaviour when you want it — it is occasionally
+You can ask for the parametric behavior when you want it — it is occasionally
 a nice design effect — but you have to ask:
 
 ```python

@@ -9,12 +9,61 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 migration path to document — the lineage is recorded here only so the early
 history reads honestly.
 
+## [1.2.0] — 2026-08-01
+
+The raster overhaul: stills join the zero-dependency picture pipeline, and
+the one hard-coded GIF becomes a full set of knobs.
+
+### Added
+
+- **PNG stills, pure standard library** (`geomotif.io.png` — `save_png`,
+  `to_png`) — a design renders once, antialiased or hard-edged, into a
+  full-color frame and is encoded with `zlib` and per-chunk CRCs. Truecolor
+  RGB by default, RGBA on request, or indexed through the same median-cut
+  quantizer the GIF uses; `--compression 0-9` tunes the deflate level. Renders
+  from `render --out rose.png` with no matplotlib and no extra install.
+- **JPEG stills, pure standard library** (`geomotif.io.jpeg` — `save_jpeg`,
+  `to_jpeg`) — the same RGBA frame encoded as baseline JPEG: RGB to YCbCr
+  with 4:2:0 chroma subsampling, an 8x8 DCT, quality-scaled quantization, and
+  Huffman coding against the reference tables. `--quality 0-100` scales the
+  quantization (default 85). `.jpg` and `.jpeg` render from `render --out`
+  with no matplotlib and no extra install.
+  - **Known limitation:** the writer passes this suite's own decoder and
+    opens cleanly in libjpeg and Pillow, but the fine-detail (AC) blocks
+    render slightly differently in external viewers than in this library's
+    reader. It is fine for a smaller file where exactness is not the point;
+    reach for PNG or GIF when an exact picture matters to another tool. This
+    is being narrowed.
+- **Stills vs animation** — PNG and JPEG are single stills of the finished
+  design; the animation flags are ignored rather than refused, so
+  `render rose --motion spin --out rose.png` degrades gracefully to a still.
+- **Canvas and styling flags for raster output** — `--canvas WxH` (the pixel
+  canvas, independent of the geometry-fitting `--fit`), `--stroke-width`,
+  `--dot-radius`, `--ink`, `--background`, `--padding`, and `--loop` for GIF.
+- **Antialiasing and dithering** — `--antialias` supersamples edges and blends
+  them by coverage; `--aa-level N` and `--dither`/`--no-dither` control how the
+  result is squeezed into GIF's 256-color budget.
+- **Transparent backgrounds** — `--transparent` leaves a `.png` or `.gif`'s
+  background empty so the drawing sits over whatever the page shows. A PNG is
+  written truecolor-with-alpha with the background at alpha 0 and antialiased
+  edges as straight alpha; a GIF flags index 0 as its transparent color in
+  every frame. A `.jpg` has no alpha, so the flag is ignored there the way an
+  animation flag is for a still.
+
+### Changed
+
+- **`colors_in` is the name; `colours_in` is deprecated.** The British spelling
+  shipped in 1.1.0 keeps working and warns it will go away in a major.
+- **American spelling is the house style**, documented in `docs/style-guide.md`
+  and enforced by `tests/test_spelling.py` — including the docs reference page
+  being renamed to `catalog.md`.
+
 ## [1.1.0] — 2026-07-31
 
-The stretch release: colour and layers, symmetric point sets, a faster
+The stretch release: color and layers, symmetric point sets, a faster
 arc-length inversion, animation and a GIF writer, plotter output, an explorable
 gallery, and snapping to a grid. All of it additive — a design with no styles
-writes the file it always did, and every motif in the catalogue builds the
+writes the file it always did, and every motif in the catalog builds the
 geometry it built before.
 
 Two of them ended somewhere other than where they set out. The numpy fast path
@@ -25,7 +74,7 @@ group makes it impossible is still an open question.
 
 ### Added
 
-- **Colour and layers** (`geomotif.core.style`) — `Style`, `styled`,
+- **color and layers** (`geomotif.core.style`) — `Style`, `styled`,
   `styles_of`, `point_styles_of`, `layer_names` and `by_layer`. A style is
   attached per stroke and per loose point, and rides in `Design.meta` rather
   than in `Path`, because none of it changes the maths. Styles survive every
@@ -35,8 +84,8 @@ group makes it impossible is still an open question.
 - **Layered output** — SVG writes each layer as the group Inkscape and `vpype`
   read, plus per-element `stroke`, `stroke-width` and `fill` wherever a style
   differs from the document's own; DXF writes real DXF layers and the seven
-  colours its indexed palette can name; matplotlib draws a styled stroke in its
-  own colour and width. A design carrying no styles writes exactly the file it
+  colors its indexed palette can name; matplotlib draws a styled stroke in its
+  own color and width. A design carrying no styles writes exactly the file it
   wrote before.
 - Styles round-trip through `save_design`/`load_design` and through a spec,
   written beside the parameters rather than among them.
@@ -73,12 +122,12 @@ group makes it impossible is still an open question.
   not a square.
 - **Animated GIF** (`geomotif.io.gif`) — `to_gif` and `save_gif`, LZW and all,
   in pure standard library. Every frame is drawn against the same world
-  rectangle and the same colour table, so a growing drawing stays put and a
-  two-pen design animates in two colours. Underneath it,
+  rectangle and the same color table, so a growing drawing stays put and a
+  two-pen design animates in two colors. Underneath it,
   `geomotif.io.raster` turns a design into an indexed bitmap: `rasterize`,
-  the `Raster` it returns, and `colours_in` for the palette a set of designs
+  the `Raster` it returns, and `colors_in` for the palette a set of designs
   needs. All three are usable on their own. The GIF writer understands the
-  same colour names the DXF writer does, so a styled design that exports to
+  same color names the DXF writer does, so a styled design that exports to
   one exports to the other.
 - `geomotif render NAME --out x.gif` with `--motion draw-on|spin`, `--frames`,
   `--hold` and `--fps`. `--fit` doubles as the pixel canvas, which is 480×480
@@ -88,7 +137,7 @@ group makes it impossible is still an open question.
 - `ArcTable.segment` — the part of a polyline between two distances, with the
   ends interpolated and every vertex between them kept.
 - **Plotter output** (`geomotif.io.plotter`) — `to_plotter_svg` and
-  `save_plotter_svg` write a design at a named paper size in real millimetres
+  `save_plotter_svg` write a design at a named paper size in real millimeters
   (`width="210mm"`, not `width="210"`), with `PAPER`, `page_size` and
   `on_page` behind them. `optimize` joins strokes whose ends meet and then
   orders them so the pen travels as little as possible between them, and
@@ -166,7 +215,7 @@ group makes it impossible is still an open question.
 - `save_points` and `save_design` now document what a negative `precision`
   actually does — round to tens, hundreds and so on, rather than merely
   "write whole integers" — and it is pinned by a test rather than left as an
-  accident of `round`. The behaviour is unchanged.
+  accident of `round`. The behavior is unchanged.
 - `to_svg` refuses a `units` string that is not one, rather than writing it
   into the document's `width` and `height` attributes unquoted.
 - `rasterize` refuses a negative `padding`, which used to return a blank
@@ -242,7 +291,7 @@ promises is written down in
   to work on *any* polyline. Every motif therefore gets arc-length placement
   and the whole spacing-curve family for free, including motifs with no
   closed-form parametrization. Adds fixed-`step` placement for plotter
-  output, `by="parameter"` for the old parametric behaviour, and
+  output, `by="parameter"` for the old parametric behavior, and
   `distribute=` to spread a point budget across a multi-path design.
 - **Transform layer** (`geomotif.core.transform`) — `Affine` (composable
   with `@`, invertible) plus the composite operators `radial_repeat`,
@@ -253,7 +302,7 @@ promises is written down in
   dataclass fields and lazy third-party discovery via the
   `geomotif.motifs` entry-point group.
 - **Motif base classes** (`geomotif.bases`) — the extensibility story, and
-  most of the catalogue's implementation. Pick the base that matches how your
+  most of the catalog's implementation. Pick the base that matches how your
   design is defined and write the one method it asks for:
   `ParametricMotif` (`position(u)`), `PolarMotif` (`radius(theta)`),
   `MultiCurveMotif` (several strands at once), `LSystemMotif` (an axiom,
@@ -363,7 +412,7 @@ promises is written down in
   that join into one strand, which is to say a trefoil), `EndlessKnot`,
   `CircularCelticKnot`, `SquareCelticKnot` and `CelticGrid`, the plait with
   barriers that every knotwork panel is built from. Over-and-under is derived
-  rather than declared: the crossings are found geometrically and two-coloured
+  rather than declared: the crossings are found geometrically and two-colored
   so that each strand alternates and each crossing disagrees with itself, and
   the under-strand is drawn with a gap in it, which is what a pen plotter can
   draw. The endless knot's corner joins nest at three corners and swap at the
@@ -372,7 +421,7 @@ promises is written down in
 - **Polyhedra** (`geomotif.motifs.solids`) — the five Platonic solids and
   `TruncatedIcosahedron`, plus `Polyhedron` for a shape of your own and
   `Projection` for orthographic, isometric or perspective views with yaw,
-  pitch and roll. Every solid in the catalogue is a table of corners and one
+  pitch and roll. Every solid in the catalog is a table of corners and one
   shared rule: join every pair as close together as any pair gets, which is
   the edge set of any solid whose corners are all alike. The tests check the
   tables against Euler's `V - E + F = 2`.
@@ -385,7 +434,7 @@ promises is written down in
   the same length, and the tests assert the closure error rather than the
   picture.
 - **`examples/plugin/`** — a complete third-party motif as an installable
-  package: Gielis's superformula, which geomotif's own catalogue does not
+  package: Gielis's superformula, which geomotif's own catalog does not
   have and does not need. One entry point and one `@register` decorator are
   the whole contract; once installed it is listed, described, rendered,
   spec'd and CLI-flagged exactly like a builtin, and geomotif never learns it
@@ -412,7 +461,7 @@ promises is written down in
   loose points, since a scatter motif has nothing else to show; stroke
   *vertices* are opt-in, because a four-thousand-vertex fractal with markers
   is a smear. `plot_comparison` is the library's premise in one image: one
-  motif, one point count, several spacing curves. Colours moved into a
+  motif, one point count, several spacing curves. colors moved into a
   `Palette` value with `LIGHT` and `DARK`, so a dark-mode figure is a
   different argument rather than a different code path.
 - **SVG** (`geomotif.io.svg`) — `to_svg` and `save_svg`, pure standard
@@ -422,7 +471,7 @@ promises is written down in
   instead of discarding detail a later scale would magnify. `flip_y` defaults
   on, because SVG's y grows downward and every motif here is written the other
   way up. Loose points become `<circle>` elements, the motif's name becomes
-  the document `<title>`, and every attribute is escaped — a colour and a
+  the document `<title>`, and every attribute is escaped — a color and a
   title both come from outside.
 - **DXF** (`geomotif.io.dxf`) — `to_dxf` and `save_dxf`, writing DXF R12,
   also pure standard library. `POLYLINE`/`VERTEX`/`SEQEND` rather than
@@ -465,7 +514,7 @@ promises is written down in
   scipy earns its place on the cocircular case: a plain square grid gives
   Qhull an arbitrary choice of diagonal, and a hand-rolled triangulator that
   makes that choice inconsistently contradicts itself.
-- **`requires=` is now honoured** (`geomotif.core.registry`) — `MotifInfo`
+- **`requires=` is now honored** (`geomotif.core.registry`) — `MotifInfo`
   gained an `available` property, and the motifs behind an extra import their
   dependency when a design is *built* rather than when their module is
   imported. A machine without scipy can still list, describe and document the
@@ -535,9 +584,9 @@ promises is written down in
 - **A generated gallery** — every registered motif rendered to SVG at its
   registered example, beside the Python, the command line and the spec that
   reproduce exactly that file. `tools/gendocs.py` writes it, along with the
-  reference pages and `docs/catalogue.md`, and doubles as the mkdocs `hooks:`
+  reference pages and `docs/catalog.md`, and doubles as the mkdocs `hooks:`
   entry so a build is never a step behind the registry. The gallery and the
-  reference are rebuilt every time and never committed; the catalogue and the
+  reference are rebuilt every time and never committed; the catalog and the
   six images the README leads with are committed, because GitHub renders a
   README without running mkdocs — and are therefore drift-checked by
   `make docs-check`, by CI, and by `tests/test_gendocs.py`.
@@ -557,7 +606,7 @@ promises is written down in
 
 ### Removed
 
-- `generate_spiral()` and the `geomotif.generator` module. Its behaviour
+- `generate_spiral()` and the `geomotif.generator` module. Its behavior
   lives on as `SpiralBetween(start, end, center=..., turns=...,
   clockwise=...).generate(count, spacing=...)`.
 - The `y_down` flag. Which way y points is a property of the target
@@ -608,7 +657,7 @@ promises is written down in
   `from __future__ import annotations`. Those guards were only safe under
   3.14's deferred annotation evaluation (PEP 649); on 3.12 and 3.13,
   importing the package raised `NameError` at module load.
-- Registry lookups now import the builtin motif catalogue themselves.
+- Registry lookups now import the builtin motif catalog themselves.
   Previously `names()` reported only the motifs whose modules the caller had
   already imported, so a fresh interpreter saw an empty registry.
 
@@ -634,5 +683,6 @@ this name or number; `geomotif` 1.0.0 is the first release of anything.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
 
+[1.2.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.0
 [1.1.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.1.0
 [1.0.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.0.0

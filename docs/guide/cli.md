@@ -53,7 +53,7 @@ knowing before they surprise you.
 
 A motif parameterized by a Python function, by another motif, or by a whole
 point set has no sensible flag. Those take their value from the motif's
-**registered example** instead, so every motif in the catalogue still renders:
+**registered example** instead, so every motif in the catalog still renders:
 
 ```bash
 geomotif render voronoi.cells --inset 0.2
@@ -71,7 +71,7 @@ example, not from the class defaults.
 A generic option and a motif parameter share one argparse namespace, and
 `points`, `count`, `step`, `spacing`, `seed`, `size`, `width`, `height`, `gap`,
 `curve`, `spread` and `resolution` are all parameter names somewhere in the
-catalogue. So the sampling options are:
+catalog. So the sampling options are:
 
 | Option | Means |
 |---|---|
@@ -103,7 +103,16 @@ The suffix of `--out` picks the writer:
 | `.dxf` | DXF R12 |
 | `.csv`, `.txt`, `.tsv`, `.json` | the structured design writer |
 | `.gif` | an animation — see `--motion`, `--frames`, `--hold` and `--fps` |
-| `.png`, `.pdf`, `.jpg`, `.jpeg` | matplotlib — the one part of the CLI that needs the `plot` extra |
+| `.png`, `.jpg`, `.jpeg` | a still picture — pure standard library, no install |
+| `.pdf` | matplotlib — the one part of the CLI that needs the `plot` extra |
+
+The `--canvas WxH` flag sets the pixel size of a `.gif`, `.png` or `.jpg`
+(independent of the geometry-fitting `--fit`), and the styling flags —
+`--stroke-width`, `--dot-radius`, `--ink`, `--background`, `--padding`,
+`--antialias`, `--loop` — apply the same way to every raster format. A
+`.mnf`-less still is a single picture, so `.png` has `--compression` and
+`.jpg` has `--quality`; `--transparent` leaves a `.png` or `.gif`'s
+background empty, and is ignored for `.jpg`, which has no alpha.
 
 Without `--out`, the points go to stdout as CSV, so the command pipes:
 
@@ -130,11 +139,11 @@ geomotif render spiral.golden --samples 300 --snap 1 --precision 0 > whole.csv
 
 `--snap` pairs with `--precision 0`, which writes `3` rather than `3.0`. It is
 exact for the coordinate formats and `.dxf`; the writers that place a design
-themselves — `.svg`, `--paper` included, `.gif` and the matplotlib formats — fit
-it into their canvas as they write and rescale the grid away. See
+themselves — `.svg`, `--paper` included, `.gif`, `.png`, `.jpg` and the matplotlib
+formats — fit it into their canvas as they write and rescale the grid away. See
 [Snapping to a grid](export.md#snapping-to-a-grid).
 
-For a plotter, `--paper a4` writes the SVG in real millimetres — `--landscape`
+For a plotter, `--paper a4` writes the SVG in real millimeters — `--landscape`
 turns the sheet on its side, `--margin` sets the border to leave unplotted (10 mm
 by default), and `--optimize` joins strokes that meet and orders them so the pen
 travels less. See [Plotting it for real](plotter.md):

@@ -26,7 +26,7 @@ Two things follow from generating flags rather than writing them.
 **Not every parameter can be said on a command line.** A motif parameterized by
 a Python function, by another motif, or by a point set has no sensible flag.
 Those take their value from the motif's registered example instead, so every
-motif in the catalogue still renders -- ``geomotif render voronoi.cells`` gives
+motif in the catalog still renders -- ``geomotif render voronoi.cells`` gives
 you the example's point set, and ``--inset`` still works on top of it.
 
 **A generic flag and a motif parameter share one namespace.** The handful of
@@ -62,7 +62,16 @@ from .core.spacing import (
 from .core.transform import SNAP_MODES
 from .core.types import Bounds
 from .explore import DEFAULT_SIZE, DEFAULT_STEPS, save_html
-from .io import load_spec, save_design, save_dxf, save_gif, save_svg, to_spec
+from .io import (
+    load_spec,
+    save_design,
+    save_dxf,
+    save_gif,
+    save_jpeg,
+    save_png,
+    save_svg,
+    to_spec,
+)
 from .io.plotter import PAPER, optimize, save_plotter_svg
 
 # Imported rather than repeated: "0 or negative writes whole integers" is part
@@ -83,27 +92,38 @@ __all__ = ["MOTIONS", "RESERVED", "build_parser", "main"]
 #: argparse has one namespace and the generic option has to win.
 RESERVED = frozenset(
     {
+        "aa_level",
+        "antialias",
+        "background",
         "by",
+        "compression",
         "distribute",
+        "dither",
+        "dot_radius",
         "ease",
         "fit",
         "fps",
         "frames",
         "hold",
+        "ink",
         "keep_duplicates",
         "landscape",
+        "loop",
         "margin",
         "motion",
         "optimize",
         "out",
+        "padding",
         "paper",
         "precision",
+        "quality",
         "samples",
         "snap",
         "snap_mode",
         "spec",
         "stride",
         "title",
+        "transparent",
     }
 )
 
@@ -141,10 +161,10 @@ _WRITERS = {
     ".tsv": "design",
     ".json": "design",
     ".gif": "gif",
-    ".png": "figure",
+    ".png": "png",
+    ".jpg": "jpg",
+    ".jpeg": "jpeg",
     ".pdf": "figure",
-    ".jpg": "figure",
-    ".jpeg": "figure",
 }
 
 
@@ -213,6 +233,12 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     render.add_argument("--by", choices=("length", "parameter"), default="length")
     render.add_argument("--distribute", choices=("length", "even", "per_path"), default="length")
     render.add_argument("--fit", type=_size, metavar="WxH", help="scale onto a canvas")
+    render.add_argument(
+        "--canvas",
+        type=_size,
+        metavar="WxH",
+        help="pixel canvas for a .gif, .png or .jpg",
+    )
     render.add_argument("--motion", choices=MOTIONS, default="draw-on", help="how a .gif animates")
     render.add_argument("--frames", type=int, default=48, metavar="N", help="frames in a .gif")
     render.add_argument(
@@ -223,9 +249,73 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     )
     render.add_argument("--fps", type=float, default=20.0, metavar="X", help="a .gif's frame rate")
     render.add_argument(
+        "--loop",
+        type=_nonnegative_int,
+        default=0,
+        metavar="N",
+        help="times a .gif plays (0=forever)",
+    )
+    render.add_argument(
+        "--stroke-width",
+        type=_positive_int,
+        default=1,
+        metavar="PX",
+        help="stroke width, in pixels",
+    )
+    render.add_argument(
+        "--dot-radius",
+        type=_positive_int,
+        metavar="PX",
+        help="loose-point radius, in pixels (default: --thickness)",
+    )
+    render.add_argument("--ink", default="#0b0b0b", help="default stroke color, a name or #hex")
+    render.add_argument("--background", default="#ffffff", help="canvas color, a name or #hex")
+    render.add_argument(
+        "--transparent",
+        action="store_true",
+        help="leave a .png or .gif's background empty instead of painting it",
+    )
+    render.add_argument(
+        "--padding",
+        type=_nonnegative_float,
+        default=8.0,
+        metavar="PX",
+        help="margin around a raster drawing, in pixels",
+    )
+    render.add_argument("--antialias", action="store_true", help="smooth a raster drawing's edges")
+    render.add_argument(
+        "--aa-level",
+        type=_positive_int,
+        default=8,
+        metavar="N",
+        help="with --antialias, shades an edge may blend into per color pair",
+    )
+    render.add_argument(
+        "--dither",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="error-diffuse a .gif's palette round-off (--no-dither turns it off)",
+    )
+    render.add_argument(
+        "--compression",
+        type=_nonnegative_int,
+        default=6,
+        choices=range(10),
+        metavar="0-9",
+        help="zlib level a .png is deflated at (0 fast, 9 small)",
+    )
+    render.add_argument(
+        "--quality",
+        type=_nonnegative_int,
+        default=85,
+        choices=range(101),
+        metavar="0-100",
+        help="how much a .jpg keeps (0 small, 100 faithful)",
+    )
+    render.add_argument(
         "--paper",
         choices=sorted(PAPER),
-        help="write a .svg at this paper size, in real millimetres, for a plotter",
+        help="write a .svg at this paper size, in real millimeters, for a plotter",
     )
     render.add_argument("--landscape", action="store_true", help="turn --paper on its side")
     render.add_argument(
@@ -233,7 +323,7 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
         type=float,
         default=10.0,
         metavar="MM",
-        help="with --paper, border to leave unplotted, in millimetres",
+        help="with --paper, border to leave unplotted, in millimeters",
     )
     render.add_argument(
         "--optimize",
@@ -292,7 +382,7 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
 
 
 def _list(args: argparse.Namespace) -> int:
-    """Print the catalogue, grouped by family."""
+    """Print the catalog, grouped by family."""
     names = registry.names(family=args.family)
     if not names:
         raise KeyError(
@@ -544,7 +634,7 @@ def _default_for(param: ParamInfo, info: MotifInfo) -> object:
     """Return the value a flag starts from: the example, else the declared default.
 
     Starting from the example means ``geomotif render rose`` draws the rose
-    from the catalogue and ``--n 7`` changes one thing about it, rather than
+    from the catalog and ``--n 7`` changes one thing about it, rather than
     silently rendering a different motif than the gallery shows.
     """
     return info.example.get(param.name, param.default)
@@ -607,6 +697,28 @@ def _nonnegative_int(text: str) -> int:
         raise argparse.ArgumentTypeError(f"expected a whole number -- got {text!r}") from None
     if value < 0:
         raise argparse.ArgumentTypeError(f"--hold must be >= 0, got {value}")
+    return value
+
+
+def _positive_int(text: str) -> int:
+    """Parse a whole number that must be at least one."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a whole number -- got {text!r}") from None
+    if value < 1:
+        raise argparse.ArgumentTypeError(f"must be >= 1, got {value}")
+    return value
+
+
+def _nonnegative_float(text: str) -> float:
+    """Parse a number that may not go below zero."""
+    try:
+        value = float(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"expected a number -- got {text!r}") from None
+    if value < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
     return value
 
 
@@ -713,6 +825,10 @@ def _write(design: Design, target: pathlib.Path, args: argparse.Namespace) -> No
             save_design(design, target, precision=args.precision)
         case "gif":
             _save_animation(design, target, args)
+        case "png":
+            _save_still(design, target, args, "png")
+        case "jpg" | "jpeg":
+            _save_still(design, target, args, "jpeg")
         case _:
             _save_figure(design, target, args)
 
@@ -721,20 +837,52 @@ def _save_animation(design: Design, target: pathlib.Path, args: argparse.Namespa
     """Turn one design into frames and write them as an animated GIF."""
     from .animate import draw_on, spin
 
-    width, height = args.fit if args.fit is not None else (_GIF_SIZE, _GIF_SIZE)
+    width, height = _canvas(args)
     hold = _hold_for(args)
     match args.motion:
         case "spin":
             frames = spin(design, args.frames, hold=hold)
         case _:
             frames = draw_on(design, args.frames, hold=hold)
-    save_gif(frames, target, width=round(width), height=round(height), fps=args.fps)
+    save_gif(
+        frames,
+        target,
+        width=width,
+        height=height,
+        fps=args.fps,
+        loop=args.loop,
+        ink=args.ink,
+        background=args.background,
+        thickness=args.stroke_width,
+        dot_radius=args.dot_radius,
+        padding=args.padding,
+        antialias=args.antialias,
+        aa_level=args.aa_level,
+        dither=args.dither,
+        transparent=args.transparent,
+    )
+
+
+def _canvas(args: argparse.Namespace) -> tuple[int, int]:
+    """Return the raster canvas in pixels, ``--canvas`` winning over ``--fit``.
+
+    ``--canvas`` changes how big the pixels are, ``--fit`` changes what the
+    drawing is -- so when both are given the drawing is still fitted onto the
+    world canvas (in _render) and the pixel canvas comes from ``--canvas``
+    alone. Either alone sets the canvas from itself; neither falls back to the
+    1.1.0 fixed 480.
+    """
+    if args.canvas is not None:
+        return round(args.canvas[0]), round(args.canvas[1])
+    if args.fit is not None:
+        return round(args.fit[0]), round(args.fit[1])
+    return _GIF_SIZE, _GIF_SIZE
 
 
 def _hold_for(args: argparse.Namespace) -> int:
     """How many copies of the finished drawing to sit on, for this invocation.
 
-    ``--hold`` wins when it is given; otherwise each motion keeps the behaviour
+    ``--hold`` wins when it is given; otherwise each motion keeps the behavior
     it has always had -- ``draw-on`` settles on a quarter of the run, and
     ``spin``, whose whole business is turning, holds nothing.
     """
@@ -744,8 +892,44 @@ def _hold_for(args: argparse.Namespace) -> int:
     return cast("int", held)
 
 
+def _save_still(design: Design, target: pathlib.Path, args: argparse.Namespace, kind: str) -> None:
+    """Render the finished design as one raster still: a PNG or JPEG, no extra install.
+
+    Where a GIF is the moving picture (a run of frames), a still is the
+    picture that does not move: the completed design drawn once. The animation
+    flags -- ``--motion``, ``--frames``, ``--hold`` -- simply do not apply and
+    are ignored, so ``render rose --motion spin --out rose.png`` degrades
+    gracefully to a still of the final shape. A PNG keeps every color; a JPEG
+    trades a little fidelity for a smaller file, tuned by ``--quality``.
+    """
+    width, height = _canvas(args)
+    shared = {
+        "width": width,
+        "height": height,
+        "ink": args.ink,
+        "background": args.background,
+        "thickness": args.stroke_width,
+        "dot_radius": args.dot_radius,
+        "padding": args.padding,
+        "antialias": args.antialias,
+        "aa_level": args.aa_level,
+    }
+    if kind == "jpeg":
+        # A JPEG has no alpha, so a transparent request is ignored here the
+        # way an animation flag is ignored for a still.
+        save_jpeg(design, target, **shared, quality=args.quality)
+    elif args.transparent:
+        save_png(design, target, **shared, compression=args.compression, transparent=True)
+    else:
+        save_png(design, target, **shared, compression=args.compression)
+
+
 def _save_figure(design: Design, target: pathlib.Path, args: argparse.Namespace) -> None:
-    """Render through matplotlib, which is the only optional part of the CLI."""
+    """Render a vector page through matplotlib, which is the only optional part of the CLI.
+
+    PDF is the one format here that is beyond the raster side to replace -- the
+    standard library has no PDF writer -- so it keeps the matplotlib route.
+    """
     try:
         from .plotting import plot_design
     except ImportError:

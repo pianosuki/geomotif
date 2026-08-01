@@ -106,7 +106,7 @@ def test_a_design_with_no_motif_gets_no_title():
 
 
 def test_text_and_attributes_are_escaped():
-    # Not paranoia: a title comes from metadata, and a colour from whatever
+    # Not paranoia: a title comes from metadata, and a color from whatever
     # the caller passed. Either can carry a quote or an angle bracket.
     text = to_svg(MIXED, title='a <b> & "c"', stroke='#000" onload="x')
     assert svg_find(text, "title")[0].text == 'a <b> & "c"'

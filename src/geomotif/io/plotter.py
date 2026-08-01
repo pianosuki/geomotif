@@ -5,7 +5,7 @@ paper is, how far the pen travels while it is *up*, and which pen is drawing.
 This module answers all three.
 
 **A real size.** :func:`to_plotter_svg` writes the drawing at a named paper
-size in millimetres -- ``width="210mm"``, not ``width="210"`` -- so what comes
+size in millimeters -- ``width="210mm"``, not ``width="210"`` -- so what comes
 out of the plotter is the size you asked for rather than whatever the receiving
 software guessed.
 
@@ -17,7 +17,7 @@ them -- which on a plotted mandala is most of the drawing time.
 **One pen at a time.** Everything here works layer by layer
 (:mod:`geomotif.core.style`) and never joins or reorders across layers: two
 strokes on different layers are drawn by different pens, and merging them would
-mean drawing one of them in the wrong colour.
+mean drawing one of them in the wrong color.
 
 ::
 
@@ -60,7 +60,7 @@ __all__ = [
     "to_vpype",
 ]
 
-#: Paper sizes in millimetres, portrait. The ISO A series plus the two North
+#: Paper sizes in millimeters, portrait. The ISO A series plus the two North
 #: American sizes anyone plots on.
 PAPER: Mapping[str, tuple[float, float]] = MappingProxyType(
     {
@@ -75,14 +75,14 @@ PAPER: Mapping[str, tuple[float, float]] = MappingProxyType(
     }
 )
 
-#: A fine liner, in millimetres. The default because it is what most plotter
+#: A fine liner, in millimeters. The default because it is what most plotter
 #: pens are, and because a stroke width has to be *something* once the file is
 #: measured in real units.
 DEFAULT_PEN = 0.35
 
 
 def page_size(paper: str = "a4", *, landscape: bool = False) -> tuple[float, float]:
-    """Return a named paper's size in millimetres.
+    """Return a named paper's size in millimeters.
 
     Raises
     ------
@@ -103,10 +103,10 @@ def on_page(
     margin: float = 10.0,
     landscape: bool = False,
 ) -> Design:
-    """Return ``design`` fitted to a sheet of paper, in millimetres, y-down.
+    """Return ``design`` fitted to a sheet of paper, in millimeters, y-down.
 
-    Scaling is uniform and the drawing is centred, so nothing is distorted and
-    the margin is honoured on all four sides. The result is in the coordinate
+    Scaling is uniform and the drawing is centerd, so nothing is distorted and
+    the margin is honored on all four sides. The result is in the coordinate
     space a plotter and an SVG both use -- y growing downward -- which is why
     it is worth doing once here rather than in each writer.
     """
@@ -123,7 +123,7 @@ def to_plotter_svg(
     stroke_width: float = DEFAULT_PEN,
     **kwargs: Any,
 ) -> str:
-    """Render a design as an SVG measured in real millimetres.
+    """Render a design as an SVG measured in real millimeters.
 
     Parameters
     ----------
@@ -132,12 +132,12 @@ def to_plotter_svg(
     paper : str
         A name from :data:`PAPER`.
     margin : float
-        Border to leave unplotted, in millimetres. Worth more than you would
-        think: most plotters cannot reach the last few millimetres of a sheet.
+        Border to leave unplotted, in millimeters. Worth more than you would
+        think: most plotters cannot reach the last few millimeters of a sheet.
     landscape : bool
         Turn the paper on its side.
     stroke_width : float
-        Pen width in millimetres. Only affects how the file *looks* -- a
+        Pen width in millimeters. Only affects how the file *looks* -- a
         plotter draws with the pen it has -- but getting it right makes the
         preview honest.
     **kwargs
@@ -230,7 +230,7 @@ def optimize(
     Returns
     -------
     Design
-        The same ink in the same colours, drawn in a better order. Loose
+        The same ink in the same colors, drawn in a better order. Loose
         points and metadata are carried through untouched -- a dot is a dot
         wherever it is in the list.
 
@@ -413,7 +413,7 @@ def to_vpype(
 
     width, height = page_size(paper, landscape=landscape)
     placed = on_page(design, paper=paper, margin=margin, landscape=landscape)
-    # vpype measures everything in CSS pixels, so millimetres have to be said
+    # vpype measures everything in CSS pixels, so millimeters have to be said
     # in its units rather than assumed to be its units.
     per_mm = vpype.convert_length("1mm")
 

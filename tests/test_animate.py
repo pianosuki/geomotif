@@ -4,7 +4,7 @@ import pytest
 
 from geomotif import Design, Path, Style, layer, styled, to_gif
 from geomotif.animate import draw_on, spin, sweep
-from geomotif.io.raster import rasterize
+from geomotif.io.raster import Raster, quantize, rasterize, rasterize_rgba
 from geomotif.motifs import KochSnowflake, Phyllotaxis, RegularPolygon, Rose
 from tests.readback import gif
 
@@ -131,7 +131,7 @@ def test_spinning_a_full_turn_comes_back_to_where_it_started():
 
 
 def test_spinning_keeps_the_design_where_it_was():
-    # Rotating about the origin would swing an off-centre design out of frame.
+    # Rotating about the origin would swing an off-center design out of frame.
     shifted = SQUARE.transformed(__import__("geomotif").Affine.translate(500.0, 0.0))
     for frame in spin(shifted, 6):
         assert frame.bounds.center == pytest.approx(shifted.bounds.center)
@@ -262,7 +262,7 @@ def test_a_gif_round_trips_through_a_reader_that_is_not_this_writer():
 
 
 def decoded_palette(decoded):
-    """The writer's palette strings, rebuilt from the colour table it wrote."""
+    """The writer's palette strings, rebuilt from the color table it wrote."""
     return tuple(f"#{r:02x}{g:02x}{b:02x}" for r, g, b in decoded.palette)
 
 
@@ -289,24 +289,59 @@ def test_a_single_frame_is_a_plain_still_image():
     assert decoded.loop is None  # no looping block, because there is nothing to loop
 
 
-def test_the_colours_are_the_ones_that_were_asked_for():
+def test_a_transparent_gif_flags_index_zero_as_empty():
+    # The background sits at index 0; a transparent GIF marks exactly that
+    # index as the empty color, in every frame, so it plays over a page.
+    decoded = gif(to_gif([SQUARE], width=40, height=40, transparent=True))
+    frame = decoded.frames[0]
+    assert frame.transparent == 0
+    # The empty corners are the flagged index, and the ink still paints.
+    assert frame.pixels[0] == 0
+    assert 1 in set(frame.pixels)
+
+
+def test_a_transparent_animated_gif_stays_transparent_throughout():
+    decoded = gif(to_gif(draw_on(SQUARE, 4), width=40, height=40, transparent=True))
+    assert all(frame.transparent == 0 for frame in decoded.frames)
+    # The first frame is nearly empty but the transparent index, not a color.
+    first = decoded.frames[0]
+    assert set(first.pixels) <= {0, 1}
+
+
+def test_a_non_transparent_gif_has_no_transparent_index():
+    decoded = gif(to_gif([SQUARE], width=40, height=40))
+    assert decoded.frames[0].transparent is None
+
+
+def test_a_transparent_antialiased_gif_keeps_strokes_opaque():
+    # Antialiasing and an empty background are both honored at once: the
+    # edges blend toward the transparent index rather than a painted ground.
+    decoded = gif(to_gif([BOX], width=40, height=40, transparent=True, antialias=True))
+    frame = decoded.frames[0]
+    assert frame.transparent == 0
+    # A corner is empty and the box's outline still paints in ink, never empty.
+    assert frame.pixels[0] == 0
+    assert 1 in set(frame.pixels)
+
+
+def test_the_colors_are_the_ones_that_were_asked_for():
     decoded = gif(to_gif([SQUARE], ink="#123456", background="#fedcba"))
     assert decoded.palette[:2] == [(0xFE, 0xDC, 0xBA), (0x12, 0x34, 0x56)]
 
 
-def test_a_short_hex_colour_is_understood():
+def test_a_short_hex_color_is_understood():
     assert gif(to_gif([SQUARE], ink="#f00")).palette[1] == (0xFF, 0x00, 0x00)
 
 
-def test_the_named_colours_the_dxf_writer_knows_are_understood_here_too():
+def test_the_named_colors_the_dxf_writer_knows_are_understood_here_too():
     # A styled design should not export to SVG and DXF and then fail on GIF
-    # for naming its colour rather than spelling it in hex.
+    # for naming its color rather than spelling it in hex.
     assert gif(to_gif([SQUARE], ink="red")).palette[1] == (0xFF, 0x00, 0x00)
     assert gif(to_gif([styled(SQUARE, stroke="Blue")])).palette[2] == (0x00, 0x00, 0xFF)
 
 
-def test_a_colour_that_is_not_one_is_refused():
-    with pytest.raises(ValueError, match="cannot write 'crimson' into a GIF colour table"):
+def test_a_color_that_is_not_one_is_refused():
+    with pytest.raises(ValueError, match="cannot write 'crimson' into a GIF color table"):
         to_gif([SQUARE], ink="crimson")
 
 
@@ -347,21 +382,34 @@ def test_pillow_reads_what_this_writer_wrote():
 # --- the palette and the pen ------------------------------------------------
 
 
-def test_colours_in_puts_the_background_first_and_the_ink_second():
-    from geomotif.io.raster import colours_in
+def test_colors_in_puts_the_background_first_and_the_ink_second():
+    from geomotif.io.raster import colors_in
 
-    assert colours_in([SQUARE], ink="#000", background="#fff") == ("#fff", "#000")
+    assert colors_in([SQUARE], ink="#000", background="#fff") == ("#fff", "#000")
 
 
-def test_colours_in_adds_each_styled_colour_once_in_the_order_it_appears():
-    from geomotif.io.raster import colours_in
+def test_colors_in_adds_each_styled_color_once_in_the_order_it_appears():
+    from geomotif.io.raster import colors_in
 
     design = layer(
         styled(SQUARE, stroke="#f00"),
         styled(TWO_STROKES, stroke="#00f"),
         styled(BOX, stroke="#f00"),  # already there
     )
-    assert colours_in([design], ink="#000", background="#fff") == ("#fff", "#000", "#f00", "#00f")
+    assert colors_in([design], ink="#000", background="#fff") == ("#fff", "#000", "#f00", "#00f")
+
+
+def test_the_british_spelling_still_works_but_is_deprecated():
+    # colours_in shipped with 1.1.0, so it keeps working; it now names the
+    # American colors_in and warns that it is going away.
+    import warnings
+
+    from geomotif.io.raster import colours_in
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert colours_in([SQUARE], ink="#000", background="#fff") == ("#fff", "#000")
+    assert any(issubclass(item.category, DeprecationWarning) for item in caught)
 
 
 def test_a_wide_pen_draws_a_thicker_line():
@@ -382,9 +430,213 @@ def test_a_stroke_of_one_point_still_marks_the_canvas():
     assert sum(1 for p in rasterize(single, width=20, height=20).pixels if p) > 0
 
 
-def test_a_colour_outside_the_palette_falls_back_to_the_ink():
+def test_a_color_outside_the_palette_falls_back_to_the_ink():
     # Only reachable by passing a palette the design's styles are not in.
     # Drawing in the default is better than dropping the stroke.
     design = styled(BOX, stroke="#abcdef")
     raster = rasterize(design, width=20, height=20, palette=("#fff", "#000"))
     assert set(raster.pixels) == {0, 1}
+
+
+# --- the Raster shape: indexed and direct ------------------------------------
+
+
+def test_a_raster_defaults_to_the_indexed_shape_it_always_had():
+    raster = rasterize(SQUARE, width=20, height=20)
+    assert raster.mode == "indexed"
+    assert len(raster.pixels) == 20 * 20
+    assert raster.palette
+
+
+def test_a_direct_rgba_raster_holds_four_bytes_per_pixel():
+    from geomotif.io.raster import Raster
+
+    picture = Raster(2, 2, bytes(range(16)), mode="rgba")
+    assert picture.mode == "rgba"
+    assert len(picture.pixels) == 2 * 2 * 4
+
+
+def test_a_direct_rgb_raster_holds_three_bytes_per_pixel():
+    from geomotif.io.raster import Raster
+
+    picture = Raster(2, 2, bytes(12), mode="rgb")
+    assert picture.mode == "rgb"
+    assert len(picture.pixels) == 2 * 2 * 3
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [("indexed", 4), ("rgb", 12), ("rgba", 16)],
+)
+def test_a_raster_checks_the_length_by_mode(mode, expected):
+    from geomotif.io.raster import Raster
+
+    with pytest.raises(ValueError, match="needs"):
+        Raster(2, 2, bytes(expected + 1), mode=mode)
+
+
+def test_an_unknown_mode_is_refused():
+    from geomotif.io.raster import Raster
+
+    with pytest.raises(ValueError, match="mode must be one of"):
+        Raster(2, 2, bytes(4), mode="cmyk")
+
+
+# --- antialiasing and quantization -------------------------------------------
+
+
+def _rgba_shades(raster):
+    """The distinct RGB colors that are not pure background or the default ink."""
+    ink = (0x0B, 0x0B, 0x0B)
+    background = (0xFF, 0xFF, 0xFF)
+    seen = set()
+    for at in range(0, len(raster.pixels), 4):
+        seen.add((raster.pixels[at], raster.pixels[at + 1], raster.pixels[at + 2]))
+    return seen - {background, ink}
+
+
+def test_rasterize_rgba_makes_a_full_color_frame():
+    from geomotif.io.raster import Raster
+
+    frame = rasterize_rgba(BOX, width=20, height=20)
+    assert frame.mode == "rgba"
+    assert len(frame.pixels) == 20 * 20 * 4
+    rebuilt = Raster(20, 20, frame.pixels, mode="rgba")  # passes its own length check
+    assert rebuilt.pixels == frame.pixels
+
+
+def test_a_diagonal_line_blends_more_than_the_hard_edge():
+    line = Design(paths=(Path(((0.0, 0.0), (100.0, 100.0))),))
+    sharp = rasterize_rgba(line, width=50, height=50, scale=1)
+    smooth = rasterize_rgba(line, width=50, height=50, scale=4)
+    assert len(_rgba_shades(smooth)) > len(_rgba_shades(sharp))
+
+
+def test_aa_level_bounds_how_many_shades_an_edge_makes():
+    line = Design(paths=(Path(((0.0, 0.0), (100.0, 100.0))),))
+    coarse = rasterize_rgba(line, width=50, height=50, scale=4, aa_level=2)
+    fine = rasterize_rgba(line, width=50, height=50, scale=4, aa_level=64)
+    assert len(_rgba_shades(fine)) > len(_rgba_shades(coarse))
+
+
+def test_quantize_returns_indexed_frames_sharing_one_palette():
+    frames = [
+        rasterize_rgba(SQUARE, width=30, height=30),
+        rasterize_rgba(TWO_STROKES, width=30, height=30),
+    ]
+    indexed = quantize(frames)
+    assert all(raster.mode == "indexed" for raster in indexed)
+    assert len({raster.palette for raster in indexed}) == 1
+    assert len(indexed[0].palette) <= 256
+
+
+def test_quantize_keeps_the_seed_colors_first_and_exact():
+    frame = rasterize_rgba(SQUARE, width=30, height=30, ink="#123456", background="#fedcba")
+    indexed = quantize([frame], seeds=("#fedcba", "#123456"))
+    assert indexed[0].palette[:2] == ("#fedcba", "#123456")
+    assert indexed[0].pixels.count(0) + indexed[0].pixels.count(1) > 0
+
+
+def test_rasterize_rgba_transparent_empties_the_background():
+    line = Design(paths=(Path(((0.0, 0.0), (1.0, 0.0))),))
+    frame = rasterize_rgba(line, width=20, height=20)
+    empty = rasterize_rgba(line, width=20, height=20, transparent=True)
+    # The same empty corner is opaque without transparency, alpha 0 with it.
+    opaque_at = 4 * (0 * 20 + 0) + 3
+    assert frame.pixels[opaque_at] == 255
+    assert empty.pixels[opaque_at] == 0
+    # And the pair differ: transparency changed the drawn background, not the ink.
+    assert frame.pixels != empty.pixels
+
+
+def test_quantize_transparent_reserves_index_zero():
+    from geomotif.io.raster import Raster
+
+    # A hand-built 2x2 RGBA frame: an empty corner, two opaque inks, and a
+    # semi-transparent ink pixel that only transparency should send to index 0.
+    rgba = Raster(
+        2,
+        2,
+        bytes(
+            [
+                0xFF,
+                0xFF,
+                0xFF,
+                0x00,  # (0,0) empty
+                0xFF,
+                0x00,
+                0x00,
+                0xFF,  # (0,1) red, opaque
+                0x00,
+                0x00,
+                0xFF,
+                0xFF,  # (1,0) blue, opaque
+                0xFF,
+                0x00,
+                0x00,
+                0x64,  # (1,1) red, mostly transparent
+            ]
+        ),
+        mode="rgba",
+    )
+    seeds = ("#ffffff", "#ff0000", "#0000ff")
+    opaque = quantize([rgba], seeds=seeds, transparent=False)[0]
+    empty = quantize([rgba], seeds=seeds, transparent=True)[0]
+    # Index 0 is the background in both, but transparency reserves it as empty.
+    assert empty.palette[0] == "#ffffff"
+    assert empty.palette[:3] == ("#ffffff", "#ff0000", "#0000ff")
+    # The empty corner and the faint ink pixel both become the reserved index.
+    assert empty.pixels[0] == 0
+    assert empty.pixels[3] == 0
+    assert empty.pixels[1] == 1  # red ink, opaque
+    assert empty.pixels[2] == 2  # blue ink, opaque
+    # Without transparency the faint pixel is a color, never the empty slot.
+    assert opaque.pixels[3] != 0
+
+
+def test_more_seeds_than_the_budget_raise():
+    frame = rasterize_rgba(BOX, width=4, height=4)
+    with pytest.raises(ValueError, match="cannot hold"):
+        quantize([frame], seeds=("#ffffff", "#000000"), max_colors=1)
+
+
+def test_a_gif_never_drops_an_ink_even_over_256():
+    from types import MappingProxyType
+
+    from geomotif.core.types import PATH_STYLE_KEY
+
+    colors = [f"#{r:02x}{g:02x}{b:02x}" for r in range(16) for g in range(16) for b in range(2)][
+        :260
+    ]
+    design = Design(
+        paths=tuple(Path(((float(i), 0.0), (float(i), 1.0))) for i in range(260)),
+        meta=MappingProxyType({PATH_STYLE_KEY: tuple(Style(stroke=color) for color in colors)}),
+    )
+    with pytest.raises(ValueError, match="256"):
+        to_gif([design])
+
+
+def test_dithering_spreads_a_gradient_instead_of_banding_it():
+    width, height = 40, 40
+    pixels = bytearray()
+    for _ in range(height):
+        for x in range(width):
+            value = round(255 * x / (width - 1))
+            pixels += bytes((value, value, value, 255))
+    gradient = Raster(width, height, bytes(pixels), mode="rgba")
+
+    plain = quantize([gradient], seeds=("#000000", "#ffffff"), max_colors=2, dither=False)[0]
+    dithered = quantize([gradient], seeds=("#000000", "#ffffff"), max_colors=2, dither=True)[0]
+    assert len(plain.palette) == 2  # the budget really is two colors
+
+    def transitions(raster):
+        return sum(
+            1 for i in range(1, len(raster.pixels)) if raster.pixels[i] != raster.pixels[i - 1]
+        )
+
+    assert transitions(dithered) > transitions(plain)
+
+
+def test_aa_level_out_of_range_is_refused_at_the_gif_level():
+    with pytest.raises(ValueError, match="aa_level"):
+        to_gif([SQUARE], antialias=True, aa_level=0)

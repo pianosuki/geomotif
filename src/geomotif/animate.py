@@ -1,7 +1,7 @@
 """Frames: the same design over time, or the same motif over a parameter.
 
 A still image says what a design *is*. An animation says how it is made, which
-for most of this catalogue is the more interesting half -- watching a Hilbert
+for most of this catalog is the more interesting half -- watching a Hilbert
 curve fill its square, or a rose's petal count climb, tells you something the
 finished picture cannot.
 
@@ -109,7 +109,7 @@ def spin(
     turns : float
         Revolutions across the whole animation. Negative turns clockwise.
     about : (float, float), optional
-        Centre of rotation. Defaults to the middle of the design's bounds,
+        center of rotation. Defaults to the middle of the design's bounds,
         which is what keeps it inside the canvas.
     hold : int
         Extra copies of the finished drawing to append, so an animation that
@@ -127,9 +127,9 @@ def spin(
         raise ValueError(f"frames must be >= 1, got {frames}")
     if hold < 0:
         raise ValueError(f"hold must be >= 0, got {hold}")
-    centre = about if about is not None else (design.bounds.center if len(design) else (0.0, 0.0))
+    center = about if about is not None else (design.bounds.center if len(design) else (0.0, 0.0))
     step = math.tau * turns / frames
-    turned = tuple(design.transformed(Affine.rotate(i * step, about=centre)) for i in range(frames))
+    turned = tuple(design.transformed(Affine.rotate(i * step, about=center)) for i in range(frames))
     return tuple(list(turned) + [turned[-1]] * hold)
 
 
@@ -137,7 +137,7 @@ def sweep(motif: SupportsBuild, parameter: str, values: Iterable[object]) -> tup
     """Return one frame per value of one of a motif's parameters.
 
     The motif is rebuilt for each value, which is the only way to animate a
-    parameter -- and cheap enough, since the whole catalogue is built rather
+    parameter -- and cheap enough, since the whole catalog is built rather
     than loaded.
 
     Parameters

@@ -199,7 +199,7 @@ class SubstitutionTiling[TileT](Motif, ABC):
 
         Exposed separately from :meth:`build` because the tiles themselves are
         often what you want -- to count them, to check a substitution rule
-        preserves area, or to colour them by type.
+        preserves area, or to color them by type.
         """
         if self.depth < 0:
             raise ValueError(f"depth must be >= 0, got {self.depth}")

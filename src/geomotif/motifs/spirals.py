@@ -425,7 +425,7 @@ class FibonacciSpiral(Motif):
 @register("spiral.euler", family="spiral")
 @dataclass(frozen=True, slots=True)
 class EulerSpiral(ParametricMotif):
-    """The clothoid: curvature increasing linearly with distance travelled.
+    """The clothoid: curvature increasing linearly with distance traveled.
 
     Drive at constant speed and turn the wheel at a constant rate and this is
     the path you take, which is why it is the transition curve between a

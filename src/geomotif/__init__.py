@@ -33,7 +33,7 @@ Writing your own takes one method::
 or none at all, if one of the bases in :mod:`geomotif.bases` already describes
 the kind of thing you are drawing -- then you write the maths and nothing else.
 
-Motif classes live in :mod:`geomotif.motifs`, not here: the catalogue is far
+Motif classes live in :mod:`geomotif.motifs`, not here: the catalog is far
 too large for a flat namespace. This module exports the core model, the motif
 bases, the spacing curves, the transform layer and the registry -- the things
 you build *with*. See :mod:`geomotif.core.registry` for lookup by name.
@@ -105,18 +105,22 @@ from .io import (
     save_design,
     save_dxf,
     save_gif,
+    save_jpeg,
     save_plotter_svg,
+    save_png,
     save_points,
     save_spec,
     save_svg,
     to_dxf,
     to_gif,
+    to_jpeg,
     to_plotter_svg,
+    to_png,
     to_spec,
     to_svg,
 )
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 __all__ = [
     "SNAP_MODES",
@@ -179,7 +183,9 @@ __all__ = [
     "save_design",
     "save_dxf",
     "save_gif",
+    "save_jpeg",
     "save_plotter_svg",
+    "save_png",
     "save_points",
     "save_spec",
     "save_svg",
@@ -190,7 +196,9 @@ __all__ = [
     "tile",
     "to_dxf",
     "to_gif",
+    "to_jpeg",
     "to_plotter_svg",
+    "to_png",
     "to_spec",
     "to_svg",
 ]

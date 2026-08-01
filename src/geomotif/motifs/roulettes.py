@@ -383,7 +383,7 @@ class Epicycles(ParametricMotif):
     @override
     def curves(self) -> Iterable[Curve]:
         # Whether the tip comes home depends on the numbers, so it cannot be a
-        # class attribute the way it is everywhere else in the catalogue: with
+        # class attribute the way it is everywhere else in the catalog: with
         # whole frequencies over a whole number of turns every arm is back
         # where it started, and otherwise the stroke genuinely has two ends.
         closes = float(self.turns).is_integer() and all(

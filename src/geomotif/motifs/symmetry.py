@@ -1,6 +1,6 @@
 """Point sets defined by a symmetry group and a rule about their distances.
 
-Every other motif in this catalogue says where its points *are*. This one says
+Every other motif in this catalog says where its points *are*. This one says
 what has to be **true** of them -- that they fall into the orbits of a cyclic or
 dihedral group, and that neighbouring points sit the same distance apart -- and
 then solves for an arrangement that satisfies it.
@@ -55,8 +55,8 @@ _CONNECTIONS: tuple[str, ...] = get_args(Connection.__value__)
 # What each orbit is free to move along. A ring orbit sits at a general
 # position and may slide both outward and around; an axis orbit is pinned to a
 # mirror line and may only slide outward, since leaving the line would break
-# the very symmetry it was placed to satisfy; the centre cannot move at all.
-type _Kind = Literal["centre", "ring", "axis"]
+# the very symmetry it was placed to satisfy; the center cannot move at all.
+type _Kind = Literal["center", "ring", "axis"]
 
 # How far a relaxation step moves a representative, as a fraction of the
 # distance error it is correcting. Well under 1 so that neighbours converge
@@ -99,7 +99,7 @@ class SymmetricPointSet(SegmentMotif):
     The points are laid out in **orbits** -- sets the group carries onto
     themselves. Under ``Cn`` an orbit holds ``n`` points; under ``Dn`` a
     general orbit holds ``2n`` and one sitting on the mirror lines holds
-    ``n``. A single point at the centre is fixed by either group, so a count
+    ``n``. A single point at the center is fixed by either group, so a count
     that is one more than a multiple of ``n`` gets one.
 
     That is the whole constraint on ``count``: it must be a multiple of the
@@ -183,7 +183,7 @@ class SymmetricPointSet(SegmentMotif):
             raise ValueError(
                 f"{name}: {self.count} points cannot be arranged with {self.group} "
                 f"symmetry. An orbit holds a multiple of {order} points, plus at most "
-                f"one at the centre -- try {lower} or {upper}"
+                f"one at the center -- try {lower} or {upper}"
             )
         if self.radius <= 0.0:
             raise ValueError(f"{name}: radius must be > 0, got {self.radius}")
@@ -277,15 +277,15 @@ def _nearest_counts(count: int, order: int) -> tuple[int, int]:
 def _plan(count: int, order: int, *, dihedral: bool) -> tuple[_Kind, ...]:
     """Return the orbits a count breaks into, innermost first.
 
-    The centre goes first because it is innermost by definition. Under a
+    The center goes first because it is innermost by definition. Under a
     dihedral group the general orbits are twice the size, so an odd number of
     ``order``-sized units leaves one over; that leftover becomes the orbit on
-    the mirror lines, placed next to the centre where its smaller ring is
+    the mirror lines, placed next to the center where its smaller ring is
     least conspicuous. A cyclic group has no mirror lines to sit on, and every
     unit is simply a ring.
     """
     units = count // order
-    kinds: list[_Kind] = ["centre"] if count % order == 1 else []
+    kinds: list[_Kind] = ["center"] if count % order == 1 else []
     if not dihedral:
         kinds.extend(["ring"] * units)
         return tuple(kinds)
@@ -298,7 +298,7 @@ def _plan(count: int, order: int, *, dihedral: bool) -> tuple[_Kind, ...]:
 def _size(kind: _Kind, order: int, *, dihedral: bool) -> int:
     """Return how many points one orbit holds."""
     match kind:
-        case "centre":
+        case "center":
             return 1
         case "axis":
             return order
@@ -352,7 +352,7 @@ def _seed(
     dihedral stagger stays inside the wedge rather than reaching the far edge
     of it.
     """
-    rings = [i for i, kind in enumerate(kinds) if kind != "centre"]
+    rings = [i for i, kind in enumerate(kinds) if kind != "center"]
     radii = [0.0] * len(kinds)
     angles = [0.0] * len(kinds)
     sector = math.pi / order if dihedral else math.tau / order
@@ -389,7 +389,7 @@ def _relax_once(
     first = 0
     for index, kind in enumerate(kinds):
         size = _size(kind, order, dihedral=dihedral)
-        if kind != "centre":
+        if kind != "center":
             sx, sy = _capped(_force(points, first, neighbors, target), rate, target)
             cos, sin = math.cos(angles[index]), math.sin(angles[index])
             radii[index] = min(max(radii[index] + sx * cos + sy * sin, limit * 1e-3), limit)
@@ -497,7 +497,7 @@ def _expand(
     step = math.tau / order
     points: list[Point] = []
     for index, kind in enumerate(kinds):
-        if kind == "centre":
+        if kind == "center":
             points.append(center)
             continue
         r, angle = radii[index], angles[index]

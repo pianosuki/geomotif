@@ -8,7 +8,7 @@ the segment machinery every other graph motif already uses.
 The rule for which corners are joined is the same one for all six regular and
 semi-regular solids in this module: **join every pair of corners that are as
 close together as any pair gets**. On a shape whose corners are all alike that
-is exactly its edge set, so the whole catalogue below is six tables of numbers
+is exactly its edge set, so the whole catalog below is six tables of numbers
 and nothing else. :class:`Polyhedron` is for the shapes that are not like
 that, and takes its edges as given.
 

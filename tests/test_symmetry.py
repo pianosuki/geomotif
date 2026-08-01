@@ -28,7 +28,7 @@ def spread(pts):
         (15, "D5", (5, 10)),  # the fifteen-point star: one mirror orbit, one general
         (15, "C5", (5, 5, 5)),
         (10, "D5", (10,)),
-        (21, "C5", (1, 5, 5, 5, 5)),  # the odd one out goes to the centre
+        (21, "C5", (1, 5, 5, 5, 5)),  # the odd one out goes to the center
         (12, "D6", (12,)),
     ],
 )
@@ -106,7 +106,7 @@ def test_the_outermost_point_sits_at_the_radius():
     assert max(math.hypot(x, y) for x, y in pts) == pytest.approx(80.0)
 
 
-def test_the_figure_is_centred_where_it_was_told_to_be():
+def test_the_figure_is_centerd_where_it_was_told_to_be():
     pts = points(count=15, group="D5", center=(50.0, -20.0))
     xs = [x for x, _ in pts]
     ys = [y for _, y in pts]
@@ -140,7 +140,7 @@ def test_relaxing_further_does_not_undo_the_answer():
 )
 def test_the_counts_that_used_to_fold_onto_a_mirror_line(count, group):
     # Named individually as well as swept, because each is a count with a
-    # centre point or a second ring -- the shapes that put a ring orbit next
+    # center point or a second ring -- the shapes that put a ring orbit next
     # to a mirror line and gave the relaxation somewhere degenerate to settle.
     assert spread(points(count=count, group=group)) < 2.0
 
@@ -152,8 +152,8 @@ def test_a_connect_rule_that_is_not_one_is_refused_at_construction():
         SymmetricPointSet(connect="bogus")  # type: ignore[arg-type]
 
 
-def test_a_centre_given_as_a_list_is_taken_as_a_point():
-    # The solver is memoized on its arguments, so an unhashable centre used to
+def test_a_center_given_as_a_list_is_taken_as_a_point():
+    # The solver is memoized on its arguments, so an unhashable center used to
     # arrive as a TypeError naming neither the motif nor the parameter.
     assert SymmetricPointSet(center=[3.0, 4.0]).center == (3.0, 4.0)  # type: ignore[arg-type]
     assert len(SymmetricPointSet(center=[3.0, 4.0]).build().points) == 15  # type: ignore[arg-type]

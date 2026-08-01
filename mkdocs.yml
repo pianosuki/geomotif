@@ -9,7 +9,7 @@ repo_name: pianosuki/geomotif
 copyright: MIT licensed
 
 # Everything derived from the code -- the API reference, the gallery, the
-# catalogue and the README's images -- is written by this hook before mkdocs
+# catalog and the README's images -- is written by this hook before mkdocs
 # reads the file tree, so a docs build is never a step behind the registry.
 hooks:
   - tools/gendocs.py
@@ -63,7 +63,7 @@ extra_css:
 plugins:
   - search
   # SUMMARY.md files are generated beside the pages they list, so the nav below
-  # never has to name every motif in the catalogue or every module in the tree.
+  # never has to name every motif in the catalog or every module in the tree.
   - literate-nav
   - mkdocstrings:
       handlers:
@@ -120,7 +120,8 @@ nav:
   - Extending:
       - extending.md
       - api-policy.md
-  - Catalogue: catalogue.md
+      - style-guide.md
+  - catalog: catalog.md
   - Gallery: gallery/
   - Reference: reference/
   - Changelog: changelog.md

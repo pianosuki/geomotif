@@ -11,7 +11,7 @@ reference](reference/index.md). Concretely:
 
 - `geomotif` — the core model, the motif bases, the spacing curves, the
   transform layer, the registry and the I/O functions.
-- `geomotif.motifs` and `geomotif.compose` — the motif catalogue, as a flat
+- `geomotif.motifs` and `geomotif.compose` — the motif catalog, as a flat
   namespace each.
 - `geomotif.bases`, `geomotif.core.*`, `geomotif.io.*`, `geomotif.plotting`,
   `geomotif.animate`, `geomotif.explore`, `geomotif.cli`.
@@ -42,7 +42,7 @@ Within a major version, none of these breaks:
 
 - **Import paths.** A public name keeps working from where it worked.
 - **Call signatures.** Parameters are not removed, reordered or renamed.
-  Keyword-only arguments may be *added* with defaults that preserve behaviour.
+  Keyword-only arguments may be *added* with defaults that preserve behavior.
 - **Registry names.** `spiral.golden` stays `spiral.golden`, and a motif is not
   removed.
 - **Spec files.** A spec written by 1.x loads in every later 1.x. The
@@ -54,8 +54,15 @@ Within a major version, none of these breaks:
   1.x still does in 1.y.
 
 A new motif, a new spacing curve, a new keyword argument with a
-behaviour-preserving default, and a new export format are all **minor**
+behavior-preserving default, and a new export format are all **minor**
 releases. Anything that would make correct 1.x code stop working is **major**.
+
+Spelling follows from this: a public name (an `__all__` export, a public
+parameter, a CLI flag, a registry name, a spec key) that is later seen to be
+wrongly spelled can only be fixed as a breaking change. The agreed spellings
+and the single deliberate exception are in [the style guide](style-guide.md);
+check a public name there before it ships, because the fix gets expensive
+after release.
 
 ## Experimental
 

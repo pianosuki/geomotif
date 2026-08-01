@@ -600,7 +600,7 @@ class Cornoid(ParametricMotif):
 
     An oval with a pair of cusped loops tucked inside it, one near each end.
     A closed sextic, and one of the few named curves that looks like nothing
-    else in the catalogue.
+    else in the catalog.
 
     Parameters
     ----------

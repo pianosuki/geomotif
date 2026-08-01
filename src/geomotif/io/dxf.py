@@ -18,8 +18,8 @@ say so in its own units.
 
 Layers are the one part of :mod:`geomotif.core.style` that DXF models natively:
 a styled design writes each of its layers into the file's layer table and puts
-every entity on its own. Colour is the part DXF barely models at all -- R12
-knows 255 indexed colours and no arbitrary ones -- so the seven it can name are
+every entity on its own. color is the part DXF barely models at all -- R12
+knows 255 indexed colors and no arbitrary ones -- so the seven it can name are
 written and anything else is left to the layer.
 """
 
@@ -48,15 +48,15 @@ _LAYER = re.compile(r"^[A-Za-z0-9_$\-.]{1,31}$")
 #: Group code for the layer an entity sits on.
 _LAYER_CODE = 8
 
-#: Group code for an entity's own colour, overriding its layer's.
-_COLOUR_CODE = 62
+#: Group code for an entity's own color, overriding its layer's.
+_COLOR_CODE = 62
 
-#: Colour index 7 is the one that reads as ink on whatever the background is:
+#: color index 7 is the one that reads as ink on whatever the background is:
 #: white on a dark canvas, black on a light one.
-_DEFAULT_COLOUR = 7
+_DEFAULT_COLOR = 7
 
-#: The AutoCAD Colour Index numbers that have names. A style naming any other
-#: colour keeps its layer's, because inventing a nearest match out of 255
+#: The AutoCAD color Index numbers that have names. A style naming any other
+#: color keeps its layer's, because inventing a nearest match out of 255
 #: indexed slots would be a guess the file could not be talked out of.
 _ACI: dict[str, int] = {
     "red": 1,
@@ -190,7 +190,7 @@ def _layer_table(layers: Iterable[str]) -> Iterator[str]:
         yield _tag(0, "LAYER")
         yield _tag(2, name)
         yield _tag(70, 0)  # not frozen, not locked
-        yield _tag(_COLOUR_CODE, _DEFAULT_COLOUR)
+        yield _tag(_COLOR_CODE, _DEFAULT_COLOR)
         yield _tag(6, "CONTINUOUS")
     yield _tag(0, "ENDTAB")
 
@@ -202,13 +202,13 @@ def _entities(design: Design, fallback: str, num: Callable[[float], str]) -> Ite
             stroke.points,
             closed=stroke.closed,
             layer=_layer_of(style, fallback),
-            colour=_colour_of(style),
+            color=_color_of(style),
             num=num,
         )
     for (x, y), style in zip(design.points, point_styles_of(design), strict=True):
         yield _tag(0, "POINT")
         yield _tag(_LAYER_CODE, _layer_of(style, fallback))
-        yield from _colour_tag(style)
+        yield from _color_tag(style)
         yield _point(x, y, num)
 
 
@@ -219,18 +219,18 @@ def _layer_of(style: Style | None, fallback: str) -> str:
     return style.layer
 
 
-def _colour_of(style: Style | None) -> int | None:
-    """Return the colour index a style asks for, or ``None`` to inherit the layer's."""
+def _color_of(style: Style | None) -> int | None:
+    """Return the color index a style asks for, or ``None`` to inherit the layer's."""
     if style is None or style.stroke is None:
         return None
     return _ACI.get(style.stroke.strip().lower())
 
 
-def _colour_tag(style: Style | None) -> Iterator[str]:
-    """Emit an entity's own colour, if it has one DXF can name."""
-    colour = _colour_of(style)
-    if colour is not None:
-        yield _tag(_COLOUR_CODE, colour)
+def _color_tag(style: Style | None) -> Iterator[str]:
+    """Emit an entity's own color, if it has one DXF can name."""
+    color = _color_of(style)
+    if color is not None:
+        yield _tag(_COLOR_CODE, color)
 
 
 def _polyline(
@@ -238,14 +238,14 @@ def _polyline(
     *,
     closed: bool,
     layer: str,
-    colour: int | None,
+    color: int | None,
     num: Callable[[float], str],
 ) -> Iterator[str]:
     """Emit one POLYLINE, its VERTEX run, and the SEQEND that ends it."""
     yield _tag(0, "POLYLINE")
     yield _tag(_LAYER_CODE, layer)
-    if colour is not None:
-        yield _tag(_COLOUR_CODE, colour)
+    if color is not None:
+        yield _tag(_COLOR_CODE, color)
     yield _tag(66, 1)  # vertices follow -- required in R12
     # Bit 1 of the flags is "closed": the closing segment is the reader's job,
     # which is why a closed path never repeats its first point here either.

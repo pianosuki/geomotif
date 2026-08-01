@@ -6,7 +6,7 @@ import pytest
 from geomotif import load_design
 from geomotif.cli import RESERVED, main
 from geomotif.core import registry
-from tests.readback import dxf_polylines, gif, svg_root, svg_strokes
+from tests.readback import dxf_polylines, gif, jpeg, png, svg_root, svg_strokes
 
 
 def run(capsys, *argv):
@@ -19,7 +19,7 @@ def run(capsys, *argv):
 # --- list and show ---------------------------------------------------------
 
 
-def test_list_groups_the_catalogue_by_family(capsys):
+def test_list_groups_the_catalog_by_family(capsys):
     code, out, _ = run(capsys, "list")
     assert code == 0
     assert "spiral" in out
@@ -114,6 +114,122 @@ def test_the_frame_rate_reaches_the_file(capsys, tmp_path):
     assert gif(out.read_bytes()).frames[0].delay == 10
 
 
+def test_canvas_sets_the_pixel_size_independently_of_geometry(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--canvas", "120x80", "--frames", "4")
+    decoded = gif(out.read_bytes())
+    assert (decoded.width, decoded.height) == (120, 80)
+
+
+def test_canvas_wins_over_fit_for_the_pixel_canvas(capsys, tmp_path):
+    # --fit resizes the drawing's geometry; --canvas sizes the pixels. When
+    # both are given the pixels come from --canvas and the geometry is still
+    # fitted onto the world canvas it was asked for.
+    out = tmp_path / "rose.gif"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--fit",
+        "60x60",
+        "--canvas",
+        "90x40",
+        "--frames",
+        "4",
+    )
+    assert (gif(out.read_bytes()).width, gif(out.read_bytes()).height) == (90, 40)
+
+
+def test_canvas_alone_and_fit_alone_degrade_to_each_other(capsys, tmp_path):
+    sized, fitted = tmp_path / "a.gif", tmp_path / "b.gif"
+    run(capsys, "render", "rose", "--out", str(sized), "--canvas", "70x70", "--frames", "4")
+    run(capsys, "render", "rose", "--out", str(fitted), "--fit", "70x70", "--frames", "4")
+    assert gif(sized.read_bytes()).width == gif(fitted.read_bytes()).width == 70
+
+
+def test_stroke_width_reaches_the_gif(capsys, tmp_path):
+    thin, thick = tmp_path / "t.gif", tmp_path / "k.gif"
+    run(capsys, "render", "rose", "--out", str(thin), "--canvas", "60x60", "--frames", "4")
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(thick),
+        "--canvas",
+        "60x60",
+        "--frames",
+        "4",
+        "--stroke-width",
+        "4",
+    )
+    assert gif(thick.read_bytes()).frames[-1].pixels.count(1) > gif(thin.read_bytes()).frames[
+        -1
+    ].pixels.count(1)
+
+
+def test_loop_reaches_the_gif(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    run(capsys, "render", "rose", "--out", str(out), "--frames", "4", "--loop", "3")
+    assert gif(out.read_bytes()).loop == 2  # stored as repeats after the first
+
+
+def test_a_motifs_size_flag_is_not_stolen_by_the_canvas_flag(capsys, tmp_path):
+    # `size` is a real parameter on most of the catalog, and reserving it for
+    # the pixel canvas would silently change `render rose --size 800`. It stays
+    # a motif flag; the pixel knob goes by `--canvas` instead.
+    a, b = tmp_path / "a.json", tmp_path / "b.json"
+    run(capsys, "render", "rose", "--out", str(a), "--size", "100")
+    run(capsys, "render", "rose", "--out", str(b), "--size", "400")
+    ta, tb = load_design(a).bounds, load_design(b).bounds
+    assert tb.width > ta.width  # a bigger rose, not a bigger canvas
+
+
+def test_antialias_reaches_and_enriches_the_gif(capsys, tmp_path):
+    sharp, soft = tmp_path / "s.gif", tmp_path / "o.gif"
+    run(capsys, "render", "rose", "--out", str(sharp), "--canvas", "60x60", "--frames", "4")
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(soft),
+        "--canvas",
+        "60x60",
+        "--frames",
+        "4",
+        "--antialias",
+    )
+    assert len(gif(soft.read_bytes()).palette) > len(gif(sharp.read_bytes()).palette)
+
+
+def test_no_dither_is_accepted(capsys, tmp_path):
+    out = tmp_path / "rose.gif"
+    assert (
+        run(
+            capsys,
+            "render",
+            "rose",
+            "--out",
+            str(out),
+            "--canvas",
+            "40x40",
+            "--frames",
+            "3",
+            "--antialias",
+            "--no-dither",
+        )[0]
+        == 0
+    )
+
+
+def test_aa_level_zero_is_refused():
+    with pytest.raises(SystemExit):
+        main(["render", "rose", "--aa-level", "0", "--out", "x.gif"])
+
+
 def test_hold_zero_means_no_repeated_frames(capsys, tmp_path):
     out = tmp_path / "rose.gif"
     run(capsys, "render", "rose", "--out", str(out), "--frames", "6", "--hold", "0")
@@ -184,7 +300,7 @@ def test_hold_collides_with_no_motif_parameter(capsys, tmp_path):
     assert len(gif(out.read_bytes()).frames) == 8
 
 
-def test_paper_writes_an_svg_in_real_millimetres(capsys, tmp_path):
+def test_paper_writes_an_svg_in_real_millimeters(capsys, tmp_path):
     out = tmp_path / "rose.svg"
     run(capsys, "render", "rose", "--out", str(out), "--paper", "a5")
     assert svg_root(out.read_text()).get("width") == "148mm"
@@ -303,7 +419,7 @@ def test_fit_scales_onto_a_canvas(capsys, tmp_path):
     out = tmp_path / "f.json"
     run(capsys, "render", "rose", "--fit", "100x100", "--out", str(out))
     bounds = load_design(out).bounds
-    # Uniform scaling, centred in whichever axis has slack, so exactly one of
+    # Uniform scaling, centerd in whichever axis has slack, so exactly one of
     # the two fills the canvas and neither overflows it.
     assert max(bounds.width, bounds.height) == pytest.approx(100.0)
     assert bounds.max_x <= 100.0
@@ -384,14 +500,130 @@ def test_an_unwritable_suffix_lists_the_ones_that_work(capsys, tmp_path):
     assert ".svg" in err
 
 
-def test_render_writes_a_figure(capsys, tmp_path):
-    pytest.importorskip("matplotlib")
-    import matplotlib
-
-    matplotlib.use("Agg")
+def test_render_writes_a_truecolor_png(capsys, tmp_path):
     out = tmp_path / "r.png"
     assert run(capsys, "render", "rose", "--samples", "50", "--out", str(out))[0] == 0
-    assert out.stat().st_size > 0
+    decoded = png(out.read_bytes())
+    assert (decoded.width, decoded.height) == (480, 480)
+    assert decoded.color_type == 2
+
+
+def test_render_png_takes_the_canvas_and_styling_without_matplotlib(capsys, tmp_path):
+    out = tmp_path / "r.png"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--canvas",
+        "90x40",
+        "--ink",
+        "magenta",
+        "--background",
+        "cyan",
+        "--stroke-width",
+        "3",
+        "--antialias",
+    )
+    decoded = png(out.read_bytes())
+    assert (decoded.width, decoded.height) == (90, 40)
+
+
+def test_render_png_ignores_animation_flags_and_stays_a_still(capsys, tmp_path):
+    out = tmp_path / "rose.png"
+    run(capsys, "render", "rose", "--motion", "spin", "--frames", "60", "--out", str(out))
+    assert png(out.read_bytes()).height == 480  # one still, not a run of frames
+
+
+def test_render_png_accepts_a_compression_level(capsys, tmp_path):
+    out = tmp_path / "r.png"
+    assert run(capsys, "render", "rose", "--out", str(out), "--compression", "9")[0] == 0
+    assert png(out.read_bytes()).width == 480
+
+
+def test_render_png_refuses_an_out_of_range_compression(tmp_path):
+    with pytest.raises(SystemExit):
+        main(["render", "rose", "--out", str(tmp_path / "r.png"), "--compression", "10"])
+
+
+def test_render_png_writes_a_transparent_background(capsys, tmp_path):
+    out = tmp_path / "r.png"
+    assert run(capsys, "render", "rose", "--out", str(out), "--transparent")[0] == 0
+    decoded = png(out.read_bytes())
+    assert decoded.color_type == 6  # --transparent implies truecolor-with-alpha
+    # The empty canvas corners are alpha 0, not the white background color.
+    at = 4 * (0 * decoded.width + 0)
+    assert tuple(decoded.pixels[at : at + 4]) == (0, 0, 0, 0)
+
+
+def test_render_gif_writes_a_transparent_background(capsys, tmp_path):
+    out = tmp_path / "r.gif"
+    assert run(capsys, "render", "rose", "--out", str(out), "--transparent", "--hold", "3")[0] == 0
+    decoded = gif(out.read_bytes())
+    assert decoded.frames
+    assert all(frame.transparent == 0 for frame in decoded.frames)
+
+
+def test_render_with_transparent_against_any_writer_does_not_error(capsys, tmp_path):
+    # A JPEG has no alpha, so --transparent is ignored there the way an
+    # animation flag is ignored for a still, rather than refused.
+    out = tmp_path / "r.jpg"
+    assert run(capsys, "render", "rose", "--out", str(out), "--transparent")[0] == 0
+    assert jpeg(out.read_bytes()).width == 480
+
+
+def test_render_writes_a_jpeg_a_figure_used_to_write(capsys, tmp_path):
+    out = tmp_path / "r.jpg"
+    assert run(capsys, "render", "rose", "--samples", "50", "--out", str(out))[0] == 0
+    decoded = jpeg(out.read_bytes())
+    assert (decoded.width, decoded.height) == (480, 480)
+    assert decoded.pixels  # a real payload, not an empty one
+
+
+def test_the_jpeg_extension_is_an_alias_for_jpg(capsys, tmp_path):
+    out = tmp_path / "r.jpeg"
+    assert run(capsys, "render", "rose", "--out", str(out))[0] == 0
+    assert jpeg(out.read_bytes()).width == 480
+
+
+def test_render_jpeg_takes_the_canvas_and_styling_without_matplotlib(capsys, tmp_path):
+    out = tmp_path / "r.jpg"
+    run(
+        capsys,
+        "render",
+        "rose",
+        "--out",
+        str(out),
+        "--canvas",
+        "90x40",
+        "--ink",
+        "magenta",
+        "--background",
+        "cyan",
+        "--stroke-width",
+        "3",
+        "--antialias",
+    )
+    decoded = jpeg(out.read_bytes())
+    assert (decoded.width, decoded.height) == (90, 40)
+
+
+def test_render_jpeg_ignores_animation_flags_and_stays_a_still(capsys, tmp_path):
+    out = tmp_path / "rose.jpg"
+    run(capsys, "render", "rose", "--motion", "spin", "--frames", "60", "--out", str(out))
+    assert jpeg(out.read_bytes()).height == 480  # one still, not a run of frames
+
+
+def test_render_jpeg_accepts_a_quality_level(capsys, tmp_path):
+    out = tmp_path / "r.jpg"
+    assert run(capsys, "render", "rose", "--out", str(out), "--quality", "92")[0] == 0
+    assert jpeg(out.read_bytes()).width == 480
+
+
+def test_render_jpeg_refuses_an_out_of_range_quality(tmp_path):
+    with pytest.raises(SystemExit):
+        main(["render", "rose", "--out", str(tmp_path / "r.jpg"), "--quality", "101"])
 
 
 # --- explore ---------------------------------------------------------------
@@ -576,7 +808,7 @@ def test_an_unavailable_motif_is_described_and_skipped(capsys, tmp_path, monkeyp
 def test_writing_a_figure_without_matplotlib_says_how_to_get_it(tmp_path, monkeypatch):
     monkeypatch.setitem(__import__("sys").modules, "geomotif.plotting", None)
     with pytest.raises(SystemExit, match=r"geomotif\[plot\]"):
-        main(["render", "rose", "--out", str(tmp_path / "r.png")])
+        main(["render", "rose", "--out", str(tmp_path / "r.pdf")])
 
 
 def test_the_version_is_reported(capsys):

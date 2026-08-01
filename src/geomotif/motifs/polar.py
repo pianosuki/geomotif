@@ -129,7 +129,7 @@ class MaurerRose(PolygonMotif):
     """A rose walked in whole-degree steps and joined by straight chords.
 
     Peter Maurer's construction, and the best return on effort in the whole
-    catalogue: take the points of a rose at ``0``, ``degrees``, ``2*degrees``
+    catalog: take the points of a rose at ``0``, ``degrees``, ``2*degrees``
     and so on, join them with straight lines, and the chords weave a
     filigree the underlying curve gives no hint of. Change ``degrees`` by one
     and the whole pattern reorganizes.

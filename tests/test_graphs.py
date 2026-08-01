@@ -197,7 +197,7 @@ def test_the_two_times_table_envelopes_a_cardioid():
         assert 0.0 <= along <= 1.0
 
 
-def test_the_cardioid_envelope_is_the_cardioid_the_catalogue_draws():
+def test_the_cardioid_envelope_is_the_cardioid_the_catalog_draws():
     # ...and that closed form is the same curve `Cardioid` builds: cusp a
     # third of the radius from the middle, opening to the far side, and
     # r = (2R/3)(1 + cos t) -- which `Cardioid` takes as the largest extent of

@@ -79,7 +79,7 @@ point.
 
 ## Palettes
 
-Colours live in a [`Palette`][geomotif.plotting.Palette], a frozen dataclass
+colors live in a [`Palette`][geomotif.plotting.Palette], a frozen dataclass
 with two instances shipped: `LIGHT` and `DARK`.
 
 ```python
@@ -108,6 +108,6 @@ code path.
 
 You do not need this module to get a picture. [`save_svg`](export.md#svg) is
 pure standard library and produces a file every browser, editor and plotter
-toolchain reads. Reach for matplotlib when you want axes, a grid, labelled
+toolchain reads. Reach for matplotlib when you want axes, a grid, labeled
 endpoints and a comparison figure — that is, when you are inspecting the points
 rather than drawing the design.

@@ -339,7 +339,7 @@ class GosperCurve(LSystemMotif):
 class VicsekFractal(LSystemMotif):
     """The box fractal: a plus sign made of plus signs.
 
-    Tamas Vicsek's construction, which keeps only the centre and the four
+    Tamas Vicsek's construction, which keeps only the center and the four
     edge-midpoints of each subdivided square. The saltire cross the outline
     traces is what stochastic versions of it are used to model -- percolation
     clusters and diffusion fronts.
@@ -643,7 +643,7 @@ class HTree(PolygonMotif):
 
 
 #: A circle as Descartes' theorem wants it: its curvature, and that curvature
-#: times its centre taken as a complex number. In these coordinates the fourth
+#: times its center taken as a complex number. In these coordinates the fourth
 #: circle tangent to three others is plain arithmetic -- see :func:`_sibling`.
 type _Circle = tuple[float, complex]
 
@@ -861,12 +861,12 @@ def _chaos_game(maps: Sequence[IFSMap], count: int, rng: random.Random) -> list[
 
 
 def _scaled(points: Sequence[Point], *, size: float, center: Point) -> tuple[Point, ...]:
-    """Return ``points`` scaled so their largest extent is ``size``, centred on ``center``.
+    """Return ``points`` scaled so their largest extent is ``size``, centerd on ``center``.
 
     The attractor's own coordinates are an artefact of whatever numbers the
     maps happen to contain, so they are measured and rescaled rather than
     trusted. ``size`` therefore means what it means everywhere else in the
-    catalogue: the largest extent of the bounding box.
+    catalog: the largest extent of the bounding box.
     """
     bounds = Bounds.from_points(points)
     extent = max(bounds.width, bounds.height)

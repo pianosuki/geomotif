@@ -9,7 +9,7 @@ Third-party packages ship their own motifs by declaring an entry point::
     [project.entry-points."geomotif.motifs"]
     my_motifs = "my_package.motifs:register_all"
 
-The builtin catalogue and any such plugins are loaded lazily, on the first
+The builtin catalog and any such plugins are loaded lazily, on the first
 registry access rather than at import, so a motif family nobody touches costs
 nothing to have installed.
 """
@@ -131,7 +131,7 @@ def _load_motifs() -> None:
     """Populate the registry, once, before anyone reads it.
 
     Motifs register as a side effect of their module being imported, so the
-    builtin catalogue has to be imported before a lookup can succeed --
+    builtin catalog has to be imported before a lookup can succeed --
     otherwise the registry reports only whatever the caller happened to
     import already, which is a maddening bug to chase.
 
@@ -139,8 +139,8 @@ def _load_motifs() -> None:
     import this one; by the time anything reads the registry, both are fully
     loaded and the cycle is harmless.
 
-    Two packages, in order: the catalogue, then the composers, which are
-    motifs too and which build on the catalogue.
+    Two packages, in order: the catalog, then the composers, which are
+    motifs too and which build on the catalog.
     """
     global _motifs_loaded
     if _motifs_loaded:

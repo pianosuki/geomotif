@@ -7,12 +7,12 @@ documentation goes stale:
   directive that mkdocstrings fills in from the docstrings;
 - **the gallery** -- every registered motif, rendered to SVG at its own native
   resolution, beside the code that reproduces exactly that picture;
-- **the catalogue** -- the same list as a plain table, for reading rather than
+- **the catalog** -- the same list as a plain table, for reading rather than
   looking at.
 
 The reference and the gallery are rebuilt on every docs build and are not
 committed: an SVG per motif comes to several megabytes, and a generated file in
-the tree is a file that can disagree with the code. The catalogue and the
+the tree is a file that can disagree with the code. The catalog and the
 handful of images the README leads with *are* committed, because GitHub renders
 a README without ever running mkdocs -- so those two are checked for drift
 instead, by ``make docs-check`` and by CI.
@@ -89,7 +89,7 @@ _GROUPS = (
     "Overview",
     "Core",
     "Motif bases",
-    "Motif catalogue",
+    "Motif catalog",
     "Composers",
     "Reading and writing",
     "Surfaces",
@@ -126,7 +126,7 @@ def generate(docs: Path = DOCS) -> list[Path]:
     return [
         *_reference(docs / "reference"),
         *_gallery(docs / "gallery"),
-        *_catalogue(docs / "catalogue.md"),
+        *_catalog(docs / "catalog.md"),
         *_hero(docs / "assets"),
     ]
 
@@ -179,7 +179,7 @@ def _group(module: str) -> str:
         case ["geomotif", "bases", *_]:
             return "Motif bases"
         case ["geomotif", "motifs", *_]:
-            return "Motif catalogue"
+            return "Motif catalog"
         case ["geomotif", "compose", *_]:
             return "Composers"
         case ["geomotif", "io", *_]:
@@ -376,7 +376,7 @@ def _home(info: MotifInfo) -> str:
     """Return the module a motif class is meant to be imported from.
 
     Where it is *defined* is an implementation detail. ``geomotif.motifs`` and
-    ``geomotif.compose`` are the two flat namespaces the catalogue is published
+    ``geomotif.compose`` are the two flat namespaces the catalog is published
     through, and a snippet should name the one a reader would type.
     """
     for module in ("geomotif.motifs", "geomotif.compose"):
@@ -446,14 +446,14 @@ def _image(out: Path, info: MotifInfo, size: int, stroke: str = GALLERY_INK) -> 
 # --- the committed pieces ---------------------------------------------------
 
 
-def _catalogue(out: Path) -> Iterator[Path]:
+def _catalog(out: Path) -> Iterator[Path]:
     """Write the whole registry as one table -- the gallery, for reading."""
     names = registry.names()
     families = registry.families()
     lines = [
         _BANNER,
         "",
-        "# The catalogue",
+        "# The catalog",
         "",
         f"{len(names)} motifs in {len(families)} families, as of geomotif",
         f"{geomotif.__version__}. Every one of them resamples by arc length, takes every",
@@ -507,7 +507,7 @@ def _md(text: str) -> str:
     """Render the RST flavour of a docstring as Markdown.
 
     Docstrings here are numpydoc, which is RST underneath, and these pages are
-    Markdown. Two constructs actually occur in the catalogue -- inline literals
+    Markdown. Two constructs actually occur in the catalog -- inline literals
     and ``:class:`` cross-references -- so two substitutions cover it, and
     anything more elaborate would be guessing at text that is not there.
     """

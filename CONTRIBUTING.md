@@ -77,7 +77,7 @@ through a spec file. Add motif-specific tests for whatever is *interesting*
 about yours: the property that makes it that shape rather than a similar one.
 
 **6. Regenerate the documentation.** `make docs-gen`, and commit
-`docs/catalogue.md` and any changed image. `make docs-check` and the test suite
+`docs/catalog.md` and any changed image. `make docs-check` and the test suite
 both fail if you forget.
 
 If the motif is yours rather than classical, consider
@@ -107,6 +107,9 @@ individual rule:
 - **The core stays zero-dependency.** A motif that needs a package declares
   `requires=` and is listable without it. CI installs the package with no
   extras at all and runs the suite, so this is checked rather than asserted.
+- **American spelling, everywhere.** The agreed replacements and the one
+  deliberate exception are in [the style guide](docs/style-guide.md), and a
+  test spells out that the prose and identifiers are American.
 
 ## Tests
 

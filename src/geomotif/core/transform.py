@@ -1,6 +1,6 @@
 """Affine transforms and the composite operators built on them.
 
-This layer is why the motif catalogue stays a sane size. Mandalas,
+This layer is why the motif catalog stays a sane size. Mandalas,
 snowflakes, rosettes, kaleidoscopes and most tessellations are
 :func:`radial_repeat` or :func:`tile` applied to one small motif, not thirty
 hardcoded classes.

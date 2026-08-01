@@ -97,7 +97,7 @@ def _closed(*outlines: Sequence[Point]) -> Design:
 
 
 def _walk(interior: Sequence[float], side: float) -> tuple[Point, ...]:
-    """Return the corners of the polygon with these interior angles, centred.
+    """Return the corners of the polygon with these interior angles, centerd.
 
     Walking a polygon by its turns rather than listing its corners is what
     makes the girih tiles one table instead of five: every tile has the same
@@ -394,7 +394,7 @@ def _decagon_cell(size: float) -> tuple[tuple[Point, ...], tuple[Point, ...]]:
     determinant of its basis, which is what the tests assert.
     """
     circumradius = size / (2.0 * math.sin(math.pi / 10.0))
-    reach = size / math.tan(math.pi / 10.0)  # twice the apothem: centre to centre
+    reach = size / math.tan(math.pi / 10.0)  # twice the apothem: center to center
     across = (reach, 0.0)
     slant = (reach * math.cos(math.tau / 5.0), reach * math.sin(math.tau / 5.0))
 

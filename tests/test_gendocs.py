@@ -1,6 +1,6 @@
 """The documentation generator, and the committed files it is responsible for.
 
-Two of the things it writes are committed -- `docs/catalogue.md` and the images
+Two of the things it writes are committed -- `docs/catalog.md` and the images
 the README leads with -- because GitHub renders a README without ever running
 mkdocs. Committed and generated is exactly the combination that goes stale, so
 the drift check lives here as well as in `make docs-check`: a motif added,
@@ -19,7 +19,7 @@ from geomotif.core import registry
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 DOCS = ROOT / "docs"
 
-#: The committed catalogue describes this repository's own motifs on a machine
+#: The committed catalog describes this repository's own motifs on a machine
 #: that can build all of them. Without the optional extras it would gain
 #: "(needs scipy)" notes, and with a plugin installed it would gain that
 #: plugin's motifs -- in either case the comparison below would be measuring
@@ -27,16 +27,16 @@ DOCS = ROOT / "docs"
 _INFOS = [registry.describe(name) for name in registry.names()]
 describes_this_repository = pytest.mark.skipif(
     not all(info.available and info.cls.__module__.startswith("geomotif.") for info in _INFOS),
-    reason="the registry here is not the builtin catalogue: an extra is missing, or a plugin is installed",
+    reason="the registry here is not the builtin catalog: an extra is missing, or a plugin is installed",
 )
 
 
 @describes_this_repository
-def test_the_committed_catalogue_is_up_to_date(tmp_path):
-    fresh = tmp_path / "catalogue.md"
-    list(gendocs._catalogue(fresh))
-    assert fresh.read_text() == (DOCS / "catalogue.md").read_text(), (
-        "docs/catalogue.md is behind the registry; run `make docs-gen`"
+def test_the_committed_catalog_is_up_to_date(tmp_path):
+    fresh = tmp_path / "catalog.md"
+    list(gendocs._catalog(fresh))
+    assert fresh.read_text() == (DOCS / "catalog.md").read_text(), (
+        "docs/catalog.md is behind the registry; run `make docs-gen`"
     )
 
 
@@ -141,6 +141,6 @@ def test_a_function_default_does_not_carry_its_address():
 def test_two_runs_of_the_generator_write_the_same_bytes(tmp_path):
     first = tmp_path / "a"
     second = tmp_path / "b"
-    list(gendocs._catalogue(first / "catalogue.md"))
-    list(gendocs._catalogue(second / "catalogue.md"))
-    assert (first / "catalogue.md").read_text() == (second / "catalogue.md").read_text()
+    list(gendocs._catalog(first / "catalog.md"))
+    list(gendocs._catalog(second / "catalog.md"))
+    assert (first / "catalog.md").read_text() == (second / "catalog.md").read_text()

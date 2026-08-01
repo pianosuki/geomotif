@@ -1,7 +1,7 @@
 name: Docs
 
 # The site is rebuilt from the code on every push to main. Nothing about it is
-# committed except the catalogue and the README's images, so "deploy" and
+# committed except the catalog and the README's images, so "deploy" and
 # "regenerate" are the same action and the published pages cannot describe a
 # version of the library that no longer exists.
 

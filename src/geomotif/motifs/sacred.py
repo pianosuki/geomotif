@@ -71,7 +71,7 @@ def _circle(center: Point, radius: float) -> Path:
 def _hex_lattice(spacing: float, rings: int, center: Point) -> tuple[Point, ...]:
     """Return the hexagonal lattice points within ``rings`` steps of ``center``.
 
-    Counts run 1, 7, 19, 37, 61 -- the centred hexagonal numbers, which is
+    Counts run 1, 7, 19, 37, 61 -- the centerd hexagonal numbers, which is
     what makes a flower of life come out with the number of circles the
     figure is named for.
     """
@@ -142,7 +142,7 @@ class VesicaPiscis(Motif):
 class SeedOfLife(Motif):
     """Seven circles: one in the middle, six around it, all the same size.
 
-    Each of the six passes through the middle one's centre, and the six meet
+    Each of the six passes through the middle one's center, and the six meet
     each other exactly. It is the first closed figure the vesica construction
     reaches, and the first ring of the :class:`FlowerOfLife`.
 

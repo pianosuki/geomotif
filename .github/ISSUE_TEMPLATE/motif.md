@@ -1,6 +1,6 @@
 ---
 name: Motif request
-about: A shape that ought to be in the catalogue
+about: A shape that ought to be in the catalog
 labels: motif
 ---
 

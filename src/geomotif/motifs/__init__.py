@@ -1,4 +1,4 @@
-"""The motif catalogue.
+"""The motif catalog.
 
 Motifs are imported from their family modules rather than from the top-level
 package: there will eventually be well over a hundred of them, and a flat

@@ -1,14 +1,14 @@
-"""Colour and layers: how a design is drawn, rather than what it is.
+"""color and layers: how a design is drawn, rather than what it is.
 
 Geometry says where the ink goes. A :class:`Style` says which pen puts it
-there -- a layer name, a colour, a stroke width -- and it rides along in
+there -- a layer name, a color, a stroke width -- and it rides along in
 :attr:`Design.meta` rather than in :class:`~geomotif.Path`, because none of it
 changes the maths. A design keeps its styles through every transform, every
 resample and every overlay, and drops them the moment you ask for the
 coordinates alone.
 
 Layers are the part that earns its keep. A pen plotter draws one pen at a
-time, so a two-colour drawing is two files or one file with two layers; the
+time, so a two-color drawing is two files or one file with two layers; the
 SVG writer emits the groups Inkscape and ``vpype`` already understand, and the
 DXF writer emits real DXF layers::
 
@@ -49,24 +49,24 @@ class Style:
     """How one stroke or one loose point is drawn.
 
     Every field is optional and ``None`` means "not stated", which is not the
-    same as a default: an unstated colour takes whatever the writer was told
+    same as a default: an unstated color takes whatever the writer was told
     to use, so a style that names only a layer still draws in the document's
     own ink.
 
     Parameters
     ----------
     layer : str, optional
-        Which layer the geometry belongs on. SVG writes these as the labelled
+        Which layer the geometry belongs on. SVG writes these as the labeled
         groups Inkscape and ``vpype`` read; DXF writes them as real layers, so
         the name has to be one DXF permits.
     stroke : str, optional
-        Line colour, as any CSS colour string. DXF has no notion of an
-        arbitrary colour, so its writer maps the seven it can name and leaves
+        Line color, as any CSS color string. DXF has no notion of an
+        arbitrary color, so its writer maps the seven it can name and leaves
         the rest to the layer.
     width : float, optional
         Stroke width, in the units the writer is working in. Must be > 0.
     fill : str, optional
-        Fill colour for closed paths. Line art rarely wants one, which is why
+        Fill color for closed paths. Line art rarely wants one, which is why
         it is not the default.
     """
 
@@ -89,7 +89,7 @@ class Style:
         """Return this style with everything ``other`` states laid over it.
 
         Silence loses: a field ``other`` leaves at ``None`` keeps this style's
-        value, which is what makes ``styled`` composable -- setting a colour
+        value, which is what makes ``styled`` composable -- setting a color
         later must not quietly clear the layer set earlier.
         """
         if other is None:
@@ -123,7 +123,7 @@ def styled(
     -------
     Design
         The same geometry, with styles merged over whatever it already
-        carried -- so a second call that names a colour keeps the layer the
+        carried -- so a second call that names a color keeps the layer the
         first one set.
     """
     over = Style(layer=layer, stroke=stroke, width=width, fill=fill)

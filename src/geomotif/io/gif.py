@@ -6,7 +6,7 @@ animated format that plays everywhere with nothing installed -- a README, a
 chat window, an issue comment.
 
 It is also, unusually for a 1989 format, small enough to write by hand. The
-file is a colour table, a run of frames, and a trailer; the only real work is
+file is a color table, a run of frames, and a trailer; the only real work is
 **LZW**, and GIF's variant of it fits on a page: build a dictionary of byte
 strings as you go, emit each match as a code, widen the code as the dictionary
 fills, and start again from empty when it is full at 4096 entries. That is the
@@ -25,13 +25,13 @@ The frames come from :mod:`geomotif.animate` and the pixels from
 from __future__ import annotations
 
 import pathlib
-from types import MappingProxyType
 from typing import TYPE_CHECKING, Any
 
-from .raster import colours_in, rasterize
+from ._color import NAMED
+from .raster import colors_in, quantize, rasterize, rasterize_rgba
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Mapping, Sequence
+    from collections.abc import Iterable, Sequence
     from os import PathLike
 
     from ..core.types import Bounds, Design
@@ -39,24 +39,8 @@ if TYPE_CHECKING:
 
 __all__ = ["NAMED", "save_gif", "to_gif"]
 
-#: Colour names this writer understands, matching the ones the DXF writer can
-#: put a name to. A GIF holds literal red, green and blue, so a name it does
-#: not know cannot be passed downstream the way the SVG writer passes one --
-#: it has to be resolved here or refused here.
-NAMED: Mapping[str, bytes] = MappingProxyType(
-    {
-        "black": b"\x00\x00\x00",
-        "white": b"\xff\xff\xff",
-        "red": b"\xff\x00\x00",
-        "green": b"\x00\x80\x00",
-        "blue": b"\x00\x00\xff",
-        "yellow": b"\xff\xff\x00",
-        "cyan": b"\x00\xff\xff",
-        "aqua": b"\x00\xff\xff",
-        "magenta": b"\xff\x00\xff",
-        "fuchsia": b"\xff\x00\xff",
-    }
-)
+#: color names this writer understands; see :data:`geomotif.io._color.NAMED`.
+#: Re-exported from here so this module's zero-dependency story survives.
 
 #: GIF measures a frame's delay in hundredths of a second, and nothing else.
 #: Two is the practical floor: browsers treat 0 and 1 as "as fast as you like"
@@ -79,11 +63,15 @@ def to_gif(
     background: str = "#ffffff",
     thickness: int = 1,
     dot_radius: int | None = None,
+    antialias: bool = False,
+    aa_level: int = 8,
+    dither: bool = True,
+    transparent: bool = False,
 ) -> bytes:
     """Render a sequence of designs as an animated GIF.
 
     Every frame is drawn against the **same** world rectangle -- the union of
-    all of their bounds -- and the same colour table, so a drawing that grows
+    all of their bounds -- and the same color table, so a drawing that grows
     stays put instead of swimming about as its own extent changes.
 
     Parameters
@@ -101,12 +89,28 @@ def to_gif(
         How many times to play; ``0`` means forever, which is what everyone
         expects of a GIF, and is the default. ``1`` plays it once and stops.
     ink, background : str
-        Default stroke colour and the colour behind everything. A stroke with
+        Default stroke color and the color behind everything. A stroke with
         a style of its own is drawn in that instead.
     thickness : int
         Stroke width in pixels.
     dot_radius : int, optional
         Radius for loose points. Defaults to ``thickness``.
+    antialias : bool
+        Supersample and blend edges. Off by default, so the output is exactly
+        the hard-edged picture it has always been.
+    aa_level : int
+        When antialiasing, how many shades an edge may blend into per color
+        pair, which is what keeps the whole animation inside GIF's 256-color
+        budget. Must be >= 1.
+    dither : bool
+        Error-diffuse the round-off onto a gradient, which keeps an
+        antialiased edge on a colored ground from banding inside the palette
+        budget. On by default.
+    transparent : bool
+        Leave the background empty. Index 0 is flagged transparent in the
+        file, so the drawing sits over whatever the page shows instead of a
+        painted ground. Off by default, so the picture stays what it has
+        always been.
 
     Returns
     -------
@@ -116,9 +120,9 @@ def to_gif(
     Raises
     ------
     ValueError
-        If there are no frames, the rate is not positive, or the designs need
-        more than 256 colours between them -- which is GIF's limit, not this
-        writer's.
+        If there are no frames, the rate is not positive, the antialias level
+        is zero, or the designs' own colors (the inks and background) exceed
+        256 between them -- which is GIF's limit, not this writer's.
     """
     if not frames:
         raise ValueError("cannot write a GIF with no frames")
@@ -126,38 +130,66 @@ def to_gif(
         raise ValueError(f"fps must be > 0, got {fps}")
     if loop < 0:
         raise ValueError(f"loop must be >= 0, got {loop}")
+    if aa_level < 1:
+        raise ValueError(f"aa_level must be >= 1, got {aa_level}")
 
-    palette = colours_in(frames, ink=ink, background=background)
-    if len(palette) > 256:
+    seeds = colors_in(frames, ink=ink, background=background)
+    if len(seeds) > 256:
         raise ValueError(
-            f"a GIF has at most 256 colours and these designs need {len(palette)}; "
+            f"a GIF has at most 256 colors and these designs need {len(seeds)}; "
             f"restyle them onto fewer, or write them as SVG instead"
         )
     shared = _union(frames)
     delay = max(_MIN_DELAY, round(100.0 / fps))
 
-    rasters = [
-        rasterize(
-            frame,
-            width=width,
-            height=height,
-            padding=padding,
-            bounds=shared,
-            palette=palette,
-            thickness=thickness,
-            dot_radius=dot_radius,
+    if antialias:
+        frame_rgba = [
+            rasterize_rgba(
+                frame,
+                width=width,
+                height=height,
+                padding=padding,
+                bounds=shared,
+                ink=ink,
+                background=background,
+                thickness=thickness,
+                dot_radius=dot_radius,
+                aa_level=aa_level,
+                transparent=transparent,
+            )
+            for frame in frames
+        ]
+        rasters = quantize(
+            frame_rgba, seeds=seeds, max_colors=256, dither=dither, transparent=transparent
         )
-        for frame in frames
-    ]
+        palette = rasters[0].palette
+    else:
+        palette = seeds
+        rasters = tuple(
+            rasterize(
+                frame,
+                width=width,
+                height=height,
+                padding=padding,
+                bounds=shared,
+                palette=palette,
+                thickness=thickness,
+                dot_radius=dot_radius,
+            )
+            for frame in frames
+        )
 
     depth = _depth(len(palette))
-    parts = [_header(width, height, depth), _colour_table(palette, depth)]
+    parts = [_header(width, height, depth), _color_table(palette, depth)]
     # loop=1 is the absence of the extension, not a count of one: the block
     # says how many times to repeat *after* the first play, and there is no
     # value of it that means "stop after one".
     if len(rasters) > 1 and loop != 1:
         parts.append(_looping(loop))
-    parts.extend(_frame(raster, delay=delay, animated=len(rasters) > 1) for raster in rasters)
+    parts.extend(
+        _frame(raster, delay=delay, animated=len(rasters) > 1, transparent=transparent)
+        for raster in rasters
+    )
     parts.append(b";")
     return b"".join(parts)
 
@@ -192,27 +224,27 @@ def _union(frames: Iterable[Design]) -> Bounds:
     return combined
 
 
-def _depth(colours: int) -> int:
-    """Return the number of bits a colour table of this size needs, at least one."""
+def _depth(colors: int) -> int:
+    """Return the number of bits a color table of this size needs, at least one."""
     bits = 1
-    while (1 << bits) < colours:
+    while (1 << bits) < colors:
         bits += 1
     return bits
 
 
 def _header(width: int, height: int, depth: int) -> bytes:
     """Return the signature and the logical screen descriptor."""
-    # 0x80 says a global colour table follows; the low three bits give its
+    # 0x80 says a global color table follows; the low three bits give its
     # size as 2**(n+1), which is why the depth is written one less than it is.
     packed = 0x80 | ((depth - 1) << 4) | (depth - 1)
     return b"GIF89a" + _short(width) + _short(height) + bytes([packed, 0, 0])
 
 
-def _colour_table(palette: Sequence[str], depth: int) -> bytes:
-    """Return the global colour table, padded to the power of two it has to be."""
+def _color_table(palette: Sequence[str], depth: int) -> bytes:
+    """Return the global color table, padded to the power of two it has to be."""
     table = bytearray()
-    for colour in palette:
-        table.extend(_rgb(colour))
+    for color in palette:
+        table.extend(_rgb(color))
     table.extend(bytes(3 * ((1 << depth) - len(palette))))
     return bytes(table)
 
@@ -229,15 +261,19 @@ def _looping(loop: int) -> bytes:
     return b"\x21\xff\x0bNETSCAPE2.0\x03\x01" + _short(0 if loop == 0 else loop - 1) + b"\x00"
 
 
-def _frame(raster: Raster, *, delay: int, animated: bool) -> bytes:
+def _frame(raster: Raster, *, delay: int, animated: bool, transparent: bool = False) -> bytes:
     """Return one frame: how long to hold it, where it goes, and its pixels."""
     parts = bytearray()
-    if animated:
+    if animated or transparent:
         # Disposal method 1, "leave it there": every frame here is a full
-        # canvas, so there is nothing to restore between them.
-        parts.extend(b"\x21\xf9\x04" + bytes([0x04]) + _short(delay) + b"\x00\x00")
+        # canvas, so there is nothing to restore between them. Bit 0 flags a
+        # transparent index, which is 0 -- the background slot -- when asked.
+        packed = 0x04 if animated else 0x00
+        if transparent:
+            packed |= 0x01
+        parts.extend(b"\x21\xf9\x04" + bytes([packed]) + _short(delay) + b"\x00\x00")
     parts.extend(b"\x2c" + _short(0) + _short(0) + _short(raster.width) + _short(raster.height))
-    parts.append(0x00)  # no local colour table, not interlaced
+    parts.append(0x00)  # no local color table, not interlaced
 
     minimum = max(2, _depth(len(raster.palette)))
     parts.append(minimum)
@@ -250,28 +286,22 @@ def _short(value: int) -> bytes:
     return value.to_bytes(2, "little")
 
 
-def _rgb(colour: str) -> bytes:
+def _rgb(color: str) -> bytes:
     """Parse ``#rgb``, ``#rrggbb`` or a name from :data:`NAMED` into three bytes."""
-    text = colour.strip().lower()
-    if text in NAMED:
-        return NAMED[text]
-    text = text.lstrip("#")
-    if len(text) == 3:
-        text = "".join(c * 2 for c in text)
-    if len(text) != 6:
-        raise ValueError(_unreadable(colour))
+    from ._color import rgb as parse
+
     try:
-        return bytes.fromhex(text)
+        return bytes(parse(color))
     except ValueError:
-        raise ValueError(_unreadable(colour)) from None
+        raise ValueError(_unreadable(color)) from None
 
 
-def _unreadable(colour: str) -> str:
+def _unreadable(color: str) -> str:
     """Say what went wrong, and what this writer can read instead."""
     return (
-        f"cannot write {colour!r} into a GIF colour table: expected '#3366ff', "
+        f"cannot write {color!r} into a GIF color table: expected '#3366ff', "
         f"'#36f', or one of {sorted(NAMED)}. A GIF stores literal red, green and "
-        f"blue, so unlike the SVG writer it cannot pass a colour through to "
+        f"blue, so unlike the SVG writer it cannot pass a color through to "
         f"something else to interpret"
     )
 
