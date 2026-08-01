@@ -27,8 +27,8 @@ from __future__ import annotations
 import pathlib
 from typing import TYPE_CHECKING, Any
 
-from ._colour import NAMED
-from .raster import colours_in, quantize, rasterize, rasterize_rgba
+from ._color import NAMED
+from .raster import colors_in, quantize, rasterize, rasterize_rgba
 
 if TYPE_CHECKING:
     from collections.abc import Iterable, Sequence
@@ -39,7 +39,7 @@ if TYPE_CHECKING:
 
 __all__ = ["NAMED", "save_gif", "to_gif"]
 
-#: Colour names this writer understands; see :data:`geomotif.io._colour.NAMED`.
+#: Colour names this writer understands; see :data:`geomotif.io._color.NAMED`.
 #: Re-exported from here so this module's zero-dependency story survives.
 
 #: GIF measures a frame's delay in hundredths of a second, and nothing else.
@@ -127,7 +127,7 @@ def to_gif(
     if aa_level < 1:
         raise ValueError(f"aa_level must be >= 1, got {aa_level}")
 
-    seeds = colours_in(frames, ink=ink, background=background)
+    seeds = colors_in(frames, ink=ink, background=background)
     if len(seeds) > 256:
         raise ValueError(
             f"a GIF has at most 256 colours and these designs need {len(seeds)}; "
@@ -272,7 +272,7 @@ def _short(value: int) -> bytes:
 
 def _rgb(colour: str) -> bytes:
     """Parse ``#rgb``, ``#rrggbb`` or a name from :data:`NAMED` into three bytes."""
-    from ._colour import rgb as parse
+    from ._color import rgb as parse
 
     try:
         return bytes(parse(colour))

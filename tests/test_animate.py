@@ -347,21 +347,34 @@ def test_pillow_reads_what_this_writer_wrote():
 # --- the palette and the pen ------------------------------------------------
 
 
-def test_colours_in_puts_the_background_first_and_the_ink_second():
-    from geomotif.io.raster import colours_in
+def test_colors_in_puts_the_background_first_and_the_ink_second():
+    from geomotif.io.raster import colors_in
 
-    assert colours_in([SQUARE], ink="#000", background="#fff") == ("#fff", "#000")
+    assert colors_in([SQUARE], ink="#000", background="#fff") == ("#fff", "#000")
 
 
-def test_colours_in_adds_each_styled_colour_once_in_the_order_it_appears():
-    from geomotif.io.raster import colours_in
+def test_colors_in_adds_each_styled_colour_once_in_the_order_it_appears():
+    from geomotif.io.raster import colors_in
 
     design = layer(
         styled(SQUARE, stroke="#f00"),
         styled(TWO_STROKES, stroke="#00f"),
         styled(BOX, stroke="#f00"),  # already there
     )
-    assert colours_in([design], ink="#000", background="#fff") == ("#fff", "#000", "#f00", "#00f")
+    assert colors_in([design], ink="#000", background="#fff") == ("#fff", "#000", "#f00", "#00f")
+
+
+def test_the_british_spelling_still_works_but_is_deprecated():
+    # colours_in shipped with 1.1.0, so it keeps working; it now names the
+    # American colors_in and warns that it is going away.
+    import warnings
+
+    from geomotif.io.raster import colours_in
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        assert colours_in([SQUARE], ink="#000", background="#fff") == ("#fff", "#000")
+    assert any(issubclass(item.category, DeprecationWarning) for item in caught)
 
 
 def test_a_wide_pen_draws_a_thicker_line():

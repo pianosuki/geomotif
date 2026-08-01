@@ -36,13 +36,14 @@ from .dxf import save_dxf, to_dxf
 from .gif import save_gif, to_gif
 from .plotter import save_plotter_svg, to_plotter_svg, to_vpype
 from .points import PointFormat, load_design, save_design, save_points
-from .raster import Raster, colours_in, quantize, rasterize, rasterize_rgba
+from .raster import Raster, colors_in, colours_in, quantize, rasterize, rasterize_rgba
 from .spec import from_spec, load_spec, save_spec, to_spec
 from .svg import save_svg, to_svg
 
 __all__ = [
     "PointFormat",
     "Raster",
+    "colors_in",
     "colours_in",
     "from_spec",
     "load_design",

@@ -31,13 +31,14 @@ plain single paint.
 from __future__ import annotations
 
 import itertools
+import warnings
 from collections import Counter
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from ..core.style import point_styles_of, styles_of
 from ..core.types import Bounds
-from ._colour import rgb as _rgb
+from ._color import rgb as _rgb
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
@@ -45,7 +46,7 @@ if TYPE_CHECKING:
     from ..core.style import Style
     from ..core.types import Design, Point
 
-__all__ = ["Raster", "colours_in", "quantize", "rasterize", "rasterize_rgba"]
+__all__ = ["Raster", "colors_in", "colours_in", "quantize", "rasterize", "rasterize_rgba"]
 
 #: A design flat in one axis still needs somewhere to sit; see the SVG writer,
 #: which resolves the same degeneracy the same way.
@@ -103,11 +104,11 @@ class Raster:
             )
 
 
-def colours_in(designs: Iterable[Design], *, ink: str, background: str) -> tuple[str, ...]:
+def colors_in(designs: Iterable[Design], *, ink: str, background: str) -> tuple[str, ...]:
     """Return the palette a set of designs needs, background first.
 
     Shared across every frame of an animation rather than worked out per frame:
-    a GIF has one global colour table, and an index that meant crimson in one
+    a GIF has one global color table, and an index that meant crimson in one
     frame and black in the next would make the whole thing flicker.
     """
     palette = [background, ink]
@@ -116,6 +117,21 @@ def colours_in(designs: Iterable[Design], *, ink: str, background: str) -> tuple
             if style is not None and style.stroke is not None and style.stroke not in palette:
                 palette.append(style.stroke)
     return tuple(palette)
+
+
+def colours_in(designs: Iterable[Design], *, ink: str, background: str) -> tuple[str, ...]:
+    """Keep the British spelling working while it is phased out.
+
+    :func:`colors_in` is the name of this function now; this alias exists so
+    1.1.0 callers keep working, and it warns that it will go away in a future
+    major release.
+    """
+    warnings.warn(
+        "colours_in is deprecated; use colors_in instead",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return colors_in(designs, ink=ink, background=background)
 
 
 def rasterize(
@@ -171,7 +187,7 @@ def rasterize(
     entries = (
         tuple(palette)
         if palette is not None
-        else colours_in([design], ink=ink, background=background)
+        else colors_in([design], ink=ink, background=background)
     )
     pixels = bytearray(width * height)
     radius = thickness if dot_radius is None else dot_radius
@@ -256,7 +272,7 @@ def rasterize_rgba(
     if scale < 1:
         raise ValueError(f"scale must be >= 1, got {scale}")
 
-    entries = colours_in([design], ink=ink, background=background)
+    entries = colors_in([design], ink=ink, background=background)
     entry_rgb = [_rgb(colour) for colour in entries]
     sub_w, sub_h = width * scale, height * scale
     sub = bytearray(sub_w * sub_h)
