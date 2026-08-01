@@ -40,29 +40,47 @@ _MIN_EXTENT = 1.0
 
 @dataclass(frozen=True, slots=True)
 class Raster:
-    """An indexed bitmap: one palette index per pixel, top-left origin.
+    """An in-memory picture, top-left origin.
+
+    A :class:`Raster` holds either an **indexed** bitmap -- one palette index
+    per pixel, which is what GIF wants -- or a **direct** one -- RGB or RGBA
+    bytes per pixel, which is what PNG and JPEG want. Everything downstream
+    (antialiasing, styling, the encoders) feeds off one of the two, so the
+    picture is drawn once and encoded many ways.
 
     Parameters
     ----------
     width, height : int
         Size in pixels.
     pixels : bytes
-        ``width * height`` palette indices, row-major.
-    palette : tuple of str
-        The colours those indices name, as ``#rrggbb``. Index 0 is the
-        background.
+        ``width * height`` indices (indexed), or ``width * height * 4`` RGBA
+        or ``width * height * 3`` RGB bytes (direct), row-major.
+    palette : tuple of str, optional
+        The colours an indexed bitmap's indices name, as ``#rrggbb``. Index 0
+        is the background. Unused by a direct bitmap.
+    mode : str
+        ``"indexed"``, ``"rgb"`` or ``"rgba"``. Defaults to ``"indexed"`` so
+        a bare four-argument :class:`Raster` is the picture it has always
+        been.
     """
 
     width: int
     height: int
     pixels: bytes
-    palette: tuple[str, ...]
+    palette: tuple[str, ...] = ()
+    mode: str = "indexed"
 
     def __post_init__(self) -> None:
-        if len(self.pixels) != self.width * self.height:
+        span = self.width * self.height
+        expected = {"indexed": span, "rgb": span * 3, "rgba": span * 4}
+        if self.mode not in expected:
             raise ValueError(
-                f"a {self.width}x{self.height} raster needs "
-                f"{self.width * self.height} pixels, got {len(self.pixels)}"
+                f"mode must be one of {sorted(expected)}, got {self.mode!r}"
+            )
+        if len(self.pixels) != expected[self.mode]:
+            raise ValueError(
+                f"a {self.width}x{self.height} {self.mode} raster needs "
+                f"{expected[self.mode]} bytes, got {len(self.pixels)}"
             )
 
 

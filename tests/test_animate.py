@@ -388,3 +388,47 @@ def test_a_colour_outside_the_palette_falls_back_to_the_ink():
     design = styled(BOX, stroke="#abcdef")
     raster = rasterize(design, width=20, height=20, palette=("#fff", "#000"))
     assert set(raster.pixels) == {0, 1}
+
+
+# --- the Raster shape: indexed and direct ------------------------------------
+
+
+def test_a_raster_defaults_to_the_indexed_shape_it_always_had():
+    raster = rasterize(SQUARE, width=20, height=20)
+    assert raster.mode == "indexed"
+    assert len(raster.pixels) == 20 * 20
+    assert raster.palette
+
+
+def test_a_direct_rgba_raster_holds_four_bytes_per_pixel():
+    from geomotif.io.raster import Raster
+
+    picture = Raster(2, 2, bytes(range(16)), mode="rgba")
+    assert picture.mode == "rgba"
+    assert len(picture.pixels) == 2 * 2 * 4
+
+
+def test_a_direct_rgb_raster_holds_three_bytes_per_pixel():
+    from geomotif.io.raster import Raster
+
+    picture = Raster(2, 2, bytes(12), mode="rgb")
+    assert picture.mode == "rgb"
+    assert len(picture.pixels) == 2 * 2 * 3
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [("indexed", 4), ("rgb", 12), ("rgba", 16)],
+)
+def test_a_raster_checks_the_length_by_mode(mode, expected):
+    from geomotif.io.raster import Raster
+
+    with pytest.raises(ValueError, match="needs"):
+        Raster(2, 2, bytes(expected + 1), mode=mode)
+
+
+def test_an_unknown_mode_is_refused():
+    from geomotif.io.raster import Raster
+
+    with pytest.raises(ValueError, match="mode must be one of"):
+        Raster(2, 2, bytes(4), mode="cmyk")
