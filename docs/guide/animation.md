@@ -92,6 +92,15 @@ raster.pixels  # one palette index per pixel, top-left origin
 raster.palette  # ("#ffffff", "#0b0b0b", ...)
 ```
 
+A [`Raster`][geomotif.io.raster.Raster] carries `width` and `height` (the size
+you asked for, in pixels), `pixels` (the indexed buffer), `palette` (the tuple
+of colors it indexes into) and `mode` (one of `"indexed"`, `"rgb"`, `"rgba"`).
+It is the form the GIF writer takes directly; for the PNG and JPEG writers,
+which want truecolor, reach for
+[`rasterize_rgba`][geomotif.io.raster.rasterize_rgba] instead — same call,
+same size, but the buffer comes back as four bytes a pixel ready for an
+encoder that has no palette.
+
 Lines are drawn with Bresenham's algorithm and nothing is antialiased, which is
 the right answer for an indexed image: there are only a handful of colors and
 nothing for a blend to blend *with*.

@@ -105,7 +105,7 @@ def on_page(
 ) -> Design:
     """Return ``design`` fitted to a sheet of paper, in millimeters, y-down.
 
-    Scaling is uniform and the drawing is centerd, so nothing is distorted and
+    Scaling is uniform and the drawing is centered, so nothing is distorted and
     the margin is honored on all four sides. The result is in the coordinate
     space a plotter and an SVG both use -- y growing downward -- which is why
     it is worth doing once here rather than in each writer.

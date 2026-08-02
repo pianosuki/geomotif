@@ -23,8 +23,10 @@ Module        Contents
 `roulettes`   What one circle draws rolling around another --
               trochoids, cycloids, the Spirograph, and the stacked
               rotating arms of :class:`~.roulettes.Epicycles`
-`polar`       Roses and Maurer roses, Lissajous figures, harmonics,
-              the harmonograph and the sunflower's phyllotaxis
+`polar`       Roses and Maurer roses, phyllotaxis, and a one-off
+              radius function
+`harmonic`    Lissajous figures, harmonics and the harmonograph --
+              sharing a module with ``polar``
 `fractals`    Koch, Hilbert, Gosper, the dragons and the Sierpinski
               family as grammars; carpets, trees and the Apollonian
               gasket by recursion; the Barnsley fern by chaos game
@@ -49,10 +51,10 @@ Module        Contents
               Lloyd's relaxation -- the one family needing ``[scipy]``
 `symmetry`    Points constrained by a symmetry group and solved for
               rather than evaluated -- experimental
+`mandala`     Composed figures -- mandalas, kaleidoscopes, snowflakes --
+              motifs made out of the other families, living in
+              :mod:`geomotif.compose`
 ============  ==========================================================
-
-Composed figures -- mandalas, kaleidoscopes, snowflakes -- are motifs made
-out of these, and live in :mod:`geomotif.compose`.
 """
 
 from .curves import (

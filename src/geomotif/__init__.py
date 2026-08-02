@@ -7,7 +7,12 @@ That is the whole mental model::
     from geomotif import PowerSpacing
     from geomotif.motifs import SpiralBetween
 
-    design = SpiralBetween((200, 0), (20, 0), turns=3).generate(
+    design = SpiralBetween(
+        start=(200, 0),  # required — first point (always included)
+        end=(20, 0),  # required — last point (always included)
+        center=(0, 0),  # point the spiral winds around (default shown)
+        turns=3,  # extra full revolutions (default 0)
+    ).generate(
         120, spacing=PowerSpacing(2.5)
     )
 
@@ -120,7 +125,7 @@ from .io import (
     to_svg,
 )
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 
 __all__ = [
     "SNAP_MODES",

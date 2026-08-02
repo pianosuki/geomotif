@@ -86,7 +86,7 @@ def test_a_twist_makes_every_layer_a_different_curve():
 
 def test_the_rosette_is_drawn_where_it_is_told():
     # Compared by translation rather than by bounding box: the wave is not
-    # symmetric, so the box is not centerd on the motif and never should be.
+    # symmetric, so the box is not centered on the motif and never should be.
     here = GuillocheRosette(layers=3).build()
     there = GuillocheRosette(layers=3, center=(30.0, -20.0)).build()
     for first, second in zip(here.paths, there.paths, strict=True):

@@ -861,7 +861,7 @@ def _chaos_game(maps: Sequence[IFSMap], count: int, rng: random.Random) -> list[
 
 
 def _scaled(points: Sequence[Point], *, size: float, center: Point) -> tuple[Point, ...]:
-    """Return ``points`` scaled so their largest extent is ``size``, centerd on ``center``.
+    """Return ``points`` scaled so their largest extent is ``size``, centered on ``center``.
 
     The attractor's own coordinates are an artefact of whatever numbers the
     maps happen to contain, so they are measured and rescaled rather than

@@ -419,7 +419,7 @@ def test_fit_scales_onto_a_canvas(capsys, tmp_path):
     out = tmp_path / "f.json"
     run(capsys, "render", "rose", "--fit", "100x100", "--out", str(out))
     bounds = load_design(out).bounds
-    # Uniform scaling, centerd in whichever axis has slack, so exactly one of
+    # Uniform scaling, centered in whichever axis has slack, so exactly one of
     # the two fills the canvas and neither overflows it.
     assert max(bounds.width, bounds.height) == pytest.approx(100.0)
     assert bounds.max_x <= 100.0

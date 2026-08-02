@@ -131,7 +131,9 @@ in the Keep a Changelog category it belongs to.
 
 ## Releasing
 
-Maintainers only:
+Maintainers only. The full step-by-step checklist — pre-flight, merge, tag,
+push, GitHub Release, and the verification afterward — is in
+[RELEASING.md](RELEASING.md). The short form:
 
 1. Move `[Unreleased]` to the new version with today's date.
 2. Bump `__version__` in `src/geomotif/__init__.py`.

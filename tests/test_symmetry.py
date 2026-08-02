@@ -106,7 +106,7 @@ def test_the_outermost_point_sits_at_the_radius():
     assert max(math.hypot(x, y) for x, y in pts) == pytest.approx(80.0)
 
 
-def test_the_figure_is_centerd_where_it_was_told_to_be():
+def test_the_figure_is_centered_where_it_was_told_to_be():
     pts = points(count=15, group="D5", center=(50.0, -20.0))
     xs = [x for x, _ in pts]
     ys = [y for _, y in pts]

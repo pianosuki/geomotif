@@ -610,7 +610,7 @@ def _bounds_of(design: Design) -> Bounds:
 def _placement(
     bounds: Bounds, width: int, height: int, padding: float
 ) -> Callable[[Point], tuple[int, int]]:
-    """Return the world-to-pixel mapping: uniform scale, centerd, y flipped."""
+    """Return the world-to-pixel mapping: uniform scale, centered, y flipped."""
     extent_x = max(bounds.width, _MIN_EXTENT)
     extent_y = max(bounds.height, _MIN_EXTENT)
     # A w-pixel row addresses 0..w-1, so the span a drawing can occupy is one
