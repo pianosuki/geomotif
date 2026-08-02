@@ -24,9 +24,9 @@ design.meta  # the motif name and its resolved parameters
 ```
 
 The split between `paths` and `points` is the difference between a line and a
-scatter, and it survives all the way to the exporters: a path becomes a
-`<polyline>` or a DXF `POLYLINE`, a loose point becomes a `<circle>` or a DXF
-`POINT`. Dot art and stipple are loose points; a plotter drawing is paths.
+scatter, and it survives all the way to the exporters: a path becomes a `<path>`
+or a DXF `POLYLINE`, a loose point becomes a `<circle>` or a DXF `POINT`. Dot
+art and stipple are loose points; a plotter drawing is paths.
 
 A design iterates as a flat stream of coordinates, so it drops into anything
 that just wants numbers:
@@ -102,8 +102,10 @@ stack = layer(background, middle, foreground)
 
 Three of those have a detail worth calling out.
 
-`jitter` takes a `seed`, and records the resolved seed in the design's `meta`.
-Reproducibility is not "call it again and hope"; it is in the output.
+`jitter` takes a `seed`, and the same seed always reproduces the same result —
+the RNG lives only inside the call, so a reproducible irregularity does not
+depend on the global `random` state. The seed is not recorded in `meta`; keep
+hold of it yourself if you want to regenerate the same points.
 
 `snap` is `jitter`'s opposite number and the rounding you would otherwise have
 to do per file. It takes any grid rather than a number of decimal places, and

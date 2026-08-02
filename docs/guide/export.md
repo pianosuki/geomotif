@@ -227,22 +227,28 @@ name rather than writing a file that will not load.
 
 ## Which one to reach for
 
-- Sending points somewhere else → `save_points`.
-- Driving a pen plotter, laser or mill → `save_dxf`, or `save_design` to `.txt`.
-- Putting it on a web page or into an editor → `save_svg`.
-- A single finished picture, anywhere and with nothing installed → `save_png`.
+- Sending points somewhere else → [`save_points`][geomotif.io.points.save_points].
+- Driving a pen plotter, laser or mill → [`save_dxf`][geomotif.io.dxf.save_dxf], or
+  [`save_design`][geomotif.io.points.save_design] to `.txt`.
+- Putting it on a web page or into an editor → [`save_svg`][geomotif.io.svg.save_svg].
+- A single finished picture, anywhere and with nothing installed →
+  [`save_png`][geomotif.io.png.save_png].
 - A single picture where a smaller file matters more than exactness →
-  [`save_jpeg`][geomotif.io.jpeg.save_jpeg] (`--quality 0-100`).
-- A picture that sits over whatever the page shows → `save_png(..., transparent=True)`
-  or `save_gif(..., transparent=True)` for a background that is empty rather
-  than painted.
-- Showing how it is drawn rather than what it is → `save_gif`, and
-  [Animation](animation.md).
-- Actually plotting it → `save_plotter_svg`, and
-  [Plotting it for real](plotter.md).
-  [Plotting it for real](plotter.md).
+  [`save_jpeg`][geomotif.io.jpeg.save_jpeg] (`--quality 0-100`). Caveat: this
+  is only true for photographic content — a geometric design on a flat
+  background is where JPEG is *weakest* and zlib is *strongest*, so `save_png`
+  usually wins on the same picture despite being lossless.
+- A picture that sits over whatever the page shows →
+  [`save_png`][geomotif.io.png.save_png] `(..., transparent=True)` or
+  [`save_gif`][geomotif.io.gif.save_gif] `(..., transparent=True)` for a
+  background that is empty rather than painted.
+- Showing how it is drawn rather than what it is → [`save_gif`][geomotif.io.gif.save_gif],
+  and [Animation](animation.md).
+- Actually plotting it → [`save_plotter_svg`][geomotif.io.plotter.save_plotter_svg],
+  and [Plotting it for real](plotter.md).
 - Saving your *work*, so you can change your mind about the resolution later →
-  `save_spec`. It is the only one that is still useful after you have edited it.
+  [`save_spec`][geomotif.io.spec.save_spec]. It is the only one that is still
+  useful after you have edited it.
 
 !!! note "A word about JPEG"
 

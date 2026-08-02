@@ -142,7 +142,7 @@ Worth saying plainly, so you can tell quickly whether it is the wrong tool:
   sweeping a parameter, and writing the frames as a GIF.
 - **[Plotting it for real](guide/plotter.md)** — paper sizes in real
   millimeters, less time with the pen in the air, and the `vpype` bridge.
-- **[Plotting a graph](guide/plotting.md)** — the matplotlib helpers, behind
+- **[Plotting](guide/plotting.md)** — the matplotlib helpers, behind
   the `plot` extra.
 - **[The command line](guide/cli.md)** — `geomotif render`, `geomotif explore`,
   `geomotif gallery`, and where the flags come from.
