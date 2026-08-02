@@ -164,7 +164,10 @@ else, which is the whole reason
 [`PolygonMotif`][geomotif.bases.PolygonMotif] exists separately from
 [`ParametricMotif`][geomotif.bases.ParametricMotif]: sampling a pentagon at 512
 evenly spaced parameters rounds all five corners off, and listing them costs
-five points.
+five points. Concretely, `RegularPolygon(sides=5).build()` returns exactly
+those five corners; `RegularPolygon(sides=5).generate(512)` would return 512
+points placed by arc length that miss the corners entirely. That is when the
+distinction matters: keep the corners when the corners are the point.
 
 If you are exporting for a plotter, `build()` is usually what you want. If you
 are placing objects, `generate()` is.

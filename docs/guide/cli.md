@@ -89,7 +89,7 @@ the order you would say them:
 ```bash
 --ease linear
 --ease power:2.5
---ease exp:out:6
+--ease exponential:out:6
 --ease smoothstep
 ```
 

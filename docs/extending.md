@@ -43,7 +43,7 @@ class MyFlower(PolarMotif):
 ```
 
 Six lines of substance. That class now resamples by arc length, takes every
-spacing curve, transforms, exports to five formats, serializes to a spec, and
+spacing curve, transforms, exports to ten formats, serializes to a spec, and
 answers to `registry.create("my-flower", k=5)` and
 `geomotif render my-flower --k 5 --out flower.svg`.
 
@@ -54,6 +54,12 @@ answers to `registry.create("my-flower", k=5)` and
     512 parameters rounds all five of its corners off unless a sample happens to
     land on each one — and listing them costs five points. If your shape is
     defined by where its corners are, it is a `PolygonMotif`.
+
+If you are unsure which base to pick, reach for `ParametricMotif` or
+`PolygonMotif` first: they cover the great majority of shapes, and the
+`build()` -> `Design` path (Tier 2) is always available as a fallback. Subclass
+`Motif` directly only when the shape does not fit either of them — a graph, a
+segment network, or something with no parametric form at all.
 
 ### Tier 2 — subclass `Motif` and write `build()`
 

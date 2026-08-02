@@ -107,7 +107,7 @@ class MyFlower(PolarMotif):
 ```
 
 Six lines of substance, and that class now has arc-length resampling, every
-spacing curve, the transform layer, export to five formats, spec serialization,
+spacing curve, the transform layer, export to ten formats, spec serialization,
 generated command-line flags, lookup by name and the whole conformance suite.
 `MyFlower(k=5).generate(400)` works, and so does
 `geomotif render my-flower --k 5 --out flower.svg`.
@@ -263,7 +263,7 @@ hand, and it is a great deal smaller — a mandala's recipe is 1.5 KB against
 
 A parameter that is itself a motif — the composers take one — nests as the same
 object, so a mandala's rings serialize without a second notation. Every motif
-in the catalog round-trips exactly, bar the two whose parameter *is* a Python
+in the catalog round-trips exactly, but the two whose parameter *is* a Python
 function: those are defined by code, not data, and say so when asked.
 
 → [Exporting](https://pianosuki.github.io/geomotif/guide/export/)

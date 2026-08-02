@@ -143,10 +143,13 @@ your motifs on exactly the same terms as the builtin ones.
 ## Metadata and reproducibility
 
 `Design.meta` carries the motif's name and its resolved parameters — including
-any random seed that was generated rather than given. That is what makes a
-design self-describing: the gallery labels its images from it, `to_spec` writes
-a recipe from it, and `load_design` reads it back on a machine that does not
-have the motif that produced it.
+any random seed that is itself a parameter, the way `PoissonDiscPoints.seed`
+is. That is what makes a design self-describing: the gallery labels its images
+from it, `to_spec` writes a recipe from it, and `load_design` reads it back on
+a machine that does not have the motif that produced it. A seed that belongs
+to an *operator* rather than a motif is different: `jitter`'s `seed` is not
+recorded in `meta`, so regenerating the same jittered points means keeping
+hold of that seed yourself.
 
 `meta` is a read-only mapping, and overlaying two designs merges it
 right-biased. A composed design no longer describes a single motif, so the
