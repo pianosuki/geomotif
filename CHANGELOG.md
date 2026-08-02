@@ -704,6 +704,7 @@ this name or number; `geomotif` 1.0.0 is the first release of anything.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
 
+[1.2.1]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.1
 [1.2.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.0
 [1.1.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.1.0
 [1.0.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.0.0
