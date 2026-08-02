@@ -72,7 +72,7 @@ def test_rotation_turns_the_whole_seed():
 
 
 @pytest.mark.parametrize(("rings", "count"), [(0, 1), (1, 7), (2, 19), (3, 37), (4, 61)])
-def test_the_flower_reaches_the_centerd_hexagonal_numbers(rings, count):
+def test_the_flower_reaches_the_centered_hexagonal_numbers(rings, count):
     assert len(FlowerOfLife(rings=rings).centers()) == count
 
 
@@ -164,7 +164,7 @@ def test_every_apex_sits_on_the_axis():
         assert apex[0] == pytest.approx(7.0)
 
 
-def test_every_base_is_horizontal_and_centerd():
+def test_every_base_is_horizontal_and_centered():
     for left, right, _ in SriYantra(center=(7.0, -4.0)).triangles():
         assert left[1] == pytest.approx(right[1])
         assert (left[0] + right[0]) / 2.0 == pytest.approx(7.0)

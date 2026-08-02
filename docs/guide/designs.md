@@ -55,8 +55,8 @@ design.resampled(400)  # the same engine generate() uses
 ```
 
 `fit` scales **uniformly** — a design is never distorted — and centers it in
-whichever axis has slack. So the axis that limits the scale fills the canvas
-and the other one is centerd inside it, which is what you want and is worth
+whatever axis has slack. So the axis that limits the scale fills the canvas
+and the other one is centered inside it, which is what you want and is worth
 knowing before you assert on the result.
 
 ## Affine transforms

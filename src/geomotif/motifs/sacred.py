@@ -71,7 +71,7 @@ def _circle(center: Point, radius: float) -> Path:
 def _hex_lattice(spacing: float, rings: int, center: Point) -> tuple[Point, ...]:
     """Return the hexagonal lattice points within ``rings`` steps of ``center``.
 
-    Counts run 1, 7, 19, 37, 61 -- the centerd hexagonal numbers, which is
+    Counts run 1, 7, 19, 37, 61 -- the centered hexagonal numbers, which is
     what makes a flower of life come out with the number of circles the
     figure is named for.
     """

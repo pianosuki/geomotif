@@ -97,7 +97,7 @@ def _closed(*outlines: Sequence[Point]) -> Design:
 
 
 def _walk(interior: Sequence[float], side: float) -> tuple[Point, ...]:
-    """Return the corners of the polygon with these interior angles, centerd.
+    """Return the corners of the polygon with these interior angles, centered.
 
     Walking a polygon by its turns rather than listing its corners is what
     makes the girih tiles one table instead of five: every tile has the same
