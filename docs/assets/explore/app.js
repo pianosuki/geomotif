@@ -67,6 +67,94 @@ def export_png(name, params_json):
         ink="#0b0b0b", background="#ffffff", thickness=1,
         antialias=False, aa_level=8, color="rgb", compression=6,
     )
+
+# --- animation bridges -------------------------------------------------------
+# build_keyframes runs the Step-7 keyframes primitive (plus any overlay
+# post-passes) and stashes the per-frame Designs in a module-global list. The
+# SPA then fetches each frame's SVG in chunked rAF batches via
+# render_stored_frame, so a 60-frame pre-render never blocks the main thread
+# on one giant Pyodide call. export_gif rebuilds the same run and writes it
+# through the pure-stdlib geomotif.io.gif.save_gif to the in-memory FS, so
+# the downloaded bytes match 'geomotif render --animation spec.json' by
+# construction (same primitive, same writer).
+from geomotif.animate import (
+    compose as _compose,
+    draw_on_overlay as _draw_on_overlay,
+    keyframes as _keyframes,
+    spin_overlay as _spin_overlay,
+)
+from geomotif.io.gif import save_gif as _save_gif
+
+_STORE = {"frames": ()}
+
+def _overlay_motions(overlays):
+    motions = []
+    for entry in overlays or []:
+        kind = entry.get("type")
+        if kind == "draw_on":
+            motions.append(_draw_on_overlay(trail=entry.get("trail")))
+        elif kind == "spin":
+            about = entry.get("about")
+            motions.append(_spin_overlay(
+                turns=float(entry.get("turns", 1.0)),
+                about=tuple(about) if isinstance(about, list) else about,
+            ))
+    return motions
+
+def build_keyframes(name, params_json, tracks_json, frames, fps, hold, easing, overlays_json):
+    try:
+        params = json.loads(params_json) if params_json else {}
+        tracks = json.loads(tracks_json) if tracks_json else {}
+        overlays = json.loads(overlays_json) if overlays_json else []
+        motif = from_spec({"motif": name, "params": params})
+        built = _keyframes(motif, tracks, frames=int(frames), fps=float(fps),
+                           hold=int(hold), easing=str(easing))
+        motions = _overlay_motions(overlays)
+        if motions:
+            built = _compose(motions, built)
+        _STORE["frames"] = built
+        return json.dumps({"count": len(built), "error": None})
+    except _EXC as e:
+        _STORE["frames"] = ()
+        return json.dumps({"count": 0, "error": type(e).__name__ + ": " + str(e)})
+
+def render_stored_frame(i):
+    frames = _STORE["frames"]
+    try:
+        if i < 0 or i >= len(frames):
+            raise IndexError(f"frame {i} out of range (0..{len(frames)-1})")
+        svg = to_svg(frames[i], width=_W, height=_H, precision=_PREC, title=None)
+        return json.dumps({"svg": svg, "error": None})
+    except _EXC as e:
+        return json.dumps({"svg": None, "error": type(e).__name__ + ": " + str(e)})
+
+def clear_stored_frames():
+    _STORE["frames"] = ()
+
+# GIF export -- the same run the SPA just played, written with the CLI's
+# default export styling so the bytes match 'geomotif render --animation'. The
+# writer needs a path; Pyodide mounts an in-memory FS at /tmp, so we write
+# there and read the bytes back.
+def export_gif(name, params_json, tracks_json, frames, fps, hold, easing, overlays_json):
+    try:
+        params = json.loads(params_json) if params_json else {}
+        tracks = json.loads(tracks_json) if tracks_json else {}
+        overlays = json.loads(overlays_json) if overlays_json else []
+        motif = from_spec({"motif": name, "params": params})
+        built = _keyframes(motif, tracks, frames=int(frames), fps=float(fps),
+                           hold=int(hold), easing=str(easing))
+        motions = _overlay_motions(overlays)
+        if motions:
+            built = _compose(motions, built)
+        _save_gif(built, "/tmp/geomotif_explore.gif",
+                  width=480, height=480, fps=float(fps), loop=0,
+                  ink="#0b0b0b", background="#ffffff", thickness=1,
+                  padding=8.0, antialias=False, aa_level=8, dither=True,
+                  transparent=False)
+        with open("/tmp/geomotif_explore.gif", "rb") as fh:
+            return fh.read()
+    except _EXC as e:
+        return json.dumps({"error": type(e).__name__ + ": " + str(e)})
 `;
 
 // --- module state ------------------------------------------------------------
@@ -81,6 +169,10 @@ let pyPromise = null;
 let pyodide = null;
 let pyRender = null;
 let pyExportPng = null;
+let pyBuildKeyframes = null;
+let pyRenderFrame = null;
+let pyClearFrames = null;
+let pyExportGif = null;
 let WHEEL_URL = "";
 
 // LRU cache, insertion-ordered: the oldest entry is evicted when full.
@@ -153,6 +245,26 @@ const fitEl = $("fit");
 const tgGridEl = $("tg-grid");
 const tgBorderEl = $("tg-border");
 const themeEl = $("theme");
+const playEl = $("play");
+const timelineEl = $("timeline");
+const animProgressEl = $("anim-progress");
+const animProgressFill = animProgressEl.querySelector("i");
+const transportEl = $("transport");
+const playPauseEl = $("tp-play");
+const loopEl = $("tp-loop");
+const animFramesEl = $("tp-frames");
+const animFpsEl = $("tp-fps");
+const animHoldEl = $("tp-hold");
+const animEaseEl = $("tp-easing");
+const tracksEl = $("tracks");
+const scrubEl = $("scrubber");
+const ovDrawEl = $("ov-draw");
+const ovSpinEl = $("ov-spin");
+const ovDrawOpts = $("ov-draw-opts");
+const ovSpinOpts = $("ov-spin-opts");
+const ovTrailEl = $("ov-trail");
+const ovTurnsEl = $("ov-turns");
+const expGifEl = $("exp-gif");
 
 // --- catalog ----------------------------------------------------------------
 async function boot() {
@@ -241,6 +353,9 @@ function paintMotifs() {
 // consumed (which would replace the entry we want to keep as the landing one).
 function selectMotif(name, override, opts) {
   opts = opts || {};
+  // Leaving animation mode tears down the timeline and the frame bundle; the
+  // timeline is per-motif and a new selection renders a still.
+  if (animOn) exitAnim();
   current = name;
   const info = byName[name];
   if (!info) return;
@@ -261,6 +376,7 @@ function selectMotif(name, override, opts) {
   // so their export buttons stay disabled alongside their controls.
   const canExport = !!info.available;
   [expSvgEl, expPngEl, expSpecEl].forEach((b) => { b.disabled = !canExport; });
+  expGifEl.disabled = true; // GIF export is animation-mode only
   if (!opts.fromFragment) writeFragment(name, state, false);
   if (!info.available) {
     showUnavailable(info);
@@ -492,6 +608,20 @@ function buildControl(info, p, st, disabled) {
 
   const onChange = () => {
     paintCommand(info, st);
+    if (animOn && anim) {
+      // In animation mode a slider move pins a keyframe at the scrubber's
+      // time for this param, so what the slider shows is what plays. Dropping
+      // the value into the timeline re-renders the frame bundle.
+      const t = bundle && bundle.core ? (bundle.core.length > 1 ? playState.idx / (bundle.core.length - 1) : 0) : 0;
+      const tp = Math.min(1, Math.max(0, t));
+      if (animatableParams(info).some((q) => q.name === p.name)) {
+        dropKeyframe(p, st, anim, tp);
+        const lane = tracksEl.querySelector(`.lane[data-param="${p.name}"]`);
+        if (lane) paintLaneDots(lane, p, anim);
+        restartPlayback(info, st, anim);
+        return;
+      }
+    }
     scheduleRender(info, st);
   };
   addControlBody(body, p, st, disabled, onChange);
@@ -975,6 +1105,10 @@ async function ensurePyodide() {
     await pyodide.runPythonAsync(PY_CODE);
     pyRender = pyodide.globals.get("render_motif");
     pyExportPng = pyodide.globals.get("export_png");
+    pyBuildKeyframes = pyodide.globals.get("build_keyframes");
+    pyRenderFrame = pyodide.globals.get("render_stored_frame");
+    pyClearFrames = pyodide.globals.get("clear_stored_frames");
+    pyExportGif = pyodide.globals.get("export_gif");
     showProgress(1);
     hideProgress();
     setStatus("ready");
@@ -1284,15 +1418,683 @@ expSpecEl.addEventListener("click", () => {
   if (!lastMotif) return;
   // The full `to_spec` shape: version key + motif name + params. `state` is
   // exactly the JSON-encodable params dict io/spec.py round-trips, so this
-  // loads straight into `geomotif render --spec <file>`.
+  // loads straight into `geomotif render --spec <file>`. In animation mode the
+  // `animation` key sits alongside, so the same file feeds
+  // `geomotif render --animation`.
   const spec = {
     geomotif: catalog ? catalog.geomotif : null,
     motif: lastMotif,
     params: state,
   };
+  if (animOn && anim) spec.animation = animRecipe(anim);
   const blob = new Blob([JSON.stringify(spec, null, 2) + "\n"], { type: "application/json" });
   download(blob, `${lastMotif}.json`);
   flash(expSpecEl, true, "saved", "failed");
+});
+
+// --- animation mode ---------------------------------------------------------
+// A mode toggle on the stage toolbar flips the bottom of the stage-area from a
+// still picture into a timeline editor. The Step-7 `keyframes` primitive is
+// the wire format: `anim.tracks` is exactly the `tracks` mapping the Python
+// function takes, and `build_keyframes` runs it under Pyodide, stashing the
+// per-frame Designs for chunked SVG fetch. Playback is a rAF loop reading the
+// cached SVGs; pre-render happens in chunked rAF batches (4 frames per tick)
+// so the timeline stays draggable while a cold animation fills in. The LRU is
+// keyed on geometry (motif + params + tracks + frames + easing + overlays) and
+// never on fps or hold, so a playback-only tweak re-uses the cached bundle.
+//
+// The share-URL `a=` fragment is Step 9; here the still fragment continues to
+// carry the motif + slider state and the timeline lives in-memory only.
+const EASINGS = ["linear", "quadratic", "cubic", "sinusoidal", "exponential", "circular"];
+const ANIM_FRAMES_MIN = 32, ANIM_FRAMES_MAX = 240;
+const ANIM_FPS_MIN = 1, ANIM_FPS_MAX = 60;
+const ANIM_HOLD_MIN = 0;
+const PRE_FRAMES_PER_TICK = 4;
+
+let animOn = false;
+// anim = {tracks: {name: {keyframes: [[t, value], ...], easing: null|"..."}}, ...}
+let anim = null;
+// bundle = {key, core: frames-length array of SVG strings (null while pending),
+//            count, ready, total, busy}
+let bundle = null;
+// In-browser LRU for animation frame bundles, separate from the still cache so
+// the two eviction policies do not fight.
+const animCache = new Map();
+const ANIM_CACHE_SIZE = 16;
+
+// Playback state. `idx` is the live frame index; `holdLeft` counts down the
+// hold tail; `looping` mirrors the loop toggle; `on` is whether the rAF loop
+// is running.
+const playState = { raf: null, last: 0, idx: 0, holdLeft: 0, looping: true, on: false };
+let preRaf = null;
+let scrubbing = false;
+
+// The animatable parameters of a motif: anything a slider/dropdown/toggle can
+// move, i.e. the settable numeric/bool/Literal params the catalog reports.
+function animatableParams(info) {
+  const out = [];
+  for (const p of info.params) {
+    if (RESERVED.has(p.name)) continue;
+    if (!isSettable(p)) continue;
+    const ann = p.annotation;
+    if (ann === "int" || ann === "float" || ann === "bool" ||
+        (p.choices && p.choices.length) || ann.startsWith("Literal")) {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+// The default timeline, per "Default state when entering animation mode": a
+// single track on the motif's primary numeric parameter (the first int/float
+// in ParamInfo order) sweeping across its declared Range (or a 2x spread of
+// the default when there is none), with cubic easing at 48 frames / 20 fps /
+// hold 12. The user sees motion immediately and edits from there.
+function defaultAnim(info, st) {
+  const nums = info.params.filter((p) =>
+    !RESERVED.has(p.name) && (p.annotation === "int" || p.annotation === "float"));
+  const tracks = {};
+  if (nums.length) {
+    const p = nums[0];
+    const cur = st[p.name];
+    let v0, v1;
+    if (p.min != null && p.max != null) {
+      v0 = p.min; v1 = p.max;
+    } else if (p.annotation === "int") {
+      const base = Number(cur) || 5;
+      v0 = Math.max(1, Math.floor(base / SPREAD));
+      v1 = Math.max(v0 + 1, Math.ceil(base * SPREAD));
+    } else {
+      const f = Number(cur) || 1;
+      v0 = f === 0 ? -1 : f / SPREAD;
+      v1 = f === 0 ? 1 : f * SPREAD;
+    }
+    tracks[p.name] = { keyframes: [[0.0, v0], [1.0, v1]], easing: null };
+  }
+  return {
+    tracks,
+    frames: 48,
+    fps: 20,
+    hold: 12,
+    easing: "cubic",
+    overlays: [],
+  };
+}
+
+// The animation recipe as the Python `keyframes` primitive and the CLI's
+// `--animation` flag read it: tracks map each animated param to a
+// `[[t, value], ...]` list (the per-track easing, when set, is sent as the
+// `{"keyframes": [...], "easing": "..."}` mapping form). The `type` key is
+// what the spec reserves room for; `overlay` lists the post-passes.
+function animRecipe(an) {
+  const tracks = {};
+  for (const [name, tr] of Object.entries(an.tracks)) {
+    if (tr.easing) {
+      tracks[name] = { keyframes: tr.keyframes, easing: tr.easing };
+    } else {
+      tracks[name] = tr.keyframes;
+    }
+  }
+  return {
+    type: "keyframes",
+    tracks,
+    frames: an.frames,
+    fps: an.fps,
+    hold: an.hold,
+    easing: an.easing,
+    overlay: an.overlays,
+  };
+}
+
+function animBundleKey(info, st, an) {
+  return [
+    info.name,
+    canonical(st),
+    JSON.stringify(an.tracks),
+    an.frames,
+    an.easing,
+    JSON.stringify(an.overlays),
+  ].join("|");
+}
+
+function enterAnim() {
+  if (!current) return;
+  const info = byName[current];
+  if (!info || !info.available) return;
+  animOn = true;
+  playEl.setAttribute("aria-pressed", "true");
+  playEl.textContent = "stop";
+  anim = defaultAnim(info, state);
+  timelineEl.classList.add("on");
+  stageEl.classList.add("anim");
+  // The slider panel stays live: moving a slider now pins a keyframe at the
+  // scrubber's time instead of re-rendering a still.
+  paintTimeline(info, state);
+  paintTransport(anim);
+  syncScrubber();
+  expGifEl.disabled = false;
+  startAnim(info, state, anim);
+}
+
+function exitAnim() {
+  animOn = false;
+  playEl.setAttribute("aria-pressed", "false");
+  playEl.textContent = "play";
+  timelineEl.classList.remove("on");
+  stageEl.classList.remove("anim");
+  expGifEl.disabled = true;
+  stopPlayback();
+  if (preRaf) { cancelAnimationFrame(preRaf); preRaf = null; }
+  bundle = null;
+  anim = null;
+  hideAnimProgress();
+  // Return to a still render of the current slider state.
+  const info = byName[current];
+  if (info && info.available) render(info, state);
+}
+
+function toggleAnim() {
+  if (animOn) exitAnim();
+  else enterAnim();
+}
+
+// --- timeline paint ---------------------------------------------------------
+function paintTimeline(info, st) {
+  tracksEl.innerHTML = "";
+  const params = animatableParams(info);
+  if (!params.length) {
+    const note = document.createElement("p");
+    note.className = "anim-empty";
+    note.textContent = "this motif has no animatable parameters";
+    tracksEl.appendChild(note);
+    return;
+  }
+  for (const p of params) {
+    tracksEl.appendChild(buildTrackRow(info, p, st, anim));
+  }
+}
+
+function buildTrackRow(info, p, st, an) {
+  const row = document.createElement("div");
+  row.className = "track";
+  const head = document.createElement("div");
+  head.className = "track-head";
+  const name = document.createElement("span");
+  name.className = "track-name";
+  name.textContent = p.name;
+  const ann = document.createElement("span");
+  ann.className = "track-ann";
+  ann.textContent = p.annotation.startsWith("Literal") ? "choices" : p.annotation;
+  head.appendChild(name);
+  head.appendChild(ann);
+  // Per-track easing dropdown (defaults to the global easing; "auto" means
+  // inherit). The "auto" option keeps the recipe compact.
+  const ease = document.createElement("select");
+  ease.className = "track-easing";
+  const autoOpt = document.createElement("option");
+  autoOpt.value = ""; autoOpt.textContent = "auto";
+  ease.appendChild(autoOpt);
+  for (const e of EASINGS) {
+    const o = document.createElement("option");
+    o.value = e; o.textContent = e;
+    ease.appendChild(o);
+  }
+  const tr = an.tracks[p.name];
+  if (tr && tr.easing) ease.value = tr.easing;
+  ease.addEventListener("change", () => {
+    if (!an.tracks[p.name]) an.tracks[p.name] = { keyframes: [[0, st[p.name]]], easing: null };
+    an.tracks[p.name].easing = ease.value || null;
+    restartPlayback(info, st, an);
+  });
+  head.appendChild(ease);
+  row.appendChild(head);
+
+  const lane = document.createElement("div");
+  lane.className = "lane";
+  lane.dataset.param = p.name;
+  paintLaneDots(lane, p, an);
+  // Double-click drops a keyframe at the clicked time holding the slider's
+  // current value. Click-to-place would fight with dot dragging; a deliberate
+  // double-click is unambiguous.
+  lane.addEventListener("dblclick", (e) => {
+    const rect = lane.getBoundingClientRect();
+    const t = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    dropKeyframe(p, st, an, t);
+    paintLaneDots(lane, p, an);
+    restartPlayback(info, st, an);
+  });
+  row.appendChild(lane);
+  return row;
+}
+
+function paintLaneDots(lane, p, an) {
+  // Keep the lane element; clear and re-add dots so a redraw after a drop /
+  // drag / delete is one DOM write.
+  lane.querySelectorAll(".kf").forEach((d) => d.remove());
+  const tr = an.tracks[p.name];
+  if (!tr) return;
+  for (let i = 0; i < tr.keyframes.length; i++) {
+    const [t, v] = tr.keyframes[i];
+    const dot = document.createElement("span");
+    dot.className = "kf";
+    dot.style.left = (t * 100) + "%";
+    dot.title = `${p.name} @ t=${t.toFixed(2)} = ${formatVal(v)}`;
+    dot.dataset.idx = String(i);
+    dot.tabIndex = 0;
+    dot.addEventListener("keydown", (e) => {
+      if (e.key === "Backspace" || e.key === "Delete") {
+        e.preventDefault();
+        deleteKeyframe(p, an, i);
+        paintLaneDots(lane, p, an);
+        restartPlayback(byName[current], state, an);
+      }
+    });
+    dot.addEventListener("pointerdown", (e) => startDotDrag(e, dot, p, an, lane));
+    lane.appendChild(dot);
+  }
+}
+
+// Drag a keyframe dot horizontally to change its time. Vertically is a no-op
+// (the value comes from the slider, not the dot's height).
+function startDotDrag(e, dot, p, an, lane) {
+  e.preventDefault();
+  dot.focus();
+  const idx = Number(dot.dataset.idx);
+  const rect = lane.getBoundingClientRect();
+  const move = (ev) => {
+    const t = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+    an.tracks[p.name].keyframes[idx][0] = t;
+    // Keep keyframes time-sorted so the interpolator and the dot order agree.
+    an.tracks[p.name].keyframes.sort((a, b) => a[0] - b[0]);
+    paintLaneDots(lane, p, an);
+  };
+  const up = () => {
+    document.removeEventListener("pointermove", move);
+    document.removeEventListener("pointerup", up);
+    restartPlayback(byName[current], state, an);
+  };
+  document.addEventListener("pointermove", move);
+  document.addEventListener("pointerup", up);
+}
+
+// Drop a keyframe for `p` at time `t` holding the slider's current value. If a
+// keyframe already sits within a small threshold of `t` it is updated in
+// place, so a repeated drop at the same time moves the value rather than
+// stacking dots.
+function dropKeyframe(p, st, an, t) {
+  if (!an.tracks[p.name]) an.tracks[p.name] = { keyframes: [], easing: null };
+  const kfs = an.tracks[p.name].keyframes;
+  const THRESH = 0.01;
+  const near = kfs.findIndex((kv) => Math.abs(kv[0] - t) < THRESH);
+  const val = clone(st[p.name]);
+  if (near >= 0) kfs[near][1] = val;
+  else {
+    kfs.push([t, val]);
+    kfs.sort((a, b) => a[0] - b[0]);
+  }
+}
+
+function deleteKeyframe(p, an, idx) {
+  const kfs = an.tracks[p.name].keyframes;
+  if (kfs.length <= 1) return; // keep at least one
+  kfs.splice(idx, 1);
+}
+
+// --- transport paint --------------------------------------------------------
+function paintTransport(an) {
+  animFramesEl.value = an.frames;
+  animFpsEl.value = an.fps;
+  animHoldEl.value = an.hold;
+  animHoldEl.max = Math.max(0, Math.floor(an.frames / 4));
+  animEaseEl.value = an.easing;
+  loopEl.setAttribute("aria-pressed", String(playState.looping));
+  // Overlay checkboxes reflect the recipe's overlay list.
+  const hasDraw = an.overlays.some((o) => o.type === "draw_on");
+  const hasSpin = an.overlays.some((o) => o.type === "spin");
+  ovDrawEl.checked = hasDraw;
+  ovSpinEl.checked = hasSpin;
+  ovDrawOpts.classList.toggle("on", hasDraw);
+  ovSpinOpts.classList.toggle("on", hasSpin);
+  if (hasDraw) {
+    const dr = an.overlays.find((o) => o.type === "draw_on");
+    ovTrailEl.value = dr.trail == null ? "" : String(dr.trail);
+  }
+  if (hasSpin) {
+    const sp = an.overlays.find((o) => o.type === "spin");
+    ovTurnsEl.value = String(sp.turns == null ? 1 : sp.turns);
+  }
+}
+
+// --- pre-render + playback --------------------------------------------------
+// Build the frame bundle for the current animation. The Python bridge runs
+// `keyframes` once and stashes the per-frame Designs; we then fetch each
+// frame's SVG in chunked rAF batches so the timeline stays responsive. The
+// bundle holds the `frames`-length core (before `hold`); the hold tail is
+// synthesised on playback by repeating the last frame, so changing `hold` is
+// a free re-playback with no re-render.
+function startAnim(info, st, an) {
+  stopPlayback();
+  if (preRaf) { cancelAnimationFrame(preRaf); preRaf = null; }
+  const key = animBundleKey(info, st, an);
+  const cached = animCache.get(key);
+  if (cached) {
+    animCache.delete(key);
+    animCache.set(key, cached);
+    bundle = { key, core: cached, count: cached.length + an.hold, ready: cached.length, total: cached.length, busy: false };
+    showAnimProgress(1);
+    startPlayback(info, an);
+    return;
+  }
+  bundle = { key, core: null, count: 0, ready: 0, total: 0, busy: true };
+  showAnimProgress(0);
+  (async () => {
+    await ensurePyodide();
+    const out = JSON.parse(pyBuildKeyframes(
+      info.name, JSON.stringify(st || {}), JSON.stringify(animRecipe(an).tracks),
+      an.frames, an.fps, 0, an.easing, JSON.stringify(an.overlays)
+    ));
+    if (out.error) {
+      bundle = null;
+      hideAnimProgress();
+      showAnimError(out.error);
+      return;
+    }
+    const total = out.count - 0; // bridge built with hold=0; core length == frames
+    const core = new Array(total).fill(null);
+    bundle.core = core;
+    bundle.total = total;
+    bundle.count = total + an.hold;
+    preRenderChunks(info, an, 0);
+  })();
+}
+
+// Fetch PRE_FRAMES_PER_TICK SVGs per rAF tick until the core bundle is full,
+// then start playback if it has not already. Playback kicks off as soon as
+// the first frame is ready so the user sees motion without waiting on the
+// whole run.
+function preRenderChunks(info, an, from) {
+  let i = from;
+  const tick = () => {
+    if (!bundle || !bundle.busy) return;
+    let made = 0;
+    while (i < bundle.total && made < PRE_FRAMES_PER_TICK) {
+      const out = JSON.parse(pyRenderFrame(i));
+      bundle.core[i] = out.error ? null : out.svg;
+      i++; made++;
+    }
+    bundle.ready = i;
+    showAnimProgress(bundle.total ? bundle.ready / bundle.total : 1);
+    if (i < bundle.total) {
+      preRaf = requestAnimationFrame(tick);
+    } else {
+      bundle.busy = false;
+      hideAnimProgress();
+      // Cache the core bundle for replay.
+      if (animCache.size >= ANIM_CACHE_SIZE) animCache.delete(animCache.keys().next().value);
+      animCache.set(bundle.key, bundle.core.slice());
+      if (!playState.on) startPlayback(info, an);
+    }
+  };
+  preRaf = requestAnimationFrame(tick);
+}
+
+// rAF playback loop. Each tick advances `idx` by the elapsed-time budget at
+// the recipe's fps; the hold tail holds the last core frame for `hold`
+// extra frames. Looping wraps to 0; non-looping stops at the end.
+function startPlayback(info, an) {
+  if (!bundle || !bundle.core) return;
+  playState.on = true;
+  playState.last = performance.now();
+  playState.idx = 0;
+  playState.holdLeft = an.hold;
+  playPauseEl.textContent = "pause";
+  const step = () => {
+    if (!playState.on || !bundle) return;
+    const now = performance.now();
+    const frameMs = 1000 / an.fps;
+    const dt = now - playState.last;
+    if (dt >= frameMs) {
+      const steps = Math.max(1, Math.floor(dt / frameMs));
+      playState.last += steps * frameMs;
+      for (let s = 0; s < steps; s++) advanceFrame(an);
+      drawFrame(playState.idx);
+      syncScrubber();
+    }
+    playState.raf = requestAnimationFrame(step);
+  };
+  drawFrame(0);
+  syncScrubber();
+  playState.raf = requestAnimationFrame(step);
+}
+
+function advanceFrame(an) {
+  const coreLen = bundle.core.length;
+  if (playState.idx < coreLen - 1) {
+    playState.idx++;
+    return;
+  }
+  // At or past the last core frame: spend the hold tail, then loop or stop.
+  if (playState.holdLeft > 0) {
+    playState.holdLeft--;
+    return;
+  }
+  if (playState.looping) {
+    playState.idx = 0;
+    playState.holdLeft = an.hold;
+  } else {
+    stopPlayback();
+  }
+}
+
+function stopPlayback() {
+  if (playState.raf) cancelAnimationFrame(playState.raf);
+  playState.raf = null;
+  playState.on = false;
+  playPauseEl.textContent = "play";
+}
+
+function drawFrame(idx) {
+  if (!bundle || !bundle.core) return;
+  const svg = bundle.core[Math.min(idx, bundle.core.length - 1)];
+  if (!svg) return;
+  stageEl.querySelectorAll("svg").forEach((s) => s.remove());
+  stageEl.insertAdjacentHTML("beforeend", stripXmlDecl(svg));
+  placeholderEl.classList.remove("busy", "error");
+  placeholderEl.style.display = "none";
+  // The display render is a fixed 520x520 canvas, so the stage's zoom/pan
+  // viewBox applies the same way it does to a still. We do not preserve zoom
+  // across frames (a parameter sweep changes the bounds), so each frame fits.
+  captureNatural();
+  fitView();
+}
+
+// Scrubber -> frame index. The scrubber spans the full core run (the hold
+// tail is playback-only and not scrubbed).
+function syncScrubber() {
+  if (!bundle || !bundle.core) { scrubEl.value = 0; return; }
+  const t = bundle.core.length > 1 ? playState.idx / (bundle.core.length - 1) : 0;
+  scrubEl.value = Math.min(1, Math.max(0, t));
+}
+
+// Restart pre-render + playback after a timeline edit. Reuses the cache when
+// the bundle key is unchanged (e.g. a pure playback param changed); otherwise
+// starts a fresh build.
+function restartPlayback(info, st, an) {
+  if (!animOn) return;
+  startAnim(info, st, an);
+}
+
+function showAnimError(msg) {
+  placeholderEl.classList.add("error");
+  placeholderEl.style.display = "";
+  phMain.textContent = msg;
+  stageEl.querySelectorAll("svg").forEach((s) => s.remove());
+}
+
+function showAnimProgress(frac) {
+  animProgressEl.classList.add("on");
+  animProgressFill.style.width = (frac * 100) + "%";
+}
+function hideAnimProgress() { animProgressEl.classList.remove("on"); }
+
+// --- GIF export -------------------------------------------------------------
+// Rebuilds the same run the SPA just played, with the recipe's hold, and
+// writes it through the pure-stdlib `save_gif` to Pyodide's in-memory FS. The
+// bytes match `geomotif render --animation spec.json` by construction (same
+// primitive, same writer, same default export styling).
+expGifEl.addEventListener("click", async () => {
+  if (!animOn || !current) return;
+  expGifEl.disabled = true;
+  try {
+    await ensurePyodide();
+    const info = byName[current];
+    const an = anim;
+    const result = pyExportGif(
+      info.name, JSON.stringify(state || {}), JSON.stringify(animRecipe(an).tracks),
+      an.frames, an.fps, an.hold, an.easing, JSON.stringify(an.overlays)
+    );
+    let data;
+    if (result instanceof Uint8Array) {
+      data = result.slice();
+    } else if (typeof result === "string") {
+      // Pyodide surfaces a Python str return as a JS string; the bridge uses
+      // that only for the error envelope, so decode it.
+      let parsed;
+      try { parsed = JSON.parse(result); } catch (e) { throw new Error(result); }
+      throw new Error(parsed && parsed.error ? parsed.error : result);
+    } else {
+      data = new Uint8Array(result);
+    }
+    download(new Blob([data], { type: "image/gif" }), `${info.name}.gif`);
+    flash(expGifEl, true, "saved", "failed");
+  } catch (e) {
+    flash(expGifEl, false, "saved", "failed");
+  } finally {
+    expGifEl.disabled = false;
+  }
+});
+
+// --- transport events -------------------------------------------------------
+playPauseEl.addEventListener("click", () => {
+  if (!animOn || !bundle) return;
+  if (playState.on) stopPlayback();
+  else startPlayback(byName[current], anim);
+});
+
+loopEl.addEventListener("click", () => {
+  playState.looping = !playState.looping;
+  loopEl.setAttribute("aria-pressed", String(playState.looping));
+});
+
+animFramesEl.addEventListener("input", () => {
+  if (!anim) return;
+  const v = Math.min(ANIM_FRAMES_MAX, Math.max(ANIM_FRAMES_MIN, Math.round(Number(animFramesEl.value) || anim.frames)));
+  anim.frames = v;
+  animHoldEl.max = Math.max(0, Math.floor(v / 4));
+  if (anim.hold > Math.floor(v / 4)) {
+    anim.hold = Math.floor(v / 4);
+    animHoldEl.value = anim.hold;
+  }
+  restartPlayback(byName[current], state, anim);
+});
+
+animFpsEl.addEventListener("input", () => {
+  if (!anim) return;
+  const v = Math.min(ANIM_FPS_MAX, Math.max(ANIM_FPS_MIN, Math.round(Number(animFpsEl.value) || anim.fps)));
+  anim.fps = v;
+  animFpsEl.value = v;
+  // fps is a playback-only param: no re-render, just keep the live loop on the
+  // new cadence.
+  if (playState.on) {
+    stopPlayback();
+    startPlayback(byName[current], anim);
+  }
+});
+
+animHoldEl.addEventListener("input", () => {
+  if (!anim) return;
+  const max = Math.max(0, Math.floor(anim.frames / 4));
+  const v = Math.min(max, Math.max(ANIM_HOLD_MIN, Math.round(Number(animHoldEl.value) || 0)));
+  anim.hold = v;
+  animHoldEl.value = v;
+  // hold is a playback-only param: the bundle's core is unchanged, only the
+  // tail length moves. No re-render.
+  if (bundle) bundle.count = bundle.core.length + v;
+  if (playState.on) {
+    stopPlayback();
+    startPlayback(byName[current], anim);
+  }
+});
+
+animEaseEl.addEventListener("change", () => {
+  if (!anim) return;
+  anim.easing = animEaseEl.value;
+  restartPlayback(byName[current], state, anim);
+});
+
+// Scrubber: drag to scrub (canvas shows the frame at that time), click to
+// jump. While scrubbing, playback is paused so the hand on the scrubber is
+// the only clock.
+scrubEl.addEventListener("pointerdown", () => {
+  scrubbing = true;
+  if (playState.on) stopPlayback();
+});
+scrubEl.addEventListener("input", () => {
+  if (!bundle || !bundle.core) return;
+  const t = Number(scrubEl.value);
+  const idx = Math.round(t * (bundle.core.length - 1));
+  playState.idx = Math.min(idx, bundle.core.length - 1);
+  drawFrame(playState.idx);
+});
+scrubEl.addEventListener("pointerup", () => { scrubbing = false; });
+
+// Overlay checkboxes. Toggling one adds/removes the matching entry on
+// `anim.overlays` and re-renders (overlays are post-passes on the geometry).
+function overlayEntry(type) {
+  return anim.overlays.find((o) => o.type === type);
+}
+ovDrawEl.addEventListener("change", () => {
+  if (!anim) return;
+  if (ovDrawEl.checked) {
+    if (!overlayEntry("draw_on")) anim.overlays.push({ type: "draw_on", trail: null });
+    const e = overlayEntry("draw_on");
+    e.trail = ovTrailEl.value === "" ? null : Number(ovTrailEl.value);
+  } else {
+    anim.overlays = anim.overlays.filter((o) => o.type !== "draw_on");
+  }
+  paintTransport(anim);
+  restartPlayback(byName[current], state, anim);
+});
+ovTrailEl.addEventListener("input", () => {
+  if (!anim) return;
+  const e = overlayEntry("draw_on");
+  if (!e) return;
+  e.trail = ovTrailEl.value === "" ? null : Number(ovTrailEl.value);
+  restartPlayback(byName[current], state, anim);
+});
+ovSpinEl.addEventListener("change", () => {
+  if (!anim) return;
+  if (ovSpinEl.checked) {
+    if (!overlayEntry("spin")) anim.overlays.push({ type: "spin", turns: 1.0 });
+    const e = overlayEntry("spin");
+    e.turns = Number(ovTurnsEl.value) || 1.0;
+  } else {
+    anim.overlays = anim.overlays.filter((o) => o.type !== "spin");
+  }
+  paintTransport(anim);
+  restartPlayback(byName[current], state, anim);
+});
+ovTurnsEl.addEventListener("input", () => {
+  if (!anim) return;
+  const e = overlayEntry("spin");
+  if (!e) return;
+  e.turns = Number(ovTurnsEl.value) || 1.0;
+  restartPlayback(byName[current], state, anim);
+});
+
+// The Play toggle on the stage toolbar enters / exits animation mode.
+playEl.addEventListener("click", () => {
+  toggleAnim();
 });
 
 // --- go ---------------------------------------------------------------------

@@ -521,3 +521,231 @@ pre.command {
 .export-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .copy.export { padding: 0.35rem 0.7rem; font-size: 0.72rem; }
 .copy.export:disabled { opacity: 0.5; cursor: not-allowed; }
+.copy.export.gif { font-weight: 600; }
+
+/* --- animation mode -------------------------------------------------------- */
+/* The timeline editor swaps in below the stage when the Play toggle is on. It
+   is hidden by default; `.timeline.on` reveals it. The stage gains an `.anim`
+   class so its layout can adjust (e.g. reserving room for the timeline). */
+.timeline {
+  display: none;
+  margin: 1rem auto 0;
+  max-width: 560px;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  box-shadow: var(--shadow);
+}
+.timeline.on { display: block; }
+
+.timeline-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+}
+.timeline-head .label { padding: 0; flex: none; }
+.scrubber-row { flex: 1; display: flex; align-items: center; }
+.scrubber {
+  flex: 1;
+  margin: 0;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+.scrubber::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent); cursor: pointer;
+}
+
+/* Tracks: one row per animatable parameter. */
+.tracks { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.3rem 0 0.6rem; }
+.track { display: flex; flex-direction: column; gap: 0.2rem; }
+.track-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.track-name {
+  font: 0.72rem/1 var(--mono);
+  color: var(--ink);
+  flex: none;
+  min-width: 5rem;
+}
+.track-ann {
+  font: 0.66rem/1 var(--mono);
+  color: var(--faint);
+  flex: 1;
+}
+.track-easing {
+  font: 0.66rem/1 var(--mono);
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+.track-easing:focus { outline: none; border-color: var(--accent); }
+
+.lane {
+  position: relative;
+  height: 18px;
+  margin-left: 5rem;
+  border-radius: 99px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  cursor: crosshair;
+}
+.kf {
+  position: absolute;
+  top: 50%;
+  width: 10px; height: 10px;
+  margin: -5px 0 0 -5px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: grab;
+  outline: none;
+}
+.kf:focus { box-shadow: 0 0 0 2px var(--accent); }
+.kf:active { cursor: grabbing; }
+
+.anim-empty {
+  margin: 0.3rem 0;
+  font: 0.74rem/1.5 var(--mono);
+  color: var(--faint);
+  text-align: center;
+}
+
+/* Transport row: play/pause, loop, frames, fps, hold, easing. */
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--line);
+}
+.tp {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.74rem/1 var(--mono);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.tp:hover { color: var(--ink); border-color: var(--accent); }
+.tp.toggle[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.tp-field {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font: 0.68rem/1 var(--mono);
+  color: var(--faint);
+}
+.tp-field input, .tp-field .tp-select {
+  width: 4.5rem;
+  padding: 0.18rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.72rem/1.2 var(--mono);
+}
+.tp-field .tp-select { width: auto; cursor: pointer; }
+.tp-field input:focus, .tp-field .tp-select:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Overlay checkboxes + their per-overlay option rows. */
+.overlays {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--line);
+}
+.overlays .label { padding: 0; flex: none; }
+.ov-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: 0.72rem/1 var(--mono);
+  color: var(--muted);
+  cursor: pointer;
+}
+.ov-toggle input { margin: 0; }
+.ov-opts {
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+  font: 0.68rem/1 var(--mono);
+  color: var(--faint);
+}
+.ov-opts.on { display: inline-flex; }
+.ov-opts input {
+  width: 4.5rem;
+  padding: 0.18rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.72rem/1.2 var(--mono);
+}
+.ov-opts input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Thin pre-render progress bar pinned to the top of the stage, the same
+   rhythm as the header's cold-load bar. Hidden unless a build is in flight. */
+.anim-progress {
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  height: 3px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+  display: none;
+  z-index: 4;
+}
+.anim-progress.on { display: block; }
+.anim-progress > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.15s ease;
+}
+
+/* The Play toggle on the stage toolbar uses the same .tb.toggle styling as
+   grid/border; it just needs a distinct accent when active. */
+.tb.toggle#play[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}

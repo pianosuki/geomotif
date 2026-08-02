@@ -51,6 +51,8 @@
             <button class="tb toggle" id="tg-border" type="button" title="toggle stage border" aria-pressed="true">border</button>
             <span class="tb-sep" aria-hidden="true"></span>
             <button class="tb" id="theme" type="button" title="toggle light / dark">theme</button>
+            <span class="tb-sep" aria-hidden="true"></span>
+            <button class="tb toggle" id="play" type="button" title="enter / leave animation mode" aria-pressed="false">play</button>
           </div>
           <div class="placeholder" id="placeholder">
             <svg class="glyph" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
@@ -60,9 +62,44 @@
             <span class="main" id="ph-main">pick a motif</span>
             <span class="hint">or press <code>/</code> to search</span>
           </div>
+          <div class="anim-progress" id="anim-progress" aria-hidden="true"><i></i></div>
         </div>
       </div>
       <div class="meta" id="meta"></div>
+      <section class="timeline" id="timeline" aria-label="animation timeline">
+        <div class="timeline-head">
+          <span class="label">Timeline</span>
+          <span class="scrubber-row">
+            <input class="scrubber" id="scrubber" type="range" min="0" max="1" step="0.001" value="0" aria-label="scrub">
+          </span>
+        </div>
+        <div class="tracks" id="tracks"></div>
+        <div class="transport" id="transport">
+          <button class="tp" id="tp-play" type="button" title="play / pause">play</button>
+          <button class="tp toggle" id="tp-loop" type="button" title="loop playback" aria-pressed="true">loop</button>
+          <label class="tp-field">frames <input id="tp-frames" type="number" min="32" max="240" step="1" value="48"></label>
+          <label class="tp-field">fps <input id="tp-fps" type="number" min="1" max="60" step="1" value="20"></label>
+          <label class="tp-field">hold <input id="tp-hold" type="number" min="0" step="1" value="12"></label>
+          <label class="tp-field">easing
+            <select id="tp-easing" class="tp-select">
+              <option>linear</option><option>quadratic</option>
+              <option selected>cubic</option><option>sinusoidal</option>
+              <option>exponential</option><option>circular</option>
+            </select>
+          </label>
+        </div>
+        <div class="overlays">
+          <span class="label">Overlays</span>
+          <label class="ov-toggle"><input type="checkbox" id="ov-draw"> draw-on (pen reveal)</label>
+          <span class="ov-opts" id="ov-draw-opts">
+            <label>trail <input id="ov-trail" type="number" min="0" step="1" placeholder="none"></label>
+          </span>
+          <label class="ov-toggle"><input type="checkbox" id="ov-spin"> spin (rotate)</label>
+          <span class="ov-opts" id="ov-spin-opts">
+            <label>turns <input id="ov-turns" type="number" min="0" step="0.1" value="1"></label>
+          </span>
+        </div>
+      </section>
     </section>
 
     <aside class="controls">
@@ -82,6 +119,7 @@
             <button class="copy export" id="exp-svg" type="button">SVG</button>
             <button class="copy export" id="exp-png" type="button">PNG</button>
             <button class="copy export" id="exp-spec" type="button">spec JSON</button>
+            <button class="copy export gif" id="exp-gif" type="button" disabled>GIF</button>
           </div>
         </div>
       </div>
