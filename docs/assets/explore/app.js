@@ -77,6 +77,19 @@ let renderTimer = null;
 // ground the CLI explore page would.
 const SPREAD = 2.0;
 
+// --- share URL fragment ------------------------------------------------------
+// The still spec is encoded into the URL fragment as base64url of a compact
+// JSON blob `{"m": motif, "p": params}`. The SPA decodes it on boot to restore
+// the selected motif and its slider state. base64url keeps the hash free of
+// `+`/`/`/`=` so it never needs percent-encoding. The CLI never sees this
+// compact form: the SPA expands it back to the full `{"motif":..., "params":...}`
+// shape before calling from_spec, so a shared view round-trips with
+// `geomotif render --spec` byte-for-byte by construction.
+//
+// `m=` is a one-char discriminator so a later step can add an `a=` animation
+// fragment alongside the still one without colliding.
+const FRAGMENT_PREFIX = "m=";
+
 // --- DOM handles -------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 const statusEl = $("status");
@@ -91,6 +104,7 @@ const metaEl = $("meta");
 const controlsEl = $("controls");
 const commandEl = $("command");
 const copyEl = $("copy");
+const shareEl = $("share");
 
 // --- catalog ----------------------------------------------------------------
 async function boot() {
@@ -108,9 +122,16 @@ async function boot() {
   paintFamilies();
   paintMotifs();
   setStatus("ready — pick a motif");
-  // First paint is the shell; Pyodide loads lazily on first render.
-  const first = catalog.motifs.find((m) => m.available) || catalog.motifs[0];
-  if (first) selectMotif(first.name);
+  // A shared view arrives in the URL fragment; if present it wins over the
+  // default first motif so landing on a share URL boots straight into the
+  // sender's state. Otherwise we fall back to the first available motif.
+  const restored = readFragment();
+  if (restored && byName[restored.motif]) {
+    selectMotif(restored.motif, restored.params, { fromFragment: true });
+  } else {
+    const first = catalog.motifs.find((m) => m.available) || catalog.motifs[0];
+    if (first) selectMotif(first.name);
+  }
 }
 
 function paintFamilies() {
@@ -165,7 +186,13 @@ function paintMotifs() {
 }
 
 // --- motif selection & rendering --------------------------------------------
-function selectMotif(name) {
+// `override` (optional) is a params mapping decoded from a shared URL fragment;
+// it is folded into the freshly-seeded state so a share URL boots into the
+// sender's slider positions. `opts.fromFragment` records that the selection
+// came from the hash so selectMotif does not rewrite the same hash it just
+// consumed (which would replace the entry we want to keep as the landing one).
+function selectMotif(name, override, opts) {
+  opts = opts || {};
   current = name;
   const info = byName[name];
   if (!info) return;
@@ -177,10 +204,12 @@ function selectMotif(name) {
   // not a value the SPA can or should round-trip, and `from_spec` falls back
   // to the motif's own default when they are absent.
   state = initState(info);
+  if (override) applyOverride(state, info, override);
   paintMotifs();
   paintMeta(info);
   paintControls(info, state, !info.available);
   paintCommand(info, state);
+  if (!opts.fromFragment) writeFragment(name, state, false);
   if (!info.available) {
     showUnavailable(info);
     return;
@@ -669,13 +698,77 @@ function setNoneDisabled(container, disabled) {
   container.querySelectorAll("input").forEach((i) => { i.disabled = disabled; });
 }
 
-// --- debounced render -------------------------------------------------------
+// --- debounced render + fragment sync ---------------------------------------
+// The hash is updated on the same ~30 ms cadence as the render so a slider
+// drag never spams the history stack. replaceState keeps the back button
+// working as one entry per motif session; pushState is reserved for the
+// explicit "copy share URL" action so a shared view is its own bookmarkable
+// entry.
 function scheduleRender(info, st) {
   if (renderTimer) clearTimeout(renderTimer);
   renderTimer = setTimeout(() => {
     renderTimer = null;
+    writeFragment(info.name, st, false);
     requestAnimationFrame(() => render(info, st));
   }, RENDER_DEBOUNCE_MS);
+}
+
+// Fold a params dict decoded from a share URL into the freshly-seeded state.
+// Only settable params that the catalog actually knows about are written, so a
+// stale share URL (renamed param, dropped field) degrades gracefully instead
+// of feeding from_spec a key the motif rejects.
+function applyOverride(st, info, override) {
+  if (!override || typeof override !== "object") return;
+  const known = Object.create(null);
+  for (const p of info.params) known[p.name] = p;
+  for (const key of Object.keys(override)) {
+    const p = known[key];
+    if (!p || RESERVED.has(p.name)) continue;
+    if (!isSettable(p)) continue;
+    st[key] = clone(override[key]);
+  }
+}
+
+// --- share URL fragment ------------------------------------------------------
+function encodeFragment(motif, params) {
+  const json = JSON.stringify({ m: motif, p: params });
+  // btoa handles Latin-1; motif params are ASCII (numbers, strings, arrays,
+  // plain objects), so no UTF-8 re-encoding is needed.
+  const b64 = btoa(json);
+  return "#" + FRAGMENT_PREFIX + b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function decodeFragment(hash) {
+  if (!hash) return null;
+  let frag = String(hash);
+  if (frag.startsWith("#")) frag = frag.slice(1);
+  if (!frag.startsWith(FRAGMENT_PREFIX)) return null;
+  let b64 = frag.slice(FRAGMENT_PREFIX.length).replace(/-/g, "+").replace(/_/g, "/");
+  while (b64.length % 4) b64 += "=";
+  try {
+    const obj = JSON.parse(atob(b64));
+    if (!obj || typeof obj.m !== "string") return null;
+    const params = obj.p;
+    if (params != null && typeof params !== "object") return null;
+    return { motif: obj.m, params: params || {} };
+  } catch (e) {
+    return null;
+  }
+}
+
+function readFragment() {
+  return decodeFragment(location.hash);
+}
+
+// Write the current view into the URL fragment. `push` false uses replaceState
+// (in-session sync); `push` true uses pushState (explicit share, a real
+// history entry the back button can return to).
+function writeFragment(motif, params, push) {
+  const frag = encodeFragment(motif, params);
+  if (frag === location.hash) return;
+  const url = location.pathname + location.search + frag;
+  if (push) history.pushState(null, "", url);
+  else history.replaceState(null, "", url);
 }
 
 // --- live command line ------------------------------------------------------
@@ -821,6 +914,32 @@ copyEl.addEventListener("click", async () => {
     setTimeout(() => { copyEl.textContent = "copy command"; copyEl.classList.remove("ok"); }, 1200);
   } catch (e) {
     copyEl.textContent = "copy failed";
+  }
+});
+
+// Copy the share URL for the current view. A real history entry is pushed so
+// the back button returns to the pre-share state, and the URL the user copies
+// is the one the address bar shows afterwards.
+shareEl.addEventListener("click", async () => {
+  if (!current) return;
+  try {
+    writeFragment(current, state, true);
+    await navigator.clipboard.writeText(location.href);
+    shareEl.textContent = "copied";
+    shareEl.classList.add("ok");
+    setTimeout(() => { shareEl.textContent = "copy share URL"; shareEl.classList.remove("ok"); }, 1200);
+  } catch (e) {
+    shareEl.textContent = "copy failed";
+  }
+});
+
+// Restoring from a back/forward navigation: the browser fires popstate when the
+// user lands on a fragment we wrote. Re-seed state from it so the back button
+// walks through shared views rather than jumping past them.
+window.addEventListener("popstate", () => {
+  const restored = readFragment();
+  if (restored && byName[restored.motif]) {
+    selectMotif(restored.motif, restored.params, { fromFragment: true });
   }
 });
 

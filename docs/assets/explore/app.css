@@ -422,8 +422,8 @@ pre.command {
   color: var(--ink);
   box-shadow: var(--shadow);
 }
+.command-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
 .copy {
-  margin-top: 0.5rem;
   padding: 0.4rem 0.85rem;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
