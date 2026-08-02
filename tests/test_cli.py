@@ -494,6 +494,66 @@ def test_rendering_nothing_at_all_is_refused(capsys):
     assert "name a motif" in err
 
 
+def test_animation_renders_a_gif_from_a_full_spec(capsys, tmp_path):
+    from geomotif import to_spec
+
+    spec = to_spec(
+        registry.create("rose"),
+        animation={
+            "type": "keyframes",
+            "tracks": {"n": [[0.0, 3], [1.0, 9]]},
+            "frames": 6,
+            "fps": 20.0,
+            "hold": 0,
+            "easing": "linear",
+        },
+    )
+    spec_path = tmp_path / "anim.json"
+    spec_path.write_text(json.dumps(spec))
+    out = tmp_path / "anim.gif"
+    assert run(capsys, "render", "--animation", str(spec_path), "--out", str(out))[0] == 0
+    decoded = gif(out.read_bytes())
+    assert len(decoded.frames) == 6
+
+
+def test_animation_chains_overlay_post_passes(capsys, tmp_path):
+    from geomotif import to_spec
+
+    spec = to_spec(
+        registry.create("rose"),
+        animation={
+            "type": "keyframes",
+            "tracks": {"n": [[0.0, 3], [1.0, 9]]},
+            "frames": 8,
+            "fps": 10.0,
+            "easing": "cubic",
+            "overlay": [{"type": "draw_on"}, {"type": "spin", "turns": 1.0}],
+        },
+    )
+    spec_path = tmp_path / "anim.json"
+    spec_path.write_text(json.dumps(spec))
+    out = tmp_path / "anim.gif"
+    assert run(capsys, "render", "--animation", str(spec_path), "--out", str(out))[0] == 0
+    assert gif(out.read_bytes()).frames[0].delay == 10  # 10 fps -> 1/10 s -> 10 hundredths
+
+
+def test_animation_refuses_a_name_alongside_it(capsys, tmp_path):
+    spec_path = tmp_path / "anim.json"
+    spec_path.write_text(json.dumps({"motif": "rose", "animation": {"type": "keyframes"}}))
+    code, _, err = run(capsys, "render", "rose", "--animation", str(spec_path))
+    assert code == 2
+    assert "not both" in err
+
+
+def test_animation_refuses_a_spec_without_an_animation_key(capsys, tmp_path):
+    from geomotif import save_spec
+
+    spec = save_spec(registry.create("rose"), tmp_path / "still.json")
+    code, _, err = run(capsys, "render", "--animation", str(spec), "--out", str(tmp_path / "x.gif"))
+    assert code == 2
+    assert "no 'animation' key" in err
+
+
 def test_an_unwritable_suffix_lists_the_ones_that_work(capsys, tmp_path):
     code, _, err = run(capsys, "render", "rose", "--out", str(tmp_path / "r.bmp"))
     assert code == 2

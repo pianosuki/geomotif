@@ -63,6 +63,7 @@ from .core.transform import SNAP_MODES
 from .core.types import Bounds
 from .explore import DEFAULT_SIZE, DEFAULT_STEPS, save_html
 from .io import (
+    from_spec,
     load_spec,
     save_design,
     save_dxf,
@@ -94,6 +95,7 @@ RESERVED = frozenset(
     {
         "aa_level",
         "antialias",
+        "animation",
         "background",
         "by",
         "compression",
@@ -220,6 +222,12 @@ def build_parser(motif: MotifInfo | None = None) -> argparse.ArgumentParser:
     )
     render.add_argument("name", nargs="?", help="registered motif name")
     render.add_argument("--spec", type=pathlib.Path, help="read the motif from a spec file instead")
+    render.add_argument(
+        "--animation",
+        type=pathlib.Path,
+        metavar="PATH",
+        help="read a spec with an 'animation' key and write the moving picture to --out",
+    )
     render.add_argument("--samples", type=int, metavar="N", help="resample to N points")
     render.add_argument(
         "--stride", type=float, metavar="D", help="a point every D units of real distance"
@@ -439,6 +447,16 @@ def _show(args: argparse.Namespace) -> int:
 
 def _render(args: argparse.Namespace) -> int:
     """Build one motif and write it wherever ``--out`` says."""
+    if args.animation is not None:
+        if args.name is not None or args.spec is not None:
+            raise ValueError("give --animation, or a motif name/--spec, not both")
+        if args.out is None:
+            raise ValueError("--animation needs --out, e.g. --out anim.gif")
+        motif, animation = _animation_from(args.animation)
+        frames = _keyframes_frames(motif, animation, args)
+        _write_animation_frames(frames, args.out, args)
+        print(f"wrote {args.out}", file=sys.stderr)
+        return 0
     motif = _motif_from(args)
     design = _sample(motif, args)
     if args.optimize:
@@ -844,6 +862,110 @@ def _save_animation(design: Design, target: pathlib.Path, args: argparse.Namespa
             frames = spin(design, args.frames, hold=hold)
         case _:
             frames = draw_on(design, args.frames, hold=hold)
+    save_gif(
+        frames,
+        target,
+        width=width,
+        height=height,
+        fps=args.fps,
+        loop=args.loop,
+        ink=args.ink,
+        background=args.background,
+        thickness=args.stroke_width,
+        dot_radius=args.dot_radius,
+        padding=args.padding,
+        antialias=args.antialias,
+        aa_level=args.aa_level,
+        dither=args.dither,
+        transparent=args.transparent,
+    )
+
+
+def _animation_from(path: pathlib.Path) -> tuple[Motif, dict[str, Any]]:
+    """Read a spec file that carries an ``animation`` key.
+
+    The file is the same JSON the web explorer encodes into a share URL: the
+    full ``{"motif": ..., "params": ..., "animation": ...}`` shape. The motif
+    is rebuilt through :func:`from_spec` (which already ignores the animation
+    key), and the animation recipe is returned alongside it.
+    """
+    data = json.loads(path.read_text())
+    if not isinstance(data, dict):
+        raise ValueError(
+            f"{path} is not a spec file: expected a JSON object, got {type(data).__name__}"
+        )
+    if registry.NAME_KEY not in data:
+        raise ValueError(f"{path} is not a spec file: expected a 'motif' key")
+    animation = data.get("animation")
+    if not isinstance(animation, dict):
+        raise ValueError(f"{path} has no 'animation' key naming a recipe")
+    return from_spec(data), animation
+
+
+def _keyframes_frames(
+    motif: Motif, animation: dict[str, Any], args: argparse.Namespace
+) -> tuple[Design, ...]:
+    """Build the frames an animation recipe describes.
+
+    ``keyframes`` produces the per-frame designs; any ``overlay`` entries are
+    post-passes (``draw_on`` / ``spin``) chained on with :func:`animate.compose`,
+    so a single ``--animation`` flag reproduces whatever the web app produced.
+    The recipe's ``fps`` is the GIF's frame rate, so a shared animation plays
+    at the same speed in the browser and on the command line.
+    """
+    from .animate import compose, keyframes
+
+    tracks = animation.get("tracks", {})
+    if not isinstance(tracks, dict):
+        raise ValueError(f"animation 'tracks' must be an object, got {type(tracks).__name__}")
+    frames = int(animation.get("frames", 48))
+    fps = float(animation.get("fps", args.fps))
+    hold = int(animation.get("hold", 0))
+    easing = str(animation.get("easing", "linear"))
+    built = keyframes(motif, tracks, frames=frames, fps=fps, hold=hold, easing=easing)
+
+    # The recipe's fps is authoritative for a shared animation, so a GIF
+    # produced here plays at the same speed the web explorer did. Setting it
+    # on ``args`` lets the writer read it from the same place it always does.
+    args.fps = fps
+
+    overlays = animation.get("overlay", [])
+    motions = [_overlay_motion(entry) for entry in overlays]
+    if motions:
+        built = compose(motions, built)
+    return built
+
+
+def _overlay_motion(entry: Any) -> Any:
+    """Return the motion callable an overlay descriptor names."""
+    from .animate import draw_on_overlay, spin_overlay
+
+    if not isinstance(entry, dict):
+        raise ValueError(f"an overlay entry must be an object, got {entry!r}")
+    kind = entry.get("type")
+    if kind == "draw_on":
+        return draw_on_overlay(trail=entry.get("trail"))
+    if kind == "spin":
+        about = entry.get("about")
+        return spin_overlay(
+            turns=float(entry.get("turns", 1.0)),
+            about=tuple(about) if isinstance(about, list) else about,
+        )
+    raise ValueError(f"unknown overlay type {kind!r}; try 'draw_on' or 'spin'")
+
+
+def _write_animation_frames(
+    frames: tuple[Design, ...], target: pathlib.Path, args: argparse.Namespace
+) -> None:
+    """Write a run of frames as an animated GIF, using the export styling.
+
+    This is the ``--animation`` counterpart to :func:`_save_animation`: the
+    frames are already built (by :func:`keyframes`), so only the GIF writer's
+    canvas, palette and timing are applied. The animation recipe's ``fps`` is
+    stored on ``args`` by :func:`_keyframes_frames`' caller via ``--fps`` --
+    here the CLI flag wins, matching the rest of the command line.
+    """
+    width, height = _canvas(args)
     save_gif(
         frames,
         target,

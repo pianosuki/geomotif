@@ -44,6 +44,37 @@ every consumer of `ParamInfo` reads the bound from the same place.
   the heuristic, so the catalog is usable even before every motif is
   curated.
 
+- **`keyframes`, a multi-parameter animation primitive in `geomotif.animate`.**
+  Where `sweep` varies one parameter across a list of values, `keyframes`
+  varies several at once, each across its own time points in `[0, 1]`:
+  `keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=48)`. Numeric
+  parameters interpolate component-wise with an easing curve from
+  `geomotif.core.spacing` (`linear`, `quadratic`, `cubic`, `sinusoidal`,
+  `exponential`, `circular`, with a `name:mode` suffix for ease-out variants);
+  `bool`, `Literal` and `str` parameters step at the next keyframe; integer
+  parameters round and deduplicate, so adjacent frames that round to the same
+  value share one built `Design`. Per-track easing overrides the global one.
+  An eased value a motif rejects falls back to the last frame that built, with
+  a `keyframes_fallback` note in its metadata. A small `compose(motions,
+  frames)` helper chains `draw_on_overlay` / `spin_overlay` post-passes onto a
+  run of frames, so a Hilbert curve can draw itself on while its `depth`
+  sweeps. This is the primitive the 1.3.0 web explorer's animation editor is
+  built on, so an animation shared from the browser reproduces in the CLI
+  byte-for-byte.
+- **`animation` key in spec files.** `io/spec.py` learns an optional top-level
+  `animation` key carrying the recipe for a moving picture: `{"type":
+  "keyframes", "tracks": {...}, "frames": N, "fps": X, "hold": K, "easing":
+  "...", "overlay": [...]}` -- the same JSON the CLI's `--animation` flag reads
+  and the web explorer encodes into a share URL. `to_spec` takes an optional
+  `animation=` mapping; `from_spec` ignores the key when building the still
+  motif, so an old spec keeps loading unchanged.
+- **`geomotif render --animation spec.json`.** The new flag reads a full spec
+  (motif + params + `animation`), runs the `keyframes` primitive, applies any
+  `overlay` post-passes, and writes a `.gif` through the existing pure-stdlib
+  writer. The recipe's `fps` is authoritative, so a shared animation plays at
+  the same speed on the command line as in the browser. Mutually exclusive
+  with a positional motif name and `--spec`.
+
 ### Changed
 
 - **`geomotif explore` sweeps a declared range when there is one.** A

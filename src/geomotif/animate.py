@@ -10,36 +10,64 @@ per frame, so they compose with everything else: transform them, restyle them,
 export one as SVG, or hand the lot to
 :func:`~geomotif.io.gif.save_gif`::
 
-    from geomotif.animate import draw_on, spin, sweep
+    from geomotif.animate import draw_on, keyframes, spin, sweep
     from geomotif.io.gif import save_gif
     from geomotif.motifs import HilbertCurve, Rose
 
     save_gif(draw_on(HilbertCurve(depth=5).build(), frames=60), "hilbert.gif")
     save_gif(spin(Rose(n=5).build(), frames=48), "rose.gif")
     save_gif(sweep(Rose(), "n", range(2, 12)), "petals.gif")
+    save_gif(keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=48), "grow.gif")
 
 Nothing here is expensive: a frame is the same geometry seen differently, not
-the motif built again -- except in :func:`sweep`, where building it again is
-precisely the point.
+the motif built again -- except in :func:`sweep` and :func:`keyframes`, where
+building it again is precisely the point.
+
+:func:`keyframes` animates several parameters at once across arbitrary time
+points, and is what the 1.3.0 web explorer's animation editor is built on;
+:func:`compose` chains the post-passes (:func:`draw_on`, :func:`spin`) onto a
+run of frames so a single ``--animation`` flag reproduces whatever the web
+app produced.
 """
 
 from __future__ import annotations
 
+import dataclasses
+import itertools
 import math
+from collections.abc import Mapping
 from dataclasses import fields, is_dataclass, replace
+from types import MappingProxyType
 from typing import TYPE_CHECKING, cast
 
 from .core.sampling import ArcTable
+from .core.spacing import (
+    CircularSpacing,
+    CubicSpacing,
+    ExponentialSpacing,
+    LinearSpacing,
+    QuadraticSpacing,
+    SineSpacing,
+    SpacingCurve,
+)
 from .core.transform import Affine
 from .core.types import Design, Path, select_styles
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from .core.motif import SupportsBuild
     from .core.types import Point
 
-__all__ = ["draw_on", "spin", "sweep"]
+__all__ = [
+    "compose",
+    "draw_on",
+    "draw_on_overlay",
+    "keyframes",
+    "spin",
+    "spin_overlay",
+    "sweep",
+]
 
 
 def draw_on(
@@ -244,3 +272,375 @@ def _revealed(
         tuple(design.points[i] for i in kept),
         select_styles(design.meta, paths=sources, points=kept),
     )
+
+
+# --- keyframes: many parameters across arbitrary time points -----------------
+
+
+#: The easing curves :func:`keyframes` accepts, by name. Each is a
+#: :class:`~geomotif.core.spacing.SpacingCurve` mapping ``[0, 1] -> [0, 1]``
+#: monotonically, which is exactly the shape a per-track interpolation needs.
+#: The default mode of each modal curve (``"in"`` -- slow start, fast end) is
+#: what "easing in" has always meant; a ``name:mode`` suffix such as
+#: ``"cubic:out"`` picks a different one.
+_EASINGS: dict[str, Callable[..., SpacingCurve]] = {
+    "linear": LinearSpacing,
+    "quadratic": QuadraticSpacing,
+    "cubic": CubicSpacing,
+    "sinusoidal": SineSpacing,
+    "exponential": ExponentialSpacing,
+    "circular": CircularSpacing,
+}
+
+#: The metadata key set on a frame that fell back to the last valid design
+#: because its interpolated parameters were rejected by the motif. The web
+#: explorer reads it to badge the segment as "interpolated through an invalid
+#: range -- adjust keyframes".
+FALLBACK_KEY = "keyframes_fallback"
+
+
+def keyframes(
+    motif: SupportsBuild,
+    tracks: Mapping[str, object],
+    *,
+    frames: int = 48,
+    fps: float = 20.0,
+    hold: int = 0,
+    easing: str = "linear",
+) -> tuple[Design, ...]:
+    """Return one design per frame, with named parameters eased across keyframes.
+
+    Where :func:`sweep` varies a single parameter across a list of values,
+    :func:`keyframes` varies several at once, each across its own time points.
+    It is the primitive the 1.3.0 web explorer's animation editor is built on,
+    so an animation a user shares from the browser reproduces in the CLI
+    byte-for-byte.
+
+    Parameters
+    ----------
+    motif : Motif
+        A dataclass motif, which every builtin one is. The motif is rebuilt for
+        each frame with that frame's interpolated parameters.
+    tracks : mapping of str to track
+        One entry per parameter to animate. A track is either a sequence of
+        ``(time, value)`` pairs (using the global ``easing``) or a mapping
+        ``{"keyframes": [(t, value), ...], "easing": "..."}`` that overrides
+        it. ``time`` is a fraction of the whole run in ``[0, 1]``.
+    frames : int
+        How many frames to return, before ``hold``. Must be >= 1.
+    fps : float
+        Recorded for the spec round-trip; it does not change the frames
+        produced. The GIF writer's frame rate comes from the spec (or the
+        CLI's ``--fps``), not from here.
+    hold : int
+        Extra copies of the finished frame to append, so a looping animation
+        pauses on the result instead of restarting the instant it arrives.
+    easing : str
+        Global interpolation curve, one of ``linear``, ``quadratic``,
+        ``cubic``, ``sinusoidal``, ``exponential``, ``circular``. A
+        ``name:mode`` suffix (``"cubic:out"``) selects an ease-out variant.
+
+    Returns
+    -------
+    tuple of Design
+        ``frames + hold`` of them. Numeric parameters interpolate
+        component-wise; ``bool``, ``Literal`` and ``str`` parameters step at
+        the next keyframe; integer parameters round and deduplicate, so two
+        adjacent frames that round to the same value share one built
+        :class:`Design`. An eased value a motif rejects falls back to the last
+        frame that built, with a note in its metadata.
+
+    Raises
+    ------
+    TypeError
+        If the motif is not a dataclass, so there is nothing to vary by name.
+    ValueError
+        If a track names a parameter the motif does not have, a keyframe time
+        is outside ``[0, 1]``, or the easing name is not recognized.
+
+    Examples
+    --------
+    >>> from geomotif.animate import keyframes
+    >>> from geomotif.motifs import Rose
+    >>> len(keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=6))
+    6
+    """
+    if frames < 1:
+        raise ValueError(f"frames must be >= 1, got {frames}")
+    if hold < 0:
+        raise ValueError(f"hold must be >= 0, got {hold}")
+
+    base_curve = _easing_curve(easing)
+    normalized = {name: _normalize_track(track, base_curve) for name, track in tracks.items()}
+    # Typed as ``object`` for the same reason as ``_swept``: mypy cannot
+    # intersect the motif protocol with the dataclass one, and written
+    # against a motif type the narrowing below reads as unreachable.
+    obj: object = motif
+    if not (is_dataclass(obj) and not isinstance(obj, type)):
+        raise TypeError(
+            f"cannot keyframe {type(motif).__name__}: it is not a dataclass, "
+            f"so it has no named parameters to vary. Build the frames yourself"
+        )
+    known = [field.name for field in fields(obj) if field.init]
+    for name in normalized:
+        if name not in known:
+            raise ValueError(f"{type(motif).__name__} takes one of {known}, got {name!r}")
+
+    # The motif's own build is the fallback for a frame whose interpolated
+    # parameters the motif rejects before any frame has succeeded.
+    base_fallback = motif.build()
+
+    result: list[Design] = []
+    prev_params: dict[str, object] | None = None
+    prev_design: Design | None = None
+    for i in range(frames):
+        t = i / (frames - 1) if frames > 1 else 0.0
+        params = {name: _value_at(t, kfs, curve) for name, (kfs, curve) in normalized.items()}
+        if prev_params is not None and params == prev_params and prev_design is not None:
+            # Two adjacent frames that round to the same integers (or step to
+            # the same discrete value) share one built Design, so a 60-frame
+            # sweep of ``n`` from 3 to 9 holds 7 distinct frames, not 60
+            # near-duplicates.
+            result.append(prev_design)
+            continue
+        try:
+            design = cast("SupportsBuild", replace(obj, **params)).build()
+        except (
+            ValueError,
+            TypeError,
+            KeyError,
+            IndexError,
+            ZeroDivisionError,
+            OverflowError,
+            RecursionError,
+        ):
+            fallback = prev_design if prev_design is not None else base_fallback
+            design = replace(
+                fallback,
+                meta=MappingProxyType({**fallback.meta, FALLBACK_KEY: True}),
+            )
+        result.append(design)
+        prev_params = params
+        prev_design = design
+
+    if result:
+        result.extend([result[-1]] * hold)
+    # Touch fps so a reader knows it was not forgotten; the value lives in the
+    # spec, not in the frames, and the GIF writer reads it from there.
+    _ = fps
+    return tuple(result)
+
+
+def compose(
+    motions: Iterable[Callable[[tuple[Design, ...]], tuple[Design, ...]]],
+    frames: tuple[Design, ...],
+) -> tuple[Design, ...]:
+    """Chain motion post-passes onto a run of frames.
+
+    :func:`keyframes` only animates motif parameters. The existing
+    :func:`draw_on` and :func:`spin` operate on a built design and are applied
+    as post-passes -- one frame at a time, in step with the timeline -- so a
+    Hilbert curve can draw itself on while its ``depth`` sweeps from 3 to 6.
+    :func:`draw_on_overlay` and :func:`spin_overlay` adapt them to a whole run
+    of frames; this helper chains any number of such motions in order, so the
+    CLI's ``--animation`` flag is a single spec rather than a tangle of nested
+    flags.
+
+    Parameters
+    ----------
+    motions : iterable of callables
+        Each ``motion(frames) -> frames``, applied left to right.
+    frames : tuple of Design
+        The run to transform, typically the result of :func:`keyframes`.
+
+    Returns
+    -------
+    tuple of Design
+        The run after every motion has been applied in turn.
+    """
+    result = frames
+    for motion in motions:
+        result = motion(result)
+    return result
+
+
+def draw_on_overlay(
+    *, trail: float | None = None
+) -> Callable[[tuple[Design, ...]], tuple[Design, ...]]:
+    """Return a motion that reveals each frame progressively, in step with the timeline.
+
+    Frame ``i`` of ``n`` shows the first ``(i + 1) / n`` of that frame's arc
+    length -- a pen drawing alongside the parameter sweep, so a Hilbert curve
+    can grow from depth 3 to 6 while it draws itself on. ``trail`` passes
+    straight through to the same per-path reveal :func:`draw_on` uses.
+    """
+
+    def apply(frames: tuple[Design, ...]) -> tuple[Design, ...]:
+        n = len(frames)
+        if n == 0:
+            return frames
+        return tuple(
+            _revealed(frame, [path.length for path in frame.paths], (i + 1) / n, trail)
+            for i, frame in enumerate(frames)
+        )
+
+    return apply
+
+
+def spin_overlay(
+    *, turns: float = 1.0, about: Point | None = None
+) -> Callable[[tuple[Design, ...]], tuple[Design, ...]]:
+    """Return a motion that turns each frame in step with the timeline.
+
+    Frame ``i`` of ``n`` is rotated by ``turns * i / n`` revolutions. ``about``
+    defaults to each frame's own center, which is what keeps it on the canvas;
+    give a point to rotate about a fixed one instead.
+    """
+
+    def apply(frames: tuple[Design, ...]) -> tuple[Design, ...]:
+        n = len(frames)
+        if n == 0:
+            return frames
+        step = math.tau * turns / n
+
+        def center(frame: Design) -> Point:
+            return frame.bounds.center if len(frame) else (0.0, 0.0)
+
+        return tuple(
+            frame.transformed(
+                Affine.rotate(i * step, about=about if about is not None else center(frame))
+            )
+            for i, frame in enumerate(frames)
+        )
+
+    return apply
+
+
+# --- keyframes internals -----------------------------------------------------
+
+
+def _easing_curve(name: str) -> SpacingCurve:
+    """Return the spacing curve a global or per-track easing name picks.
+
+    A ``name:mode`` suffix (``"cubic:out"``) selects an ease-out variant of a
+    modal curve; non-modal curves (``linear``) ignore a suffix.
+    """
+    head, _, mode = name.partition(":")
+    factory = _EASINGS.get(head)
+    if factory is None:
+        raise ValueError(f"unknown easing {name!r}; try {sorted(_EASINGS)}")
+    if mode:
+        try:
+            return factory(mode=mode)
+        except TypeError as exc:
+            raise ValueError(f"easing {head!r} takes no mode, got {mode!r}") from exc
+    return factory()
+
+
+def _normalize_track(
+    track: object, default_curve: SpacingCurve
+) -> tuple[list[tuple[float, object]], SpacingCurve]:
+    """Return a track as ``(sorted keyframes, easing curve)``.
+
+    A track is either a sequence of ``(time, value)`` pairs (using the global
+    easing) or a mapping ``{"keyframes": [...], "easing": "..."}`` overriding
+    it. Times are coerced to float and must lie in ``[0, 1]``.
+    """
+    if isinstance(track, Mapping):
+        raw = track.get("keyframes", track.get("frames"))
+        if raw is None:
+            raise ValueError("a track mapping needs a 'keyframes' entry")
+        easing_name = track.get("easing")
+        curve = _easing_curve(str(easing_name)) if easing_name is not None else default_curve
+    else:
+        raw = track
+        curve = default_curve
+    try:
+        kfs = [(float(t), v) for t, v in raw]
+    except (TypeError, ValueError) as exc:
+        raise ValueError(f"a track's keyframes must be (time, value) pairs, got {track!r}") from exc
+    if not kfs:
+        raise ValueError("a track needs at least one keyframe")
+    kfs.sort(key=lambda kv: kv[0])
+    for t, _ in kfs:
+        if not 0.0 <= t <= 1.0:
+            raise ValueError(f"keyframe time {t} is out of [0, 1]")
+    return kfs, curve
+
+
+def _value_at(t: float, kfs: list[tuple[float, object]], easing: SpacingCurve) -> object:
+    """Return the value a track holds at normalized time ``t``.
+
+    Before the first keyframe the first value holds; at or after the last, the
+    last. Discrete parameters (``bool``, ``str``, mismatched types) step at the
+    next keyframe -- the most recent keyframe at or before ``t`` wins, so the
+    value snaps the moment the scrubber crosses a boundary; numeric ones ease
+    component-wise, with integers rounded.
+    """
+    if t <= kfs[0][0]:
+        return kfs[0][1]
+    if t >= kfs[-1][0]:
+        return kfs[-1][1]
+    if _is_discrete(kfs[0][1], kfs[-1][1]):
+        held = kfs[0][1]
+        for tk, vk in kfs:
+            if tk <= t:
+                held = vk
+            else:
+                break
+        return held
+    for (t0, v0), (t1, v1) in itertools.pairwise(kfs):
+        if t0 <= t <= t1:
+            local = (t - t0) / (t1 - t0) if t1 > t0 else 0.0
+            return _lerp(v0, v1, easing(local))
+    return kfs[-1][1]
+
+
+def _is_discrete(v0: object, v1: object) -> bool:
+    """Return whether two keyframe values should step rather than interpolate.
+
+    ``bool`` and ``str`` step (so a ``Literal`` parameter snaps between its
+    choices); so do mismatched types, since there is no honest blend between
+    them. Everything else -- numbers, points, bounds, value dataclasses,
+    nested motifs -- interpolates.
+    """
+    if isinstance(v0, bool) or isinstance(v1, bool):
+        return True
+    if isinstance(v0, str) or isinstance(v1, str):
+        return True
+    return type(v0) is not type(v1)
+
+
+def _lerp(v0: object, v1: object, u: float) -> object:
+    """Ease between two keyframe values, component-wise where they are composite.
+
+    Integers round, so two adjacent frames that round to the same value are
+    caught by the dedupe in :func:`keyframes` rather than here. A value
+    dataclass (``Bounds``, ``IFSMap``, a nested motif) interpolates each of
+    its own init fields, holding the discrete ones and easing the numeric ones
+    -- which is what lets a nested motif's parameters move too.
+    """
+    if isinstance(v0, bool) or isinstance(v1, bool) or isinstance(v0, str) or isinstance(v1, str):
+        return v0
+    if isinstance(v0, (int, float)) and isinstance(v1, (int, float)):
+        result = v0 + (v1 - v0) * u
+        if isinstance(v0, int) and isinstance(v1, int):
+            return round(result)
+        return result
+    if isinstance(v0, tuple) and isinstance(v1, tuple):
+        return tuple(_lerp(a, b, u) for a, b in zip(v0, v1, strict=True))
+    if (
+        dataclasses.is_dataclass(v0)
+        and not isinstance(v0, type)
+        and dataclasses.is_dataclass(v1)
+        and not isinstance(v1, type)
+        and type(v0) is type(v1)
+    ):
+        updates: dict[str, object] = {}
+        for field in fields(v0):
+            if not field.init:
+                continue
+            a, b = getattr(v0, field.name), getattr(v1, field.name)
+            updates[field.name] = a if _is_discrete(a, b) else _lerp(a, b, u)
+        return replace(v0, **updates)
+    return v0

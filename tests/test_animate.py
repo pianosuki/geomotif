@@ -1,11 +1,20 @@
 import math
+from typing import cast
 
 import pytest
 
-from geomotif import Design, Path, Style, layer, styled, to_gif
-from geomotif.animate import draw_on, spin, sweep
+from geomotif import Bounds, Design, Path, Style, layer, styled, to_gif
+from geomotif.animate import (
+    compose,
+    draw_on,
+    draw_on_overlay,
+    keyframes,
+    spin,
+    spin_overlay,
+    sweep,
+)
 from geomotif.io.raster import Raster, quantize, rasterize, rasterize_rgba
-from geomotif.motifs import KochSnowflake, Phyllotaxis, RegularPolygon, Rose
+from geomotif.motifs import KochSnowflake, Phyllotaxis, RegularPolygon, Rose, SquareTiling
 from tests.readback import gif
 
 SQUARE = RegularPolygon(sides=4, radius=100.0).build()
@@ -640,3 +649,177 @@ def test_dithering_spreads_a_gradient_instead_of_banding_it():
 def test_aa_level_out_of_range_is_refused_at_the_gif_level():
     with pytest.raises(ValueError, match="aa_level"):
         to_gif([SQUARE], antialias=True, aa_level=0)
+
+
+# --- keyframes ---------------------------------------------------------------
+
+
+def test_keyframes_returns_one_design_per_frame_plus_hold():
+    frames = keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=10)
+    assert len(frames) == 10
+    assert all(isinstance(frame, Design) for frame in frames)
+    held = keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=8, hold=4)
+    assert len(held) == 12
+    assert held[-4:] == (held[7],) * 4
+
+
+def test_keyframes_starts_and_ends_on_the_keyframe_values():
+    frames = keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=6)
+    assert frames[0].meta["n"] == 3
+    assert frames[-1].meta["n"] == 9
+
+
+def test_keyframes_easing_changes_the_midpoint():
+    linear = keyframes(Rose(), {"size": [(0.0, 10.0), (1.0, 100.0)]}, frames=11, easing="linear")
+    cubic = keyframes(Rose(), {"size": [(0.0, 10.0), (1.0, 100.0)]}, frames=11, easing="cubic")
+    # Halfway through, linear sits at the arithmetic middle; cubic-in lags
+    # behind it (slow start), so the two cannot agree.
+    assert linear[5].meta["size"] == pytest.approx(55.0)
+    assert cast("float", cubic[5].meta["size"]) < cast("float", linear[5].meta["size"])
+
+
+def test_keyframes_per_track_easing_overrides_the_global_one():
+    track = {"keyframes": [(0.0, 10.0), (1.0, 100.0)], "easing": "cubic"}
+    mixed = keyframes(Rose(), {"size": track}, frames=11, easing="linear")
+    cubic = keyframes(Rose(), {"size": track}, frames=11, easing="cubic")
+    assert mixed[5].meta["size"] == cubic[5].meta["size"]
+
+
+def test_keyframes_steps_a_bool_parameter_at_the_next_keyframe():
+    track = {"clip": [(0.0, True), (0.5, False), (1.0, True)]}
+    motif = SquareTiling(region=Bounds(0.0, 0.0, 100.0, 100.0))
+    frames = keyframes(motif, track, frames=11)
+    # The value holds, then snaps the moment the scrubber crosses 0.5 and 1.0.
+    assert [frame.meta["clip"] for frame in frames] == [
+        True,
+        True,
+        True,
+        True,
+        True,
+        False,
+        False,
+        False,
+        False,
+        False,
+        True,
+    ]
+
+
+def test_keyframes_dedupes_adjacent_integer_frames_to_one_design():
+    # A 60-frame sweep of n from 3 to 9 rounds to only 7 distinct integers,
+    # and each run of equal integers shares one built Design rather than
+    # rebuilding the same picture sixty times.
+    frames = keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=60)
+    assert len(frames) == 60
+    distinct = {id(frame) for frame in frames}
+    assert len(distinct) == 7
+    # And the integer values climb one at a time, never skipping.
+    values = [cast("int", frame.meta["n"]) for frame in frames]
+    assert sorted(set(values)) == [3, 4, 5, 6, 7, 8, 9]
+
+
+def test_keyframes_interpolates_a_value_dataclass_component_wise():
+    track = {"region": [(0.0, Bounds(0.0, 0.0, 10.0, 10.0)), (1.0, Bounds(20.0, 30.0, 40.0, 50.0))]}
+    motif = SquareTiling(region=Bounds(0.0, 0.0, 10.0, 10.0), size=10.0)
+    frames = keyframes(motif, track, frames=3, easing="linear")
+    start, middle, end = (frame.meta["region"] for frame in frames)
+    assert start == Bounds(0.0, 0.0, 10.0, 10.0)
+    assert end == Bounds(20.0, 30.0, 40.0, 50.0)
+    assert middle == Bounds(10.0, 15.0, 25.0, 30.0)  # the component-wise average
+
+
+def test_keyframes_falls_back_when_an_interpolated_value_is_invalid():
+    # Rose refuses n < 1, so the frames that would round to 0 fall back to the
+    # motif's own build, carrying the fallback marker so the UI can badge it.
+    from geomotif.animate import FALLBACK_KEY
+
+    frames = keyframes(Rose(), {"n": [(0.0, 0), (1.0, 6)]}, frames=12, easing="linear")
+    assert frames[0].meta.get(FALLBACK_KEY) is True
+    # The fallback borrows the motif's own geometry (n=5), not the rejected n=0.
+    assert frames[0].meta["n"] == 5
+    # Once the interpolated value is valid again, the frames build themselves.
+    assert frames[-1].meta.get(FALLBACK_KEY) is None
+    assert frames[-1].meta["n"] == 6
+
+
+def test_keyframes_refuses_a_parameter_the_motif_does_not_have():
+    with pytest.raises(ValueError, match=r"takes one of \[.*'n'.*\], got 'petals'"):
+        keyframes(Rose(), {"petals": [(0.0, 3), (1.0, 9)]}, frames=4)
+
+
+def test_keyframes_refuses_something_that_is_not_a_dataclass():
+    class Handmade:
+        def build(self):
+            return SQUARE
+
+    with pytest.raises(TypeError, match="not a dataclass"):
+        keyframes(Handmade(), {"n": [(0.0, 3)]}, frames=2)
+
+
+def test_keyframes_refuses_an_unknown_easing():
+    with pytest.raises(ValueError, match="unknown easing"):
+        keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=4, easing="bouncy")
+
+
+def test_keyframes_refuses_a_time_outside_the_unit_interval():
+    with pytest.raises(ValueError, match="out of \\[0, 1\\]"):
+        keyframes(Rose(), {"n": [(-0.1, 3), (1.0, 9)]}, frames=4)
+
+
+def test_keyframes_refuses_a_track_with_no_keyframes():
+    with pytest.raises(ValueError, match="at least one keyframe"):
+        keyframes(Rose(), {"n": []}, frames=4)
+
+
+def test_compose_chains_draw_on_and_spin_overlays_onto_the_frames():
+    base = keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=8)
+    # draw_on reveals progressively, so the first frame is shorter than the last.
+    revealed = compose([draw_on_overlay()], base)
+    assert drawn_length(revealed[0]) < drawn_length(revealed[-1])
+    # spin turns each frame, so a frame's first vertex moves off its start.
+    turned = compose([spin_overlay(turns=1.0)], base)
+    assert turned[5].paths[0].points[0] != base[5].paths[0].points[0]
+    # The two stack: reveal first, then turn the revealed frames. A middle
+    # frame is turned (frame 0 never rotates, since its fraction is zero).
+    both = compose([draw_on_overlay(), spin_overlay(turns=0.5)], base)
+    assert len(both) == len(base)
+    assert both[4].paths[0].points[0] != base[4].paths[0].points[0]
+
+
+def test_a_keyframes_run_writes_as_a_gif(tmp_path):
+    from geomotif import save_gif
+
+    frames = keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=6)
+    target = save_gif(frames, tmp_path / "grow.gif", width=40, height=40)
+    decoded = gif(target.read_bytes())
+    assert len(decoded.frames) == 6
+
+
+# --- animation spec round-trip ------------------------------------------------
+
+
+def test_to_spec_carries_the_animation_key_alongside_the_still():
+    from geomotif import to_spec
+
+    animation = {
+        "type": "keyframes",
+        "tracks": {"n": [[0.0, 3], [1.0, 9]]},
+        "frames": 48,
+        "fps": 20.0,
+        "hold": 0,
+        "easing": "linear",
+    }
+    blob = to_spec(Rose(n=5), animation=animation)
+    assert blob["motif"] == "rose"
+    assert blob["animation"] == animation
+    # A still spec simply omits the key.
+    assert "animation" not in to_spec(Rose(n=5))
+
+
+def test_from_spec_loads_a_still_from_a_spec_that_also_has_animation():
+    from geomotif import from_spec, to_spec
+
+    animation = {"type": "keyframes", "tracks": {"n": [[0.0, 3]]}, "frames": 4}
+    blob = to_spec(Rose(n=7), animation=animation)
+    # from_spec ignores the animation key and rebuilds the still motif.
+    assert from_spec(blob) == Rose(n=7)
