@@ -24,16 +24,6 @@ against the standard tables. ``quality`` chooses how much survives::
 The writer answers to the same styling vocabulary as the PNG and GIF writers
 (``ink``, ``background``, ``thickness``, ``padding``, ``antialias``), so a
 design that looks right in one looks the same way here.
-
-An honest caveat about where this encoder is verified. The suite checks it
-with its own independent decoder, which reads the file back and finds the
-source; the file's structure -- markers, dimensions, tables -- is standard,
-so libjpeg and Pillow open it without complaint. But the *AC* (fine-detail)
-blocks are written in a shape that external decoders render differently from
-this module's own reader, so a JPEG opened in another tool is not guaranteed
-to match what the suite's round-trip produces. That interop gap is being
-narrowed; until it is, the PNG and GIF writers are the ones to reach for when
-an exact picture matters to another tool.
 """
 
 from __future__ import annotations
@@ -84,70 +74,71 @@ _CHR_QUANT = (
     (99, 99, 99, 99, 99, 99, 99, 99),
 )
 
-#: The path a block's 64 coefficients are read in, DC first (Annex A).
+#: Maps a coefficient's row-major index (v*8+u) to its position in the
+#: zig-zag scan, DC first (Annex A).
 _ZIGZAG = (
     0,
     1,
-    8,
-    16,
-    9,
-    2,
-    3,
-    10,
-    17,
-    24,
-    32,
-    25,
-    18,
-    11,
-    4,
     5,
-    12,
-    19,
-    26,
-    33,
-    40,
-    48,
-    41,
-    34,
-    27,
-    20,
-    13,
     6,
-    7,
     14,
-    21,
-    28,
-    35,
-    42,
-    49,
-    56,
-    57,
-    50,
-    43,
-    36,
-    29,
-    22,
     15,
-    23,
+    27,
+    28,
+    2,
+    4,
+    7,
+    13,
+    16,
+    26,
+    29,
+    42,
+    3,
+    8,
+    12,
+    17,
+    25,
     30,
-    37,
-    44,
-    51,
-    58,
-    59,
-    52,
-    45,
-    38,
+    41,
+    43,
+    9,
+    11,
+    18,
+    24,
     31,
-    39,
-    46,
+    40,
+    44,
     53,
-    60,
-    61,
+    10,
+    19,
+    23,
+    32,
+    39,
+    45,
+    52,
     54,
-    47,
+    20,
+    22,
+    33,
+    38,
+    46,
+    51,
     55,
+    60,
+    21,
+    34,
+    37,
+    47,
+    50,
+    56,
+    59,
+    61,
+    35,
+    36,
+    48,
+    49,
+    57,
+    58,
     62,
     63,
 )
@@ -920,8 +911,11 @@ def _dqt(lum: tuple[tuple[int, ...], ...], chroma: tuple[tuple[int, ...], ...]) 
 
 def _dqt_table(tid: int, table: tuple[tuple[int, ...], ...]) -> bytes:
     payload = bytearray([tid])
-    for row in table:
-        payload.extend(row)
+    natural = [0] * 64  # linear index of the coefficient at each scan position
+    for linear in range(64):
+        natural[_ZIGZAG[linear]] = linear
+    for linear in natural:
+        payload.append(table[linear // 8][linear % 8])
     return bytes(payload)
 
 

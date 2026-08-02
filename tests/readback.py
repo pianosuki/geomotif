@@ -446,70 +446,71 @@ class Jpeg:
     pixels: bytes  # RGB, one triple per pixel, row-major
 
 
-#: The path a block's 64 coefficients are read in, DC first (Annex A).
+#: Maps a coefficient's row-major index (v*8+u) to its position in the
+#: zig-zag scan, DC first (Annex A).
 _ZIGZAG = (
     0,
     1,
-    8,
-    16,
-    9,
-    2,
-    3,
-    10,
-    17,
-    24,
-    32,
-    25,
-    18,
-    11,
-    4,
     5,
-    12,
-    19,
-    26,
-    33,
-    40,
-    48,
-    41,
-    34,
-    27,
-    20,
-    13,
     6,
-    7,
     14,
-    21,
-    28,
-    35,
-    42,
-    49,
-    56,
-    57,
-    50,
-    43,
-    36,
-    29,
-    22,
     15,
-    23,
+    27,
+    28,
+    2,
+    4,
+    7,
+    13,
+    16,
+    26,
+    29,
+    42,
+    3,
+    8,
+    12,
+    17,
+    25,
     30,
-    37,
-    44,
-    51,
-    58,
-    59,
-    52,
-    45,
-    38,
+    41,
+    43,
+    9,
+    11,
+    18,
+    24,
     31,
-    39,
-    46,
+    40,
+    44,
     53,
-    60,
-    61,
+    10,
+    19,
+    23,
+    32,
+    39,
+    45,
+    52,
     54,
-    47,
+    20,
+    22,
+    33,
+    38,
+    46,
+    51,
     55,
+    60,
+    21,
+    34,
+    37,
+    47,
+    50,
+    56,
+    59,
+    61,
+    35,
+    36,
+    48,
+    49,
+    57,
+    58,
     62,
     63,
 )
@@ -564,12 +565,18 @@ def jpeg(data: bytes) -> Jpeg:
 
 
 def _parse_quant(payload: bytes, quant: dict[int, list[int]]) -> None:
-    """Read the quantization tables (precision 0, so one byte per entry)."""
+    """Read the quantization tables (precision 0, so one byte per entry).
+
+    The payload holds each table in zig-zag scan order (Annex A); expand it
+    into the natural row-major order the block decoder indexes by.
+    """
     i = 0
     while i < len(payload):
         tid = payload[i]
         assert tid & 0xF0 == 0, "only 8-bit precision is understood"
-        quant[tid & 0x0F] = list(payload[i + 1 : i + 65])
+        zigzag = payload[i + 1 : i + 65]
+        natural = [zigzag[_ZIGZAG[linear]] for linear in range(64)]
+        quant[tid & 0x0F] = natural
         i += 65
 
 

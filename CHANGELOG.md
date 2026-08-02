@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 migration path to document — the lineage is recorded here only so the early
 history reads honestly.
 
+## [1.2.1] — 2026-08-02
+
+The JPEG interop fix: the stills the encoder writes now render identically in
+libjpeg and Pillow, closing the gap the 1.2.0 entry warned about.
+
+### Fixed
+
+- **JPEG AC coefficients were written in the wrong zig-zag order.** The
+  `_ZIGZAG` table held ITU-T T.81 Annex A's standard mapping (scan position →
+  row-major index), but both the encoder (`jpeg.py`) and the suite's decoder
+  (`tests/readback.py`) looked it up backwards (row-major index → scan
+  position). Because both sides shared the mistake, the round-trip passed
+  while external decoders placed every AC coefficient in the wrong frequency.
+  The table is now stored inverted, matching what both call sites actually
+  need.
+- **JPEG quantization tables were written in natural rather than scan
+  order.** The DQT payload must list its 64 steps in zig-zag scan order
+  (Annex A), but `_dqt_table` emitted them row-major and `_parse_quant` read
+  them back the same way. External decoders therefore dequantized with the
+  step for the wrong frequency. Both now use scan order, so files are
+  standard and the interop check in verification 2 passes.
+- The "honest caveat" paragraph is gone from the `geomotif.io.jpeg` module
+  docstring, and the export guide's "A word about JPEG" note no longer steers
+  readers away to PNG/GIF for exactness. A JPEG opened in another tool now
+  matches what the suite's own reader produces, to within IDCT rounding.
+
 ## [1.2.0] — 2026-08-01
 
 The raster overhaul: stills join the zero-dependency picture pipeline, and
@@ -27,13 +53,8 @@ the one hard-coded GIF becomes a full set of knobs.
   with 4:2:0 chroma subsampling, an 8x8 DCT, quality-scaled quantization, and
   Huffman coding against the reference tables. `--quality 0-100` scales the
   quantization (default 85). `.jpg` and `.jpeg` render from `render --out`
-  with no matplotlib and no extra install.
-  - **Known limitation:** the writer passes this suite's own decoder and
-    opens cleanly in libjpeg and Pillow, but the fine-detail (AC) blocks
-    render slightly differently in external viewers than in this library's
-    reader. It is fine for a smaller file where exactness is not the point;
-    reach for PNG or GIF when an exact picture matters to another tool. This
-    is being narrowed.
+  with no matplotlib and no extra install. As of 1.2.1 the files it writes
+  render identically in libjpeg and Pillow (see the `[1.2.1]` entry).
 - **Stills vs animation** — PNG and JPEG are single stills of the finished
   design; the animation flags are ignored rather than refused, so
   `render rose --motion spin --out rose.png` degrades gracefully to a still.

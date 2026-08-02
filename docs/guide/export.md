@@ -248,8 +248,9 @@ name rather than writing a file that will not load.
 
     The JPEG writer meets the same verification bar as the PNG and GIF writers
     — the suite reads its file back and finds the source, and libjpeg and
-    Pillow open it without complaint. It is, however, the newest of the three
-    and the hardest: the fine-detail (AC) blocks render slightly differently
-    in external viewers than in this library's own reader. If an exact picture
-    matters to another tool, prefer `save_png` or `save_gif`; `save_jpeg` is
-    the one to reach for when a smaller file is the point.
+    Pillow open it without complaint. Since 1.2.1 the fine-detail (AC) blocks
+    are written in the standard zig-zag order and the quantization tables in
+    scan order, so an external viewer renders the file exactly as this
+    library's own reader does, to within IDCT rounding. Reach for `save_jpeg`
+    whenever a smaller file is the point; `save_png` or `save_gif` remain the
+    choice when a lossless picture matters.
