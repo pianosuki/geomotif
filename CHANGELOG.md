@@ -4,10 +4,36 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-`geomotif` evolved from an unpublished spiral-only point generator called
-`spiralgen`. Nothing was ever released under that name, so there is no
-migration path to document — the lineage is recorded here only so the early
-history reads honestly.
+## [1.2.2] — 2026-08-02
+
+The documentation release: a pass over the guides against the code, fixing
+what was wrong and what read wrong. No behavior changes; the library is
+unchanged.
+
+### Fixed
+
+- **The 'centerd' typo.** The American-spelling test catches the British
+  forms it bans but not the plain misspelling 'centerd', which had settled
+  into five module docstrings and four test names. All ten now read
+  'centered'.
+- **Reproducibility, restated.** The 'Metadata and reproducibility' section
+  claimed any random seed lands in `meta`; only a motif-parameter seed does
+  (the way `PoissonDiscPoints.seed` is). An operator's seed -- `jitter`'s --
+  is not recorded, so regenerating the same jittered points means keeping
+  hold of it yourself.
+- **The CLI guide's `--ease` example.** `--ease power:exp:out:6` does not
+  parse; `--ease exponential:out:6` does, and is what the example now says.
+- **The exporter guide's quick reference** is a table first, with the longer
+  notes below it. The front page lists PNG and JPEG among the exports, the
+  extending guide reaches for `ParametricMotif` or `PolygonMotif` first,
+  and both now say 'ten formats' rather than five.
+- **The animation guide's Raster note** names the fields (`width`, `height`,
+  `pixels`, `palette`, `mode`) and points at `rasterize_rgba` for the
+  truecolor writers, rather than the `rgba()` method the code does not have.
+- The points guide gets a concrete `RegularPolygon(sides=5)` example, the
+  plotting guide recommends `save_png` as the no-matplotlib still, and the
+  front-page example shows `SpiralBetween` with keyword arguments, matching
+  the README.
 
 ## [1.2.1] — 2026-08-02
 
@@ -704,6 +730,7 @@ this name or number; `geomotif` 1.0.0 is the first release of anything.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
 
+[1.2.2]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.2
 [1.2.1]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.1
 [1.2.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.0
 [1.1.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.1.0
