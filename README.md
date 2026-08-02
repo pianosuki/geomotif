@@ -77,10 +77,9 @@ table, and inverts it. Equal spacing means the same **real x,y distance**
 between every consecutive pair of points, however tightly the curve winds.
 
 Because that engine works on *polylines* rather than on formulas, it applies to
-every motif in the catalog — including the ones with no closed-form
-parametrization at all — and to yours. `step=` is the mode you want for plotter
-output and dot placement: the gap is fixed and the count falls out of the
-geometry.
+every motif in the catalog, closed-form or not, and to yours. `step=` is the
+mode you want for plotter output and dot placement: the gap is fixed and the
+count falls out of the geometry.
 
 → [Where the points land](https://pianosuki.github.io/geomotif/guide/points/)
 
@@ -168,7 +167,8 @@ every one.
 | **primitive** | 16 | circle, ellipse, arc, sector, line, rectangle, rounded rectangle, regular polygon, star polygon (the `{n/k}` family — `{6/2}` correctly comes back as two triangles), superellipse, squircle, Reuleaux polygon, egg, point grid, Poisson disc |
 | **curve** | 18 | heart, cardioid, lemniscate, Cassini oval (two strokes when it really is two lobes), limaçon, butterfly, fish, bow, astroid, deltoid, nephroid, folium, cochleoid, cycloid, trochoid, witch of Agnesi, cornoid |
 | **roulette** | 6 | hypotrochoid, epitrochoid, hypocycloid, epicycloid, Spirograph in the toy's own terms, and `Epicycles` — two arms is a trochoid, several dozen is a Fourier series |
-| **polar**, **harmonic** | 7 | rose (with the petal count right: `n` or `2n`, by a parity rule most implementations get wrong), Maurer rose, Lissajous, harmonic, harmonograph, phyllotaxis, and a one-off radius function |
+| **polar** | 4 | rose (with the petal count right: `n` or `2n`, by a parity rule most implementations get wrong), Maurer rose, phyllotaxis, and a one-off radius function |
+| **harmonic** | 3 | Lissajous, harmonic, and harmonograph |
 | **fractal** | 23 | Koch, Minkowski, Sierpiński, dragon, Lévy C, Hilbert, Moore, Peano, Gosper, Vicsek — sixteen of them a grammar and nothing else — plus the carpet, Cantor set, Pythagoras tree, H-tree, Apollonian gasket (Descartes' circle theorem, so the curvatures come out integral), and two by chaos game |
 | **graph** | 7 | complete, cyclic/circulant, bipartite, chord diagram, prime chords, and the modular times-table cardioid |
 | **string-art** | 3 | the corner parabola everybody has made, the polygon and circle versions, and the general envelope engine the rest are special cases of |
@@ -264,9 +264,7 @@ hand, and it is a great deal smaller — a mandala's recipe is 1.5 KB against
 A parameter that is itself a motif — the composers take one — nests as the same
 object, so a mandala's rings serialize without a second notation. Every motif
 in the catalog round-trips exactly, bar the two whose parameter *is* a Python
-function: those are defined by code, not data, and say so when asked. Loading a
-spec never imports a module the file names, only value types from packages that
-already provide motifs here.
+function: those are defined by code, not data, and say so when asked.
 
 → [Exporting](https://pianosuki.github.io/geomotif/guide/export/)
 
@@ -297,14 +295,14 @@ spec format. Two consequences worth knowing:
   `geomotif render voronoi.cells --inset 0.2` works — the point set is the
   example's, the inset is yours.
 - **The sampling options are `--samples`, `--stride` and `--ease`**, not the
-  more obvious words: `points`, `count`, `step` and `spacing` are all motif
-  parameter names already, and argparse has one namespace.
+  more obvious words: `points`, `count`, `step` and `spacing` are already motif
+  parameter names, and argparse has one namespace.
 
 Without `--out` the points go to stdout as CSV, so the command pipes.
 
 → [The command line](https://pianosuki.github.io/geomotif/guide/cli/)
 
-## color, layers and pens
+## Color, layers and pens
 
 A `Style` says which pen draws a stroke — a layer name, a color, a width — and
 rides in `Design.meta` rather than in `Path`, because none of it changes the
@@ -394,10 +392,9 @@ gradually increases), `"out"` (gradually decreases) or `"in_out"`.
 - Angles use the standard math convention (y-up). For a coordinate system whose
   y-axis points down (screen/raster style), call `design.flipped_y()` or pass
   `flip_y=True` to `fit`.
-- Spacing is measured in distance *along the curve*. When gaps are small
-  relative to the local radius (the usual case) the straight-line distance
-  between neighbours is effectively identical; only a gap that curls around a
-  large fraction of a tight turn dips noticeably below its along-curve length.
+- Spacing is measured along the curve; for small gaps that is effectively
+  identical to straight-line distance. Only a gap that curls around most of a
+  tight turn dips noticeably below it.
 - `by="parameter"` restores parametric spacing, which visually compresses
   toward tight sections — occasionally useful as a design effect.
 - Degenerate inputs are handled gracefully: an endpoint on the center yields a
