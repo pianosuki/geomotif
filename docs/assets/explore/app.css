@@ -257,6 +257,155 @@ header {
   background: var(--panel-2);
   margin: 0.6rem 0 1rem;
 }
+
+/* --- dynamic parameter controls --------------------------------------------- */
+.controls-list { display: flex; flex-direction: column; gap: 0.7rem; margin: 0.6rem 0 1rem; }
+.control {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+}
+.control-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  cursor: default;
+}
+.control-name {
+  font: 0.78rem/1 var(--mono);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.control-ann {
+  font: 0.66rem/1 var(--mono);
+  color: var(--faint);
+  text-transform: none;
+  letter-spacing: 0;
+  flex: none;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.control-body { display: flex; flex-direction: column; gap: 0.35rem; }
+.control:has(input:disabled) .control-body,
+.control.disabled .control-body { opacity: 0.5; pointer-events: none; }
+
+/* range slider + live readout */
+.slider-row { display: flex; align-items: center; gap: 0.6rem; }
+.slider-row input[type="range"] { flex: 1; margin: 0; cursor: pointer; }
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent); cursor: pointer;
+}
+input[type="range"]:disabled { opacity: 0.5; cursor: not-allowed; }
+.slider-val {
+  font: 0.74rem/1 var(--mono);
+  color: var(--muted);
+  min-width: 4.5ch;
+  text-align: right;
+  padding: 0.18rem 0.3rem;
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+/* toggle (bool) */
+.toggle { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.toggle input { margin: 0; cursor: pointer; }
+.toggle .switch {
+  font: 500 0.74rem/1 var(--mono);
+  color: var(--muted);
+}
+
+/* dropdown */
+select.control-select {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.8rem/1.2 var(--sans);
+  cursor: pointer;
+}
+select.control-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* numeric / text inputs */
+input.control-input {
+  width: 100%;
+  padding: 0.32rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.78rem/1.2 var(--mono);
+}
+input.control-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* x/y pair (Point) and 4-tuple (Bounds) */
+.pair { display: grid; gap: 0.3rem; }
+.pair.two { grid-template-columns: 1fr 1fr; }
+.pair.four { grid-template-columns: 1fr 1fr; }
+.pair label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: 0.68rem/1 var(--mono);
+  color: var(--faint);
+}
+.pair label > input { flex: 1; min-width: 0; }
+.pair label > .ax { flex: none; width: 3.5ch; text-align: right; }
+
+/* "none" toggle for Optional numerics / points */
+.none-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: 0.7rem/1 var(--mono);
+  color: var(--faint);
+}
+.none-row input { margin: 0; }
+
+/* held (non-settable) note */
+.held-note {
+  margin: 0.2rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  background: transparent;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.held-note .label { display: inline; padding: 0 0.25rem 0 0; color: var(--faint); }
+.held-note code { font-size: 0.72rem; color: var(--ink); }
+.held-list { display: inline; }
+.held-list code { margin-right: 0.25rem; }
+
 .command-block { margin-top: 0.25rem; }
 .command-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
 .command-label .label { padding: 0; }

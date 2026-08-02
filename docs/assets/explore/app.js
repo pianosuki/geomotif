@@ -65,6 +65,18 @@ let WHEEL_URL = "";
 // LRU cache, insertion-ordered: the oldest entry is evicted when full.
 const cache = new Map();
 
+// Render debounce. Each input event clears the pending timer and arms a fresh
+// one; when it fires the actual render runs inside a requestAnimationFrame so
+// the browser has finished painting the input's own state. ~30 ms is long
+// enough to coalesce a rapid slider drag, short enough to feel instant.
+const RENDER_DEBOUNCE_MS = 30;
+let renderTimer = null;
+
+// Spread used by the geometric heuristic for numeric params without a declared
+// Range -- mirrors explore._SPREAD so the SPA's guessed sliders cover the same
+// ground the CLI explore page would.
+const SPREAD = 2.0;
+
 // --- DOM handles -------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
 const statusEl = $("status");
@@ -76,6 +88,7 @@ const stageEl = $("stage");
 const placeholderEl = $("placeholder");
 const phMain = $("ph-main");
 const metaEl = $("meta");
+const controlsEl = $("controls");
 const commandEl = $("command");
 const copyEl = $("copy");
 
@@ -156,12 +169,17 @@ function selectMotif(name) {
   current = name;
   const info = byName[name];
   if (!info) return;
-  // Each motif's working state begins at its registered example -- the curated
-  // picture the gallery shows. Step 4's controls mutate this object; until then
-  // it holds still and the command line reflects the example.
-  state = { ...info.example };
+  // Working state begins from the motif's registered example -- the curated
+  // picture the gallery shows -- overlaid on the declared default for every
+  // settable parameter the example does not mention, so each control has a
+  // starting value. Non-settable params that the example does not name are
+  // left out entirely: their real default (a function, a Projection, ...) is
+  // not a value the SPA can or should round-trip, and `from_spec` falls back
+  // to the motif's own default when they are absent.
+  state = initState(info);
   paintMotifs();
   paintMeta(info);
+  paintControls(info, state, !info.available);
   paintCommand(info, state);
   if (!info.available) {
     showUnavailable(info);
@@ -170,11 +188,36 @@ function selectMotif(name) {
   render(info, state);
 }
 
+// Build the initial parameter state for a motif. Example values win; settable
+// params not in the example take their declared default; everything else is
+// omitted so the Python bridge uses the motif's real default for it.
+function initState(info) {
+  const st = {};
+  for (const p of info.params) {
+    if (RESERVED.has(p.name)) continue;
+    if (p.name in info.example) st[p.name] = clone(info.example[p.name]);
+    else if (isSettable(p)) st[p.name] = clone(p.default);
+  }
+  return st;
+}
+
+function clone(v) {
+  if (v == null || typeof v !== "object") return v;
+  return JSON.parse(JSON.stringify(v));
+}
+
 async function render(info, params) {
-  placeholderEl.classList.remove("error");
-  placeholderEl.classList.add("busy");
-  phMain.textContent = "rendering…";
-  placeholderEl.style.display = "";
+  // Only show the "rendering..." placeholder on the first render, when the
+  // stage has no SVG yet. On subsequent debounced updates we keep the current
+  // picture in place and swap it once the new one is ready, so slider drags
+  // never flash a placeholder between frames.
+  const hadSvg = !!stageEl.querySelector("svg");
+  if (!hadSvg) {
+    placeholderEl.classList.remove("error");
+    placeholderEl.classList.add("busy");
+    phMain.textContent = "rendering…";
+    placeholderEl.style.display = "";
+  }
   let result;
   try {
     result = await renderMotif(info.name, params);
@@ -187,6 +230,8 @@ async function render(info, params) {
   if (result.error) {
     placeholderEl.classList.remove("busy");
     placeholderEl.classList.add("error");
+    placeholderEl.style.display = "";
+    stageEl.querySelectorAll("svg").forEach((s) => s.remove());
     phMain.textContent = result.error;
     return;
   }
@@ -217,6 +262,420 @@ function paintMeta(info) {
   }
   metaEl.innerHTML = parts.join("");
   $("control-title").innerHTML = `<code>${esc(info.name)}</code>`;
+}
+
+// --- parameter controls -----------------------------------------------------
+// Each row in the controls panel is built from the motif's catalog params. The
+// mapping mirrors explore.py's settable/fixed split: an annotation the CLI
+// turns into a flag becomes a live control; anything else (Projection,
+// Callable, Sequence, tuple, nested motifs, ...) is listed as "held" -- the
+// command line reports the same params as not settable, and the SPA shows them
+// the same way.
+//
+// Control types:
+//   bool                       -> toggle
+//   Literal / choices present  -> dropdown
+//   Point / Point | None       -> x, y pair (with a none toggle for the | None)
+//   Bounds / Bounds | None     -> min_x, min_y, max_x, max_y 4-tuple
+//   numeric with min & max     -> range slider with a live value readout
+//                                 (ints honour `step`, snapping to whole steps)
+//   int / float (no range)     -> range slider across the geometric heuristic
+//                                 around the default (mirrors _floats/_integers)
+//   int | None / float | None  -> number input with a none toggle
+//   str / str | None           -> text input
+//
+// Every input mutates `state` in place and arms a single debounced render, so
+// the canvas always reflects the combined state of all controls (the 1.1.0
+// "one slider at a time" limitation is gone).
+function paintControls(info, st, disabled) {
+  controlsEl.innerHTML = "";
+  const settable = [];
+  const held = [];
+  for (const p of info.params) {
+    if (RESERVED.has(p.name)) continue;
+    if (isSettable(p)) settable.push(p);
+    else held.push(p);
+  }
+  for (const p of settable) controlsEl.appendChild(buildControl(info, p, st, disabled));
+  if (held.length) {
+    const note = document.createElement("p");
+    note.className = "held-note";
+    note.innerHTML =
+      `<span class="label">Held</span>` +
+      `<span class="held-list"> ` +
+      held.map((p) => `<code>${esc(p.name)}</code>`).join("") +
+      `</span>`;
+    note.title =
+      "These parameters have no scalar axis the CLI can flag -- a Projection, a " +
+      "Callable, a Sequence, a nested motif, ... -- so they stay at the motif's " +
+      "declared or example value.";
+    controlsEl.appendChild(note);
+  }
+}
+
+function buildControl(info, p, st, disabled) {
+  const row = document.createElement("div");
+  row.className = "control" + (disabled ? " disabled" : "");
+  const label = document.createElement("div");
+  label.className = "control-label";
+  const name = document.createElement("span");
+  name.className = "control-name";
+  name.textContent = p.name;
+  const ann = document.createElement("span");
+  ann.className = "control-ann";
+  ann.textContent = p.annotation;
+  label.appendChild(name);
+  label.appendChild(ann);
+  row.appendChild(label);
+
+  const body = document.createElement("div");
+  body.className = "control-body";
+  row.appendChild(body);
+
+  const onChange = () => {
+    paintCommand(info, st);
+    scheduleRender(info, st);
+  };
+  addControlBody(body, p, st, disabled, onChange);
+  return row;
+}
+
+function addControlBody(body, p, st, disabled, onChange) {
+  const ann = p.annotation;
+  const hasChoices = !!(p.choices && p.choices.length);
+  if (ann === "bool") {
+    addToggle(body, p, st, disabled, onChange);
+  } else if (hasChoices || ann.startsWith("Literal")) {
+    addSelect(body, p, st, disabled, onChange);
+  } else if (ann === "Point" || ann === "Point | None") {
+    addPoint(body, p, st, disabled, onChange);
+  } else if (ann === "Bounds" || ann === "Bounds | None") {
+    addBounds(body, p, st, disabled, onChange);
+  } else if (ann === "int" || ann === "float") {
+    addNumericSlider(body, p, st, disabled, onChange);
+  } else if (ann === "int | None" || ann === "float | None") {
+    addOptionalNumeric(body, p, st, disabled, onChange);
+  } else if (ann === "str" || ann === "str | None") {
+    addText(body, p, st, disabled, onChange);
+  } else {
+    // Should not happen -- isSettable filters these out -- but degrade safely.
+    const span = document.createElement("span");
+    span.className = "control-ann";
+    span.textContent = "held";
+    body.appendChild(span);
+  }
+}
+
+// bool -> toggle
+function addToggle(body, p, st, disabled, onChange) {
+  const label = document.createElement("label");
+  label.className = "toggle";
+  const input = document.createElement("input");
+  input.type = "checkbox";
+  input.checked = !!st[p.name];
+  if (disabled) input.disabled = true;
+  input.addEventListener("change", () => {
+    st[p.name] = input.checked;
+    label.querySelector(".switch").textContent = input.checked ? "on" : "off";
+    onChange();
+  });
+  const span = document.createElement("span");
+  span.className = "switch";
+  span.textContent = input.checked ? "on" : "off";
+  label.appendChild(input);
+  label.appendChild(span);
+  body.appendChild(label);
+}
+
+// Literal / choices -> dropdown
+function addSelect(body, p, st, disabled, onChange) {
+  const choices = p.choices || [];
+  const select = document.createElement("select");
+  select.className = "control-select";
+  if (disabled) select.disabled = true;
+  for (const c of choices) {
+    const opt = document.createElement("option");
+    opt.value = c;
+    opt.textContent = c;
+    if (st[p.name] === c) opt.selected = true;
+    select.appendChild(opt);
+  }
+  select.addEventListener("change", () => {
+    st[p.name] = select.value;
+    onChange();
+  });
+  body.appendChild(select);
+}
+
+// Point / Point | None -> x, y pair (with a none toggle for the | None variant)
+function addPoint(body, p, st, disabled, onChange) {
+  const optional = p.annotation === "Point | None";
+  const cur = st[p.name];
+  const arr = Array.isArray(cur) ? [Number(cur[0]) || 0, Number(cur[1]) || 0] : [0, 0];
+  const inputDisabled = disabled || (optional && cur == null);
+
+  if (optional) addNoneToggle(body, p, st, disabled, onChange, () => arr, (a) => { st[p.name] = a; });
+
+  const pair = document.createElement("div");
+  pair.className = "pair two";
+  for (let i = 0; i < 2; i++) {
+    const lab = document.createElement("label");
+    const ax = document.createElement("span");
+    ax.className = "ax";
+    ax.textContent = i === 0 ? "x" : "y";
+    const input = numberInput(arr[i], 0.1, inputDisabled);
+    input.addEventListener("input", () => {
+      arr[i] = numOr(input.value, arr[i]);
+      st[p.name] = arr.slice();
+      onChange();
+    });
+    lab.appendChild(ax);
+    lab.appendChild(input);
+    pair.appendChild(lab);
+  }
+  body.appendChild(pair);
+  if (optional && cur == null) setNoneDisabled(pair, true);
+}
+
+// Bounds / Bounds | None -> min_x, min_y, max_x, max_y
+function addBounds(body, p, st, disabled, onChange) {
+  const optional = p.annotation === "Bounds | None";
+  const TYPE = "geomotif.core.types.Bounds";
+  let cur = st[p.name];
+  if (cur && typeof cur === "object") {
+    cur = {
+      min_x: +cur.min_x || 0, min_y: +cur.min_y || 0,
+      max_x: +cur.max_x || 0, max_y: +cur.max_y || 0,
+    };
+  } else {
+    cur = { min_x: -150, min_y: -150, max_x: 150, max_y: 150 };
+  }
+  const keys = ["min_x", "min_y", "max_x", "max_y"];
+  const inputDisabled = disabled || (optional && st[p.name] == null);
+
+  if (optional) addNoneToggle(body, p, st, disabled, onChange, () => cur, (c) => {
+    st[p.name] = c && { $type: TYPE, ...c };
+  });
+
+  const pair = document.createElement("div");
+  pair.className = "pair four";
+  for (const k of keys) {
+    const lab = document.createElement("label");
+    const ax = document.createElement("span");
+    ax.className = "ax";
+    ax.textContent = k.replace("_", "");
+    const input = numberInput(cur[k], 1, inputDisabled);
+    input.addEventListener("input", () => {
+      cur[k] = numOr(input.value, cur[k]);
+      st[p.name] = { $type: TYPE, ...cur };
+      onChange();
+    });
+    lab.appendChild(ax);
+    lab.appendChild(input);
+    pair.appendChild(lab);
+  }
+  body.appendChild(pair);
+  if (optional && st[p.name] == null) setNoneDisabled(pair, true);
+}
+
+// numeric with declared Range -> range slider with a live readout. Ints honour
+// `step` (whole-step snapping); floats use a fine linear step.
+// Route plain int/float to the heuristic slider when no Range is declared.
+function addNumericSlider(body, p, st, disabled, onChange) {
+  if (p.min != null && p.max != null) {
+    addRangedSlider(body, p, st, disabled, onChange);
+  } else {
+    addHeuristicSlider(body, p, st, disabled, onChange);
+  }
+}
+
+// int / float without a declared Range -> range slider across the geometric
+// heuristic around the default, mirroring explore.py's _floats / _integers.
+function addHeuristicSlider(body, p, st, disabled, onChange) {
+  const isInt = p.annotation === "int";
+  const base = st[p.name];
+  let lo, hi, step;
+  if (isInt) {
+    const low = Math.max(1, Math.floor(Number(base) / SPREAD));
+    const high = Math.max(low + 1, Math.ceil(Number(base) * SPREAD));
+    lo = low; hi = high; step = 1;
+  } else {
+    const f = Number(base) || 0;
+    if (f === 0) { lo = -1; hi = 1; }
+    else { lo = f / SPREAD; hi = f * SPREAD; }
+    step = (hi - lo) / 1000;
+  }
+  const row = document.createElement("div");
+  row.className = "slider-row";
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = lo;
+  input.max = hi;
+  input.step = step;
+  input.value = base;
+  if (disabled) input.disabled = true;
+  const out = document.createElement("output");
+  out.className = "slider-val";
+  out.textContent = formatVal(base);
+  input.addEventListener("input", () => {
+    const v = isInt ? Math.round(Number(input.value)) : Number(input.value);
+    st[p.name] = v;
+    out.textContent = formatVal(v);
+    onChange();
+  });
+  row.appendChild(input);
+  row.appendChild(out);
+  body.appendChild(row);
+}
+
+function addRangedSlider(body, p, st, disabled, onChange) {
+  const isInt = p.annotation === "int";
+  const min = p.min;
+  const max = p.max;
+  let step;
+  if (isInt) {
+    step = p.step != null ? Math.max(1, Math.round(p.step)) : 1;
+  } else {
+    step = p.step != null ? p.step : (max - min) / 1000;
+  }
+  const row = document.createElement("div");
+  row.className = "slider-row";
+  const input = document.createElement("input");
+  input.type = "range";
+  input.min = min;
+  input.max = max;
+  input.step = step;
+  input.value = st[p.name];
+  if (disabled) input.disabled = true;
+  const out = document.createElement("output");
+  out.className = "slider-val";
+  out.textContent = formatVal(st[p.name]);
+  input.addEventListener("input", () => {
+    const v = isInt ? Math.round(Number(input.value)) : Number(input.value);
+    st[p.name] = v;
+    out.textContent = formatVal(v);
+    onChange();
+  });
+  row.appendChild(input);
+  row.appendChild(out);
+  body.appendChild(row);
+}
+
+// int | None / float | None (no range) -> number input with a none toggle.
+function addOptionalNumeric(body, p, st, disabled, onChange) {
+  const isInt = p.annotation === "int | None";
+  const isNone = st[p.name] == null;
+  let start = isNone ? (isInt ? 128 : 1.0) : st[p.name];
+
+  const noneRow = document.createElement("div");
+  noneRow.className = "none-row";
+  const noneCb = document.createElement("input");
+  noneCb.type = "checkbox";
+  noneCb.checked = !isNone;
+  if (disabled) noneCb.disabled = true;
+  const noneLab = document.createElement("span");
+  noneLab.textContent = "set value (otherwise the motif's adaptive default)";
+  noneRow.appendChild(noneCb);
+  noneRow.appendChild(noneLab);
+  body.appendChild(noneRow);
+
+  const input = numberInput(start, isInt ? 1 : 0.1, disabled || isNone);
+  input.addEventListener("input", () => {
+    if (noneCb.checked) {
+      st[p.name] = isInt ? Math.round(numOr(input.value, start)) : numOr(input.value, start);
+      onChange();
+    }
+  });
+  noneCb.addEventListener("change", () => {
+    if (noneCb.checked) {
+      st[p.name] = isInt ? Math.round(numOr(input.value, start)) : numOr(input.value, start);
+      input.disabled = disabled;
+    } else {
+      st[p.name] = null;
+      input.disabled = true;
+    }
+    onChange();
+  });
+  body.appendChild(input);
+}
+
+// str / str | None -> text input
+function addText(body, p, st, disabled, onChange) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "control-input";
+  input.value = st[p.name] == null ? "" : String(st[p.name]);
+  if (disabled) input.disabled = true;
+  input.addEventListener("input", () => {
+    st[p.name] = input.value;
+    onChange();
+  });
+  body.appendChild(input);
+}
+
+// --- shared input helpers ---------------------------------------------------
+function numberInput(value, step, disabled) {
+  const input = document.createElement("input");
+  input.type = "number";
+  input.className = "control-input";
+  input.step = step;
+  input.value = value;
+  if (disabled) input.disabled = true;
+  return input;
+}
+
+function numOr(s, fallback) {
+  const n = Number(s);
+  return isFinite(n) ? n : fallback;
+}
+
+function formatVal(v) {
+  if (typeof v !== "number" || !isFinite(v)) return String(v);
+  if (Number.isInteger(v)) return String(v);
+  // Three significant figures is enough to read a slider without drowning the
+  // readout in floating-point noise (e.g. 1.5707963 -> 1.57).
+  return String(Number(v.toPrecision(3)));
+}
+
+// A "none" toggle for Optional Point / Bounds. When unchecked the parameter is
+// set to null and the coordinate inputs below are disabled; when checked the
+// current coordinate object is written back into state.
+function addNoneToggle(body, p, st, disabled, onChange, getCur, writeCur) {
+  const noneRow = document.createElement("div");
+  noneRow.className = "none-row";
+  const noneCb = document.createElement("input");
+  noneCb.type = "checkbox";
+  noneCb.checked = st[p.name] != null;
+  if (disabled) noneCb.disabled = true;
+  const noneLab = document.createElement("span");
+  noneLab.textContent = "set value (otherwise the motif's default)";
+  noneRow.appendChild(noneCb);
+  noneRow.appendChild(noneLab);
+  noneCb.addEventListener("change", () => {
+    if (noneCb.checked) {
+      writeCur(getCur());
+    } else {
+      st[p.name] = null;
+    }
+    onChange();
+    // Toggle the disabled state of the sibling coordinate inputs that follow.
+    const pair = body.querySelector(".pair");
+    if (pair) setNoneDisabled(pair, !noneCb.checked);
+  });
+  body.appendChild(noneRow);
+}
+
+function setNoneDisabled(container, disabled) {
+  container.querySelectorAll("input").forEach((i) => { i.disabled = disabled; });
+}
+
+// --- debounced render -------------------------------------------------------
+function scheduleRender(info, st) {
+  if (renderTimer) clearTimeout(renderTimer);
+  renderTimer = setTimeout(() => {
+    renderTimer = null;
+    requestAnimationFrame(() => render(info, st));
+  }, RENDER_DEBOUNCE_MS);
 }
 
 // --- live command line ------------------------------------------------------
