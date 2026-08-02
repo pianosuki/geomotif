@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>geomotif explore</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header>
+    <div class="wordmark">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/>
+        <path d="M3 12h18M12 3v18"/>
+        <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
+      </svg>
+      <b>geomotif</b><span class="dim">/ explore</span>
+    </div>
+    <input class="search" type="search" placeholder="search motifs…" autocomplete="off" aria-label="search motifs">
+    <span class="status" id="status">loading catalog…</span>
+    <span class="progress" id="progress" aria-hidden="true"><i></i></span>
+  </header>
+
+  <main class="layout">
+    <aside class="rail">
+      <div class="label">Motifs</div>
+      <nav class="families" id="families" aria-label="motif families"></nav>
+      <ul class="motifs" id="motifs"></ul>
+    </aside>
+
+    <section class="stage-area">
+      <div class="stage-wrap">
+        <div class="stage" id="stage">
+          <div class="placeholder" id="placeholder">
+            <svg class="glyph" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"/>
+              <path d="M3 12h18M12 3v18M5.6 5.6l12.8 12.8M18.4 5.6 5.6 18.4"/>
+            </svg>
+            <span class="main" id="ph-main">pick a motif</span>
+            <span class="hint">or press <code>/</code> to search</span>
+          </div>
+        </div>
+      </div>
+      <div class="meta" id="meta"></div>
+    </section>
+
+    <aside class="controls">
+      <div class="label">Parameters</div>
+      <h2 id="control-title">—</h2>
+      <p class="placeholder-note" id="control-note">
+        Sliders, dropdowns, and toggles arrive in the next step. For now the
+        canvas shows the motif&rsquo;s example state and the command line below
+        tracks it exactly.
+      </p>
+      <div class="command-block">
+        <div class="command-label"><span class="label">Command</span></div>
+        <pre class="command" id="command">geomotif render</pre>
+        <button class="copy" id="copy" type="button">copy command</button>
+      </div>
+    </aside>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
