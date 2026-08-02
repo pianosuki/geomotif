@@ -5,6 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>geomotif explore</title>
   <link rel="stylesheet" href="app.css">
+  <script>
+    // Paint the right theme on first paint, before app.js loads: a stored
+    // manual choice wins, otherwise the OS preference decides. Without this
+    // the page would flash the light theme before app.js runs on a dark OS.
+    (function () {
+      var stored = localStorage.getItem("geomotif.theme");
+      var dark = stored ? stored === "dark"
+        : window.matchMedia("(prefers-color-scheme: dark)").matches;
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    })();
+  </script>
 </head>
 <body>
   <header>
@@ -31,6 +42,16 @@
     <section class="stage-area">
       <div class="stage-wrap">
         <div class="stage" id="stage">
+          <div class="stage-toolbar" id="toolbar" role="toolbar" aria-label="view">
+            <button class="tb" id="zoom-out" type="button" title="zoom out">−</button>
+            <button class="tb" id="zoom-in" type="button" title="zoom in">+</button>
+            <button class="tb" id="fit" type="button" title="fit to view">fit</button>
+            <span class="tb-sep" aria-hidden="true"></span>
+            <button class="tb toggle" id="tg-grid" type="button" title="toggle dot grid" aria-pressed="true">grid</button>
+            <button class="tb toggle" id="tg-border" type="button" title="toggle stage border" aria-pressed="true">border</button>
+            <span class="tb-sep" aria-hidden="true"></span>
+            <button class="tb" id="theme" type="button" title="toggle light / dark">theme</button>
+          </div>
           <div class="placeholder" id="placeholder">
             <svg class="glyph" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
               <circle cx="12" cy="12" r="9"/>
@@ -54,6 +75,14 @@
         <div class="command-buttons">
           <button class="copy" id="copy" type="button">copy command</button>
           <button class="copy share" id="share" type="button">copy share URL</button>
+        </div>
+        <div class="export-row">
+          <span class="label">Export</span>
+          <div class="export-buttons">
+            <button class="copy export" id="exp-svg" type="button">SVG</button>
+            <button class="copy export" id="exp-png" type="button">PNG</button>
+            <button class="copy export" id="exp-spec" type="button">spec JSON</button>
+          </div>
         </div>
       </div>
     </aside>

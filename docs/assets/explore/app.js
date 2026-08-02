@@ -35,18 +35,38 @@ const PY_CODE = `
 import json
 from geomotif.io.spec import from_spec
 from geomotif.io.svg import to_svg
+from geomotif.io.png import to_png
 
 _EXC = (ValueError, TypeError, KeyError, IndexError, ZeroDivisionError, OverflowError, RecursionError)
+
+# The same canvas size and precision the SPA's display render uses -- kept in
+# one place so the live picture and the SVG export stay the same picture.
+_W, _H, _PREC = 520, 520, 1
 
 def render_motif(name, params_json):
     try:
         params = json.loads(params_json) if params_json else {}
         motif = from_spec({"motif": name, "params": params})
         design = motif.build()
-        svg = to_svg(design, width=520, height=520, precision=1, title=None)
+        svg = to_svg(design, width=_W, height=_H, precision=_PREC, title=None)
         return json.dumps({"svg": svg, "error": None})
     except _EXC as e:
         return json.dumps({"svg": None, "error": type(e).__name__ + ": " + str(e)})
+
+# PNG export -- matches the CLI's "geomotif render <motif> --out x.png" default
+# styling (canvas 480, ink #0b0b0b, paper #ffffff, thickness 1, padding 8, no
+# antialias, zlib 6, truecolour). Returns raw bytes, which Pyodide hands to JS
+# as a Uint8Array; the bridge raises and the JS side surfaces the error.
+def export_png(name, params_json):
+    params = json.loads(params_json) if params_json else {}
+    motif = from_spec({"motif": name, "params": params})
+    design = motif.build()
+    return to_png(
+        design,
+        width=480, height=480, padding=8.0,
+        ink="#0b0b0b", background="#ffffff", thickness=1,
+        antialias=False, aa_level=8, color="rgb", compression=6,
+    )
 `;
 
 // --- module state ------------------------------------------------------------
@@ -60,10 +80,29 @@ let searchQuery = "";
 let pyPromise = null;
 let pyodide = null;
 let pyRender = null;
+let pyExportPng = null;
 let WHEEL_URL = "";
 
 // LRU cache, insertion-ordered: the oldest entry is evicted when full.
 const cache = new Map();
+
+// The last successfully rendered, full-prolog SVG (the bytes the CLI would
+// write) and the motif/params that produced it. Kept so the SVG / PNG / spec
+// exports reuse the same picture the user is looking at without a second
+// Pyodide round-trip for the SVG case, and so PNG/spec can rebuild it with
+// the right defaults. The LRU stays keyed on geometry alone (name + params),
+// never on the viewBox, so zooming and panning never evict a render.
+let lastSvg = null;
+let lastMotif = null;
+let lastParams = null;
+
+// viewBox for zoom/pan: the live box applied to the stage's <svg>, in user
+// units. `null` while no SVG is displayed (placeholder, unavailable motif, or
+// error). `naturalVB` is the box the renderer emitted -- the one "fit"
+// restores to.
+let viewBox = null;
+let naturalVB = null;
+const ZOOM_STEP = Math.sqrt(2); // one button click ≈ one stop
 
 // Render debounce. Each input event clears the pending timer and arms a fresh
 // one; when it fires the actual render runs inside a requestAnimationFrame so
@@ -105,6 +144,15 @@ const controlsEl = $("controls");
 const commandEl = $("command");
 const copyEl = $("copy");
 const shareEl = $("share");
+const expSvgEl = $("exp-svg");
+const expPngEl = $("exp-png");
+const expSpecEl = $("exp-spec");
+const zoomOutEl = $("zoom-out");
+const zoomInEl = $("zoom-in");
+const fitEl = $("fit");
+const tgGridEl = $("tg-grid");
+const tgBorderEl = $("tg-border");
+const themeEl = $("theme");
 
 // --- catalog ----------------------------------------------------------------
 async function boot() {
@@ -209,6 +257,10 @@ function selectMotif(name, override, opts) {
   paintMeta(info);
   paintControls(info, state, !info.available);
   paintCommand(info, state);
+  // Export needs a built design; scipy-only motifs cannot build under Pyodide
+  // so their export buttons stay disabled alongside their controls.
+  const canExport = !!info.available;
+  [expSvgEl, expPngEl, expSpecEl].forEach((b) => { b.disabled = !canExport; });
   if (!opts.fromFragment) writeFragment(name, state, false);
   if (!info.available) {
     showUnavailable(info);
@@ -262,12 +314,84 @@ async function render(info, params) {
     placeholderEl.style.display = "";
     stageEl.querySelectorAll("svg").forEach((s) => s.remove());
     phMain.textContent = result.error;
+    lastSvg = null;
+    lastMotif = null;
+    lastParams = null;
+    viewBox = null;
+    naturalVB = null;
     return;
   }
   placeholderEl.classList.remove("busy", "error");
   placeholderEl.style.display = "none";
   stageEl.querySelectorAll("svg").forEach((s) => s.remove());
   stageEl.insertAdjacentHTML("beforeend", stripXmlDecl(result.svg));
+  // Remember the full-prolog SVG (the bytes the CLI writes) and the inputs
+  // that produced it, for the SVG / PNG / spec exporters. The display copy is
+  // the prolog-stripped version; the export copy keeps the prolog so a
+  // downloaded .svg opens standalone and round-trips with save_svg.
+  const prevMotif = lastMotif;
+  lastSvg = result.svg;
+  lastMotif = info.name;
+  lastParams = params;
+  // The renderer always emits viewBox="0 0 520 520", so a slider drag (same
+  // motif, new SVG element) can keep the user's zoom/pan: reapply the live
+  // box to the new <svg>. Switching motifs starts fit-to-view instead, so a
+  // new picture is never cropped by the previous one's zoom.
+  captureNatural();
+  if (prevMotif === info.name && viewBox) applyViewBox();
+  else fitView();
+}
+
+// Read the rendered <svg>'s own viewBox into `naturalVB` -- the box the
+// "fit" button restores to. The display render is a fixed 520x520 canvas, so
+// in practice this is always {0,0,520,520}, but reading it from the element
+// keeps the code honest if that ever changes.
+function captureNatural() {
+  const svg = stageEl.querySelector("svg");
+  if (!svg) { naturalVB = null; return; }
+  const vb = svg.viewBox && svg.viewBox.baseVal;
+  if (vb && vb.width > 0 && vb.height > 0) {
+    naturalVB = { x: vb.x, y: vb.y, w: vb.width, h: vb.height };
+  } else {
+    naturalVB = { x: 0, y: 0, w: 520, h: 520 };
+  }
+}
+
+function applyViewBox() {
+  const svg = stageEl.querySelector("svg");
+  if (!svg || !viewBox) return;
+  svg.setAttribute("viewBox", `${viewBox.x} ${viewBox.y} ${viewBox.w} ${viewBox.h}`);
+}
+
+function zoomAround(factor, cx, cy) {
+  if (!viewBox) return;
+  // Zoom around a viewBox-space point (cx, cy); leave it fixed on screen.
+  const newW = Math.max(1e-6, viewBox.w * factor);
+  const newH = Math.max(1e-6, viewBox.h * factor);
+  // Clamp so a single motif never zooms in past ~50x of its natural box
+  // (keeps the float precision sane) or out beyond 0.1x (still visible).
+  const lim = (n, n0) => {
+    const lo = n0 * 0.02, hi = n0 * 50;
+    return Math.min(hi, Math.max(lo, n));
+  };
+  const W = lim(newW, naturalVB.w), H = lim(newH, naturalVB.h);
+  const real = W / viewBox.w;
+  viewBox.x = cx - (cx - viewBox.x) * real;
+  viewBox.y = cy - (cy - viewBox.y) * real;
+  viewBox.w = W;
+  viewBox.h = H;
+  applyViewBox();
+}
+
+function zoomCenter(factor) {
+  if (!viewBox) return;
+  zoomAround(factor, viewBox.x + viewBox.w / 2, viewBox.y + viewBox.h / 2);
+}
+
+function fitView() {
+  if (!naturalVB) return;
+  viewBox = { ...naturalVB };
+  applyViewBox();
 }
 
 function showUnavailable(info) {
@@ -278,6 +402,11 @@ function showUnavailable(info) {
   phMain.textContent =
     `This motif needs ${info.requires} to build, which Pyodide does not yet load. ` +
     "Try it locally: pip install scipy && geomotif render " + info.name;
+  lastSvg = null;
+  lastMotif = null;
+  lastParams = null;
+  viewBox = null;
+  naturalVB = null;
 }
 
 function paintMeta(info) {
@@ -845,6 +974,7 @@ async function ensurePyodide() {
     showProgress(0.85);
     await pyodide.runPythonAsync(PY_CODE);
     pyRender = pyodide.globals.get("render_motif");
+    pyExportPng = pyodide.globals.get("export_png");
     showProgress(1);
     hideProgress();
     setStatus("ready");
@@ -954,6 +1084,215 @@ document.addEventListener("keydown", (e) => {
     e.preventDefault();
     searchEl.focus();
   }
+});
+
+// --- view toggles (theme / grid / border) ------------------------------------
+// The theme is set on first paint by the inline head script from the stored
+// preference (or the OS preference). Here we wire the manual switch: clicking
+// flips data-theme, persists the choice, and updates the button label. We also
+// track OS changes so a user who never touched the switch still follows their
+// OS as it moves -- the stored choice is the only thing that overrides that.
+const THEME_KEY = "geomotif.theme";
+const GRID_KEY = "geomotif.grid";
+const BORDER_KEY = "geomotif.border";
+
+function effectiveTheme() {
+  return document.documentElement.dataset.theme === "dark" ? "dark" : "light";
+}
+
+function applyThemeButton() {
+  // The label names the theme you would switch *to*, so a dark page shows
+  // "light" and vice versa -- the same convention the explore command line
+  // uses for its flags.
+  themeEl.textContent = effectiveTheme() === "dark" ? "light" : "dark";
+  themeEl.setAttribute("aria-pressed", String(effectiveTheme() === "dark"));
+}
+
+function setTheme(t) {
+  document.documentElement.dataset.theme = t;
+  try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* private mode */ }
+  applyThemeButton();
+}
+
+themeEl.addEventListener("click", () => {
+  setTheme(effectiveTheme() === "dark" ? "light" : "dark");
+});
+
+// Follow the OS when the user has not chosen a manual override.
+const mq = window.matchMedia("(prefers-color-scheme: dark)");
+if (mq.addEventListener) mq.addEventListener("change", (e) => {
+  let stored;
+  try { stored = localStorage.getItem(THEME_KEY); } catch (e) { stored = null; }
+  if (stored) return;
+  document.documentElement.dataset.theme = e.matches ? "dark" : "light";
+  applyThemeButton();
+});
+else if (mq.addListener) mq.addListener((e) => { /* Safari < 14 fallback */ });
+
+// Grid + border toggles carry over between sessions the same way; their state
+// is read at boot by initViewToggles and applied as classes on .stage.
+function readToggle(key, def) {
+  try { const v = localStorage.getItem(key); return v == null ? def : v === "on"; }
+  catch (e) { return def; }
+}
+function writeToggle(key, on) {
+  try { localStorage.setItem(key, on ? "on" : "off"); } catch (e) { /* private */ }
+}
+
+function syncGridToggle() {
+  const on = !stageEl.classList.contains("no-grid");
+  tgGridEl.setAttribute("aria-pressed", String(on));
+}
+function syncBorderToggle() {
+  const on = !stageEl.classList.contains("no-border");
+  tgBorderEl.setAttribute("aria-pressed", String(on));
+}
+
+tgGridEl.addEventListener("click", () => {
+  stageEl.classList.toggle("no-grid");
+  syncGridToggle();
+  writeToggle(GRID_KEY, !stageEl.classList.contains("no-grid"));
+});
+tgBorderEl.addEventListener("click", () => {
+  stageEl.classList.toggle("no-border");
+  syncBorderToggle();
+  writeToggle(BORDER_KEY, !stageEl.classList.contains("no-border"));
+});
+
+function initViewToggles() {
+  if (!readToggle(GRID_KEY, true)) stageEl.classList.add("no-grid");
+  if (!readToggle(BORDER_KEY, true)) stageEl.classList.add("no-border");
+  syncGridToggle();
+  syncBorderToggle();
+  applyThemeButton();
+}
+initViewToggles();
+
+// --- zoom / pan --------------------------------------------------------------
+// Wheel zooms around the cursor; a left-button drag pans; the toolbar buttons
+// zoom around the centre and "fit" restores the natural viewBox. Everything is
+// pure client-side viewBox math on the already-rendered SVG, so it never calls
+// Pyodide and never busts the LRU (the cache key stays name + params).
+function svgRect() {
+  const svg = stageEl.querySelector("svg");
+  return svg ? svg.getBoundingClientRect() : null;
+}
+
+stageEl.addEventListener("wheel", (e) => {
+  if (!viewBox) return;
+  // Do not hijack the page scroll when the pointer is over the toolbar's own
+  // scrollable bits; let those scroll naturally.
+  if (e.target.closest(".stage-toolbar")) return;
+  e.preventDefault();
+  const r = svgRect();
+  if (!r || !r.width || !r.height) return;
+  // Cursor as a fraction of the displayed SVG, mapped into viewBox units so
+  // the point under the pointer stays under the pointer after zooming.
+  const px = (e.clientX - r.left) / r.width;
+  const py = (e.clientY - r.top) / r.height;
+  const cx = viewBox.x + px * viewBox.w;
+  const cy = viewBox.y + py * viewBox.h;
+  const factor = e.deltaY < 0 ? 1 / ZOOM_STEP : ZOOM_STEP;
+  zoomAround(factor, cx, cy);
+}, { passive: false });
+
+let pan = null;
+stageEl.addEventListener("pointerdown", (e) => {
+  if (!viewBox || e.button !== 0) return;
+  // Ignore presses on the floating toolbar so its buttons still work.
+  if (e.target.closest(".stage-toolbar")) return;
+  pan = {
+    x: e.clientX, y: e.clientY,
+    vx: viewBox.x, vy: viewBox.y, w: viewBox.w, h: viewBox.h,
+  };
+  try { stageEl.setPointerCapture(e.pointerId); } catch (err) { /* old browser */ }
+});
+stageEl.addEventListener("pointermove", (e) => {
+  if (!pan) return;
+  const r = svgRect();
+  if (!r || !r.width || !r.height) return;
+  // A cursor move of dx screen px maps to dx / r.width * viewBox.w user units.
+  // Dragging right moves the picture right, so viewBox.x moves left.
+  const dx = (e.clientX - pan.x) / r.width * pan.w;
+  const dy = (e.clientY - pan.y) / r.height * pan.h;
+  viewBox.x = pan.vx - dx;
+  viewBox.y = pan.vy - dy;
+  applyViewBox();
+});
+function endPan() { pan = null; }
+stageEl.addEventListener("pointerup", endPan);
+stageEl.addEventListener("pointercancel", endPan);
+stageEl.addEventListener("pointerleave", endPan);
+
+zoomInEl.addEventListener("click", () => zoomCenter(1 / ZOOM_STEP));
+zoomOutEl.addEventListener("click", () => zoomCenter(ZOOM_STEP));
+fitEl.addEventListener("click", fitView);
+
+// --- export (SVG / PNG / spec JSON) ------------------------------------------
+// All three downloads are built from `lastSvg` / `lastMotif` / `lastParams`,
+// which `render()` refreshes on every successful render. SVG reuses the cached
+// prolog-bearing SVG directly (no Pyodide call); PNG rebuilds the design under
+// Pyodide with the CLI's default styling so the bytes match
+// `geomotif render <motif> --out x.png`; spec is the full `to_spec` shape the
+// CLI's `--spec` flag reads, written in JS from `state` plus the catalog's
+// geomotif version.
+function flash(btn, ok, okText, failText) {
+  const orig = btn.dataset.label || btn.textContent;
+  btn.textContent = ok ? okText : failText;
+  if (ok) btn.classList.add("ok");
+  setTimeout(() => { btn.textContent = orig; btn.classList.remove("ok"); }, 1400);
+}
+
+function download(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  // Revoke on a timeout so the download has time to start in every browser.
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+expSvgEl.addEventListener("click", () => {
+  if (!lastSvg) return;
+  // Keep the XML prolog so the file opens standalone and matches save_svg.
+  download(new Blob([lastSvg], { type: "image/svg+xml" }), `${lastMotif}.svg`);
+  flash(expSvgEl, true, "saved", "failed");
+});
+
+expPngEl.addEventListener("click", async () => {
+  if (!lastMotif) return;
+  expPngEl.disabled = true;
+  try {
+    await ensurePyodide();
+    const bytes = pyExportPng(lastMotif, JSON.stringify(lastParams || {}));
+    // Pyodide converts Python bytes -> Uint8Array; build a Blob from a copy so
+    // the underlying buffer is not shared with the Python heap.
+    const data = bytes instanceof Uint8Array ? bytes.slice() : new Uint8Array(bytes);
+    download(new Blob([data], { type: "image/png" }), `${lastMotif}.png`);
+    flash(expPngEl, true, "saved", "failed");
+  } catch (e) {
+    flash(expPngEl, false, "saved", "failed");
+  } finally {
+    expPngEl.disabled = false;
+  }
+});
+
+expSpecEl.addEventListener("click", () => {
+  if (!lastMotif) return;
+  // The full `to_spec` shape: version key + motif name + params. `state` is
+  // exactly the JSON-encodable params dict io/spec.py round-trips, so this
+  // loads straight into `geomotif render --spec <file>`.
+  const spec = {
+    geomotif: catalog ? catalog.geomotif : null,
+    motif: lastMotif,
+    params: state,
+  };
+  const blob = new Blob([JSON.stringify(spec, null, 2) + "\n"], { type: "application/json" });
+  download(blob, `${lastMotif}.json`);
+  flash(expSpecEl, true, "saved", "failed");
 });
 
 // --- go ---------------------------------------------------------------------

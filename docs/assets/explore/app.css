@@ -26,7 +26,7 @@
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --page: #0f0f12;
     --panel: #18181f;
     --panel-2: #1e1e26;
@@ -41,6 +41,24 @@
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.4);
     --dot: rgba(255, 255, 255, 0.045);
   }
+}
+/* A manual dark choice overrides a light OS; a manual light choice is just
+   "leave the light tokens alone", which the :not([data-theme="light"]) guard
+   on the media block above already honors. */
+:root[data-theme="dark"] {
+  --page: #0f0f12;
+  --panel: #18181f;
+  --panel-2: #1e1e26;
+  --ink: #ececf0;
+  --muted: #8b8b94;
+  --faint: #56565f;
+  --line: #272730;
+  --line-2: #36363f;
+  --accent: #818cf8;
+  --accent-ink: #a5acfc;
+  --accent-soft: rgba(129, 140, 248, 0.16);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --dot: rgba(255, 255, 255, 0.045);
 }
 
 /* --- base ------------------------------------------------------------------ */
@@ -203,9 +221,24 @@ header {
   box-shadow: var(--shadow);
   padding: 0.5rem;
   overflow: hidden;
+  touch-action: none;
+  cursor: grab;
 }
+.stage:active { cursor: grabbing; }
+.stage.no-grid { background: var(--panel-2); }
+.stage.no-border { border-color: transparent; box-shadow: none; }
+.stage.no-grid.no-border { background: transparent; }
 .stage svg { width: 100%; height: 100%; display: block; }
-@media (prefers-color-scheme: dark) { .stage svg { filter: invert(1) hue-rotate(180deg); } }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .stage svg { filter: invert(1) hue-rotate(180deg); }
+}
+:root[data-theme="dark"] .stage svg { filter: invert(1) hue-rotate(180deg); }
+:root:not([data-theme="dark"]) .stage svg { /* light theme keeps vector colors */ }
+.placeholder.error .main { color: #b3261e; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .placeholder.error .main { color: #f4847c; }
+}
+:root[data-theme="dark"] .placeholder.error .main { color: #f4847c; }
 .placeholder {
   position: absolute;
   inset: 0.5rem;
@@ -221,8 +254,6 @@ header {
 .placeholder .glyph { color: var(--line-2); margin-bottom: 0.25rem; }
 .placeholder .main { font-size: 0.95rem; color: var(--muted); }
 .placeholder .hint { font-size: 0.78rem; }
-.placeholder.error .main { color: #b3261e; }
-@media (prefers-color-scheme: dark) { .placeholder.error .main { color: #f4847c; } }
 .placeholder.busy .hint, .placeholder.error .hint { display: none; }
 .placeholder.busy .glyph { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
@@ -435,3 +466,58 @@ pre.command {
 }
 .copy:hover { color: var(--ink); border-color: var(--accent); }
 .copy.ok { color: var(--accent-ink); border-color: var(--accent); }
+
+/* --- stage view toolbar ---------------------------------------------------- */
+/* A small floating row of buttons pinned to the top-right of the drawing
+   surface: zoom out / in / fit, the grid + border view toggles, and the
+   light/dark theme switch. It sits inside .stage so it stays aligned with the
+   (centered, max-width) drawing box, above the zoomed SVG and below nothing. */
+.stage-toolbar {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.tb {
+  min-width: 1.9rem;
+  padding: 0.22rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  font: 600 0.74rem/1 var(--mono);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.tb:hover { color: var(--ink); background: var(--panel-2); }
+.tb:active { transform: translateY(1px); }
+.tb.toggle[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.tb-sep { width: 1px; align-self: stretch; margin: 0.15rem 0.2rem; background: var(--line); }
+
+/* --- export row ------------------------------------------------------------ */
+.export-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--line);
+}
+.export-row .label { padding: 0; }
+.export-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.copy.export { padding: 0.35rem 0.7rem; font-size: 0.72rem; }
+.copy.export:disabled { opacity: 0.5; cursor: not-allowed; }
