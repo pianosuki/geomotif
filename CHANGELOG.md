@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+The first piece of the 1.3.0 explore overhaul: parameter ranges move from
+guessed to declared. A motif can now say how far a slider should reach, and
+every consumer of `ParamInfo` reads the bound from the same place.
+
+### Added
+
+- **`Range`, a min/max/step helper for motif parameters.** A new
+  `geomotif.core.range.Range` maps cleanly onto `dataclasses.field`'s
+  `metadata=` argument (the same route `help` text already takes), so a
+  parameter declares its bound next to its default in one line:
+  `n: int = field(default=5, metadata=Range(1, 50, step=1))`. `Range` is a
+  frozen `Mapping`, so the keys are additive — a field that carries one
+  carries both `help` and `Range`, and a parameter without a `Range` still
+  falls back to the heuristic. Exported from `geomotif` and
+  `geomotif.core`.
+- **`ParamInfo.min`, `.max`, `.step`.** `registry.describe()` now reports
+  the declared range alongside the default and the help text, so the CLI,
+  the docs, the gallery and the web explorer all read the same bound. The
+  three are `None` when a motif has not declared a bound, in which case a
+  consumer falls back to its own heuristic rather than guessing zero.
+- **Curated ranges for the most-used motifs.** The polar, harmonic, spiral,
+  fractal, curve and primitive families now declare `Range` on every
+  numeric parameter a slider can move — petal counts, depths, scales,
+  radii, side counts and point counts. Motifs without a natural bound keep
+  the heuristic, so the catalog is usable even before every motif is
+  curated.
+
+### Changed
+
+- **`geomotif explore` sweeps a declared range when there is one.** A
+  parameter with a `Range` is now sampled across that range (in whole steps
+  for an integer with a `step`, linearly for a float) rather than around its
+  default with the `_SPREAD` heuristic. The heuristic stays as the fallback
+  for parameters without a declared range, so pages that worked before keep
+  working.
+
 ## [1.2.2] — 2026-08-02
 
 The documentation release: a pass over the guides against the code, fixing

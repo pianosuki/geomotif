@@ -71,13 +71,22 @@ _motifs_loaded = False
 
 @dataclass(frozen=True, slots=True)
 class ParamInfo:
-    """One constructor parameter of a motif, as the CLI and docs see it."""
+    """One constructor parameter of a motif, as the CLI and docs see it.
+
+    The numeric range fields (``min``, ``max``, ``step``) come from a
+    :class:`~geomotif.Range` on the field's ``metadata``; they are ``None``
+    when a motif has not declared a bound, in which case a consumer falls
+    back to its own heuristic rather than guessing zero.
+    """
 
     name: str
     annotation: str
     default: object
     required: bool
     description: str | None = None
+    min: float | None = None
+    max: float | None = None
+    step: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -368,6 +377,9 @@ def _params_for(cls: type) -> tuple[ParamInfo, ...]:
                 default=default,
                 required=not has_default,
                 description=field.metadata.get("help"),
+                min=field.metadata.get("min"),
+                max=field.metadata.get("max"),
+                step=field.metadata.get("step"),
             )
         )
     return tuple(params)

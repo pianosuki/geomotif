@@ -59,6 +59,7 @@ from .bases import (
     SubstitutionTiling,
 )
 from .core.motif import Distribution, Motif, SupportsBuild
+from .core.range import Range
 from .core.registry import register
 from .core.sampling import (
     ArcTable,
@@ -154,6 +155,7 @@ __all__ = [
     "PolygonMotif",
     "PowerSpacing",
     "QuadraticSpacing",
+    "Range",
     "ReversedSpacing",
     "SegmentMotif",
     "SineSpacing",

@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, ClassVar, override
 
 from ..bases import LSystemMotif, PolygonMotif
 from ..core.motif import Motif
+from ..core.range import Range
 from ..core.registry import register, spec
 from ..core.transform import Affine
 from ..core.types import Bounds, Design, Path
@@ -136,7 +137,7 @@ class MinkowskiSausage(LSystemMotif):
     axiom = "F"
     rules: ClassVar[Mapping[str, str]] = {"F": "F+F-F-FF+F+F-F"}
     angle = math.pi / 2
-    depth: int = field(default=3, kw_only=True)
+    depth: int = field(default=3, metadata=Range(1, 5, step=1), kw_only=True)
 
 
 @register("fractal.minkowski-island", family="fractal")
@@ -154,7 +155,7 @@ class MinkowskiIsland(LSystemMotif):
     rules: ClassVar[Mapping[str, str]] = {"F": "F+F-F-FF+F+F-F"}
     angle = math.pi / 2
     closed = True
-    depth: int = field(default=3, kw_only=True)
+    depth: int = field(default=3, metadata=Range(1, 5, step=1), kw_only=True)
 
 
 @register("fractal.sierpinski-triangle", family="fractal")
@@ -175,7 +176,7 @@ class SierpinskiTriangle(LSystemMotif):
     rules: ClassVar[Mapping[str, str]] = {"F": "F+G-F-G+F", "G": "GG"}
     angle = math.tau / 3
     closed = True
-    depth: int = field(default=5, kw_only=True)
+    depth: int = field(default=5, metadata=Range(1, 7, step=1), kw_only=True)
 
 
 @register("fractal.sierpinski-arrowhead", family="fractal")
@@ -192,7 +193,7 @@ class SierpinskiArrowhead(LSystemMotif):
     axiom = "A"
     rules: ClassVar[Mapping[str, str]] = {"A": "B-A-B", "B": "A+B+A"}
     angle = math.pi / 3
-    depth: int = field(default=6, kw_only=True)
+    depth: int = field(default=6, metadata=Range(1, 8, step=1), kw_only=True)
 
 
 @register("fractal.dragon", family="fractal")
@@ -208,7 +209,7 @@ class DragonCurve(LSystemMotif):
     axiom = "F"
     rules: ClassVar[Mapping[str, str]] = {"F": "F+G", "G": "F-G"}
     angle = math.pi / 2
-    depth: int = field(default=10, kw_only=True)
+    depth: int = field(default=10, metadata=Range(1, 12, step=1), kw_only=True)
 
 
 @register("fractal.twindragon", family="fractal")
@@ -225,7 +226,7 @@ class TwinDragon(LSystemMotif):
     rules: ClassVar[Mapping[str, str]] = {"F": "F+G", "G": "F-G"}
     angle = math.pi / 2
     closed = True
-    depth: int = field(default=9, kw_only=True)
+    depth: int = field(default=9, metadata=Range(1, 11, step=1), kw_only=True)
 
 
 @register("fractal.terdragon", family="fractal")
@@ -240,7 +241,7 @@ class Terdragon(LSystemMotif):
     axiom = "F"
     rules: ClassVar[Mapping[str, str]] = {"F": "F+F-F"}
     angle = math.tau / 3
-    depth: int = field(default=6, kw_only=True)
+    depth: int = field(default=6, metadata=Range(1, 8, step=1), kw_only=True)
 
 
 @register("fractal.levy-c", family="fractal")
@@ -256,7 +257,7 @@ class LevyCCurve(LSystemMotif):
     axiom = "F"
     rules: ClassVar[Mapping[str, str]] = {"F": "+F--F+"}
     angle = math.pi / 4
-    depth: int = field(default=10, kw_only=True)
+    depth: int = field(default=10, metadata=Range(1, 12, step=1), kw_only=True)
 
 
 @register("fractal.hilbert", family="fractal")
@@ -276,7 +277,7 @@ class HilbertCurve(LSystemMotif):
     axiom = "X"
     rules: ClassVar[Mapping[str, str]] = {"X": "+YF-XFX-FY+", "Y": "-XF+YFY+FX-"}
     angle = math.pi / 2
-    depth: int = field(default=5, kw_only=True)
+    depth: int = field(default=5, metadata=Range(1, 7, step=1), kw_only=True)
 
 
 @register("fractal.moore", family="fractal")
@@ -293,7 +294,7 @@ class MooreCurve(LSystemMotif):
     rules: ClassVar[Mapping[str, str]] = {"L": "-RF+LFL+FR-", "R": "+LF-RFR-FL+"}
     angle = math.pi / 2
     closed = True
-    depth: int = field(default=4, kw_only=True)
+    depth: int = field(default=4, metadata=Range(1, 6, step=1), kw_only=True)
 
 
 @register("fractal.peano", family="fractal")
@@ -312,7 +313,7 @@ class PeanoCurve(LSystemMotif):
         "Y": "YFXFY-F-XFYFX+F+YFXFY",
     }
     angle = math.pi / 2
-    depth: int = field(default=3, kw_only=True)
+    depth: int = field(default=3, metadata=Range(1, 5, step=1), kw_only=True)
 
 
 @register("fractal.gosper", family="fractal")
@@ -331,7 +332,7 @@ class GosperCurve(LSystemMotif):
         "B": "+A-BB--B-A++A+B",
     }
     angle = math.pi / 3
-    depth: int = field(default=4, kw_only=True)
+    depth: int = field(default=4, metadata=Range(1, 6, step=1), kw_only=True)
 
 
 @register("fractal.vicsek", family="fractal")
@@ -349,7 +350,7 @@ class VicsekFractal(LSystemMotif):
     rules: ClassVar[Mapping[str, str]] = {"F": "F-F+F+F-F"}
     angle = math.pi / 2
     closed = True
-    depth: int = field(default=3, kw_only=True)
+    depth: int = field(default=3, metadata=Range(1, 5, step=1), kw_only=True)
 
 
 # --- recursion --------------------------------------------------------------
@@ -415,8 +416,8 @@ class SierpinskiCarpet(PolygonMotif):
         Middle of the carpet.
     """
 
-    depth: int = 4
-    size: float = 200.0
+    depth: int = field(default=4, metadata=Range(1, 5, step=1))
+    size: float = field(default=200.0, metadata=Range(20.0, 600.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -474,9 +475,9 @@ class CantorSet(PolygonMotif):
 
     closed: ClassVar[bool] = False
 
-    depth: int = 6
-    width: float = 240.0
-    gap: float = 14.0
+    depth: int = field(default=6, metadata=Range(1, 8, step=1))
+    width: float = field(default=240.0, metadata=Range(20.0, 600.0))
+    gap: float = field(default=14.0, metadata=Range(0.0, 100.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -533,9 +534,9 @@ class PythagorasTree(PolygonMotif):
         Midpoint of the trunk's bottom edge -- where the tree stands.
     """
 
-    depth: int = 8
-    size: float = 60.0
-    lean: float = math.pi / 4.0
+    depth: int = field(default=8, metadata=Range(1, 10, step=1))
+    size: float = field(default=60.0, metadata=Range(5.0, 200.0))
+    lean: float = field(default=math.pi / 4.0, metadata=Range(0.0, math.tau))
     base: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -606,8 +607,8 @@ class HTree(PolygonMotif):
 
     closed: ClassVar[bool] = False
 
-    depth: int = 6
-    size: float = 220.0
+    depth: int = field(default=6, metadata=Range(1, 8, step=1))
+    size: float = field(default=220.0, metadata=Range(20.0, 600.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -711,9 +712,9 @@ class ApollonianGasket(Motif):
         Middle of the outer circle.
     """
 
-    depth: int = 5
-    radius: float = 150.0
-    min_radius: float = 0.004
+    depth: int = field(default=5, metadata=Range(1, 7, step=1))
+    radius: float = field(default=150.0, metadata=Range(10.0, 400.0))
+    min_radius: float = field(default=0.004, metadata=Range(0.0, 1.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -929,9 +930,9 @@ class IFSAttractor(Motif):
     """
 
     maps: tuple[IFSMap, ...] = _GASKET_MAPS
-    count: int = 20_000
-    size: float = 240.0
-    seed: int = field(default=0, kw_only=True)
+    count: int = field(default=20_000, metadata=Range(100, 200_000, step=100))
+    size: float = field(default=240.0, metadata=Range(20.0, 600.0))
+    seed: int = field(default=0, metadata=Range(0, 2**31 - 1, step=1), kw_only=True)
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -972,9 +973,9 @@ class BarnsleyFern(Motif):
         Middle of the plant's bounding box.
     """
 
-    count: int = 40_000
-    size: float = 300.0
-    seed: int = field(default=0, kw_only=True)
+    count: int = field(default=40_000, metadata=Range(100, 200_000, step=100))
+    size: float = field(default=300.0, metadata=Range(20.0, 600.0))
+    seed: int = field(default=0, metadata=Range(0, 2**31 - 1, step=1), kw_only=True)
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:

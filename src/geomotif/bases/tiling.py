@@ -16,6 +16,7 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, override
 
 from ..core.motif import Motif
+from ..core.range import Range
 from ..core.registry import spec
 from ..core.transform import Affine, clip_to
 from ..core.types import Design
@@ -180,7 +181,7 @@ class SubstitutionTiling[TileT](Motif, ABC):
     """
 
     #: Number of subdivision rounds.
-    depth: int = field(default=4, kw_only=True)
+    depth: int = field(default=4, metadata=Range(1, 7, step=1), kw_only=True)
 
     @abstractmethod
     def seed(self) -> Iterable[TileT]:

@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, ClassVar, override
 
 from ..bases import Curve, ParametricMotif, PolarMotif, PolygonMotif
 from ..core.motif import Motif
+from ..core.range import Range
 from ..core.registry import register, spec
 from ..core.sampling import densify, samples_for_turns
 from ..core.types import Design, Path
@@ -88,7 +89,9 @@ class SpiralBase(PolarMotif, ABC):
     """
 
     #: Three turns, the point at which a spiral reads as a spiral.
-    theta_span: float = field(default=3.0 * math.tau, kw_only=True)
+    theta_span: float = field(
+        default=3.0 * math.tau, metadata=Range(0.0, 12.0 * math.tau), kw_only=True
+    )
 
 
 @register("spiral.archimedean", family="spiral")
@@ -108,8 +111,8 @@ class ArchimedeanSpiral(SpiralBase):
         Radial growth per radian. Every turn is ``b * tau`` further out.
     """
 
-    a: float = 0.0
-    b: float = 10.0
+    a: float = field(default=0.0, metadata=Range(0.0, 200.0))
+    b: float = field(default=10.0, metadata=Range(0.0, 50.0))
 
     @override
     def radius(self, theta: float) -> float:
@@ -153,8 +156,8 @@ class LogarithmicSpiral(SpiralBase):
         ``0`` degenerates to a circle.
     """
 
-    a: float = 5.0
-    b: float = 0.15
+    a: float = field(default=5.0, metadata=Range(0.0, 200.0))
+    b: float = field(default=0.15, metadata=Range(0.0, 1.0))
 
     @override
     def radius(self, theta: float) -> float:
@@ -182,10 +185,12 @@ class GoldenSpiral(SpiralBase):
     #: logarithmic spiral, which already exists.
     GROWTH: ClassVar[float] = _GOLDEN_GROWTH
 
-    a: float = 2.0
+    a: float = field(default=2.0, metadata=Range(0.0, 100.0))
     #: Two turns, because at 6.85x growth per turn a third would dwarf the
     #: first two into invisibility.
-    theta_span: float = field(default=2.0 * math.tau, kw_only=True)
+    theta_span: float = field(
+        default=2.0 * math.tau, metadata=Range(0.0, 6.0 * math.tau), kw_only=True
+    )
 
     @override
     def radius(self, theta: float) -> float:
@@ -215,7 +220,7 @@ class FermatSpiral(SpiralBase):
         Draw the second arm. Turn off for the single arm alone.
     """
 
-    a: float = 30.0
+    a: float = field(default=30.0, metadata=Range(0.0, 200.0))
     both_branches: bool = field(default=True, kw_only=True)
 
     def __post_init__(self) -> None:
@@ -263,9 +268,9 @@ class HyperbolicSpiral(SpiralBase):
         Radial scale, and the height of the horizontal asymptote.
     """
 
-    a: float = 200.0
+    a: float = field(default=200.0, metadata=Range(0.0, 800.0))
     #: Far enough from the pole to keep the outer end on the canvas.
-    theta_start: float = field(default=math.pi / 6.0, kw_only=True)
+    theta_start: float = field(default=math.pi / 6.0, metadata=Range(0.0, math.tau), kw_only=True)
 
     def __post_init__(self) -> None:
         _reject_pole(self)
@@ -291,7 +296,7 @@ class Lituus(SpiralBase):
         Radial scale.
     """
 
-    a: float = 200.0
+    a: float = field(default=200.0, metadata=Range(0.0, 800.0))
     #: Far enough from the pole to keep the outer end on the canvas.
     theta_start: float = field(default=math.pi / 6.0, kw_only=True)
 
@@ -344,8 +349,8 @@ class TheodorusSpiral(PolygonMotif):
     #: An open chain, not a loop.
     closed: ClassVar[bool] = False
 
-    triangles: int = 16
-    size: float = 20.0
+    triangles: int = field(default=16, metadata=Range(1, 60, step=1))
+    size: float = field(default=20.0, metadata=Range(2.0, 100.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -385,8 +390,8 @@ class FibonacciSpiral(Motif):
         Side of the first square.
     """
 
-    quarters: int = 9
-    size: float = 10.0
+    quarters: int = field(default=9, metadata=Range(1, 24, step=1))
+    size: float = field(default=10.0, metadata=Range(1.0, 100.0))
 
     def __post_init__(self) -> None:
         if self.quarters < 1:
@@ -453,8 +458,8 @@ class EulerSpiral(ParametricMotif):
     has already spiralled down to a dot.
     """
 
-    scale: float = 200.0
-    extent: float = 2.5
+    scale: float = field(default=200.0, metadata=Range(10.0, 1000.0))
+    extent: float = field(default=2.5, metadata=Range(0.1, 10.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -499,8 +504,8 @@ class CircleInvolute(ParametricMotif):
         Center of that circle.
     """
 
-    radius: float = 10.0
-    turns: float = 3.0
+    radius: float = field(default=10.0, metadata=Range(0.1, 200.0))
+    turns: float = field(default=3.0, metadata=Range(0.1, 12.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -564,7 +569,7 @@ class SpiralBetween(Motif):
     end: Point
     center: Point = (0.0, 0.0)
     clockwise: bool = True
-    turns: int = 0
+    turns: int = field(default=0, metadata=Range(0, 16, step=1))
     resolution: int | None = None
 
     def __post_init__(self) -> None:

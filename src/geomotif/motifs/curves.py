@@ -29,10 +29,11 @@ and a per-motif copy of it would only be a worse one.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, ClassVar, Literal, override
 
 from ..bases import Curve, MultiCurveMotif, ParametricMotif
+from ..core.range import Range
 from ..core.registry import register
 from ._common import polar_point
 
@@ -114,7 +115,7 @@ class Heart(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     form: HeartForm = "classic"
     center: Point = (0.0, 0.0)
 
@@ -162,7 +163,7 @@ class Cardioid(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -193,7 +194,7 @@ class Lemniscate(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -225,7 +226,7 @@ class LemniscateOfGerono(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -267,8 +268,8 @@ class CassiniOval(MultiCurveMotif):
         Midpoint between the foci.
     """
 
-    a: float = 70.0
-    b: float = 80.0
+    a: float = field(default=70.0, metadata=Range(0.0, 200.0))
+    b: float = field(default=80.0, metadata=Range(0.0, 200.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -346,8 +347,8 @@ class Limacon(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    a: float = 100.0
-    b: float = 60.0
+    a: float = field(default=100.0, metadata=Range(0.0, 300.0))
+    b: float = field(default=60.0, metadata=Range(0.0, 300.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -382,8 +383,8 @@ class Folium(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.pi)
     closed: ClassVar[bool] = True
 
-    a: float = 100.0
-    b: float = 100.0
+    a: float = field(default=100.0, metadata=Range(0.0, 300.0))
+    b: float = field(default=100.0, metadata=Range(0.0, 300.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -414,7 +415,7 @@ class Butterfly(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, _BUTTERFLY_SPAN)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -447,7 +448,7 @@ class FishCurve(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -480,7 +481,7 @@ class BowCurve(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (-1.0, 1.0)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -510,7 +511,7 @@ class Astroid(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -540,7 +541,7 @@ class Deltoid(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -576,7 +577,7 @@ class Nephroid(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -613,7 +614,7 @@ class Cornoid(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    size: float = 100.0
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -652,8 +653,8 @@ class Cochleoid(ParametricMotif):
         The pole every loop passes through.
     """
 
-    size: float = 100.0
-    loops: int = 4
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
+    loops: int = field(default=4, metadata=Range(1, 20, step=1))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
