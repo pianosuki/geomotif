@@ -40,6 +40,21 @@ def test_the_committed_catalog_is_up_to_date(tmp_path):
     )
 
 
+@describes_this_repository
+def test_the_committed_explore_catalog_is_up_to_date(tmp_path):
+    # The web explorer reads a committed catalog.json, so like the gallery's
+    # catalog.md it has to be regenerated whenever a motif is added, renamed or
+    # re-exampled -- otherwise the explorer shows a stale catalog. The committed
+    # file lives under docs/assets/explore/, the same directory the drift check
+    # in `make docs-check` already watches.
+    fresh = tmp_path / "catalog.json"
+    list(gendocs._explore_catalog(fresh))
+    committed = DOCS / "assets" / "explore" / "catalog.json"
+    assert fresh.read_text() == committed.read_text(), (
+        "docs/assets/explore/catalog.json is behind the registry; run `make docs-gen`"
+    )
+
+
 def test_the_committed_readme_images_are_up_to_date(tmp_path):
     list(gendocs._hero(tmp_path))
     for name in gendocs.HERO:

@@ -59,13 +59,19 @@ docs-serve: ## Serve the documentation at http://127.0.0.1:8000 with live reload
 	$(UV) run --group docs mkdocs serve
 
 .PHONY: docs-gen
-docs-gen: ## Regenerate the derived docs (reference, gallery, catalog, README images)
+docs-gen: ## Regenerate the derived docs (reference, gallery, catalog, README images, explore catalog)
+	$(UV) run --group docs python tools/gendocs.py
+
+.PHONY: explore-catalog
+explore-catalog: ## Regenerate only the explore catalog.json (docs/assets/explore/catalog.json)
 	$(UV) run --group docs python tools/gendocs.py
 
 .PHONY: docs-check
 docs-check: docs-gen ## Fail if the committed generated docs are out of date
 	@# --porcelain rather than `git diff --exit-code`, so that a *new* generated
-	@# file -- an added motif's image -- counts as drift too.
+	@# file -- an added motif's image -- counts as drift too. The explore
+	@# catalog.json under docs/assets/explore/ is committed too, so a stale
+	@# explorer catalog is caught the same way a stale catalog.md is.
 	@drift=$$(git status --porcelain -- docs/catalog.md docs/assets); \
 	if [ -n "$$drift" ]; then \
 		echo "$$drift"; \

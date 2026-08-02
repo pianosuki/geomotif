@@ -12,6 +12,17 @@ every consumer of `ParamInfo` reads the bound from the same place.
 
 ### Added
 
+- **`catalog.json`, the registry serialized for the web explorer.**
+  `tools/gendocs.py` now emits `docs/assets/explore/catalog.json` alongside
+  `catalog.md`: every registered motif's name, family, summary, full doc,
+  availability, registered example, and parameters — including the `Range`
+  bounds and the `Literal` choices a dropdown would offer. The web explorer
+  (landing in 1.3.0) reads this once at load time and builds its controls
+  from it, so the page needs no server and no Python. Committed like
+  `catalog.md`, with a matching freshness test in `test_gendocs.py` and a
+  `make explore-catalog` target; the existing `make docs-check` catches
+  drift because it already watches `docs/assets`.
+
 - **`Range`, a min/max/step helper for motif parameters.** A new
   `geomotif.core.range.Range` maps cleanly onto `dataclasses.field`'s
   `metadata=` argument (the same route `help` text already takes), so a
