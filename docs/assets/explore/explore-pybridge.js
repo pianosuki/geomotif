@@ -13,19 +13,27 @@
 
   const PY_CODE = `
 import json
+from xml.sax.saxutils import escape as _esc_html, quoteattr
+from geomotif.core.registry import NAME_KEY
+from geomotif.core.style import (
+    by_layer as _by_layer,
+    layer_names as _layer_names,
+    point_styles_of as _point_styles_of,
+    styles_of as _styles_of,
+)
 from geomotif.io.spec import from_spec
-from geomotif.io.svg import to_svg
 from geomotif.io.png import to_png
 from geomotif.core.transform import Affine
 
 _EXC = (ValueError, TypeError, KeyError, IndexError, ZeroDivisionError, OverflowError, RecursionError)
 
-# The display canvas and its margin. The display renderer maps the world
-# coordinate plane (y up, origin at 0,0) onto this canvas with a fixed
-# per-motif scale (see _scale_for below), the world origin anchored at the
-# canvas centre (260, 260). Because the mapping is fixed, a slider change
-# *visibly rescales* the picture instead of being re-fit to the box on every
-# render, and the grid / readout can translate between world and screen.
+# The display canvas. The display renderer maps the world coordinate plane
+# (y up, origin at 0,0) onto this canvas with a fixed per-motif scale (see
+# _scale_for below), the world origin anchored at the canvas centre (260, 260).
+# Because the mapping is fixed, a slider change *visibly rescales* the picture
+# instead of being re-fit to the box on every render, and the grid / readout
+# can translate between world and screen. _PAD is the margin an example fills
+# to, so a default motif sits comfortably inside the square.
 _W, _H, _PREC = 520, 520, 1
 _PAD = 40
 
@@ -71,15 +79,80 @@ def _placed(design, name, example_json):
     affine = Affine.translate(_W / 2.0, _H / 2.0) @ Affine.scale(s)
     return design.flipped_y().transformed(affine), s
 
-# Render an SVG for display. to_svg is called with width=/height=/padding=0
-# (no explicit canvas), which makes its internal fit the identity -- exactly
-# the placed design's own bounds, so the fixed scale and the origin-anchored
-# placement survive the write. flip_y=False because _placed already produced
-# y-down coordinates; a second flip would invert the picture.
+# Paint the display SVG. to_svg fits and *re-bases* the design (its fit() moves
+# the min corner to 0,0), which would shift the world origin away from the
+# canvas centre and put the grid / readout out of step with the picture. So the
+# placed coordinates are written verbatim onto a fixed 520x520 canvas instead:
+# the world origin stays exactly at (260, 260) for every motif, and the natural
+# viewBox is always the full 520x520 square, so the grid covers the whole stage
+# at fit-to-view rather than only the motif's own bounds rectangle.
 def _display_svg(placed, s):
-    svg = to_svg(placed, width=None, height=None, padding=0,
-                 precision=_PREC, title=None, flip_y=False)
-    return json.dumps({"svg": svg, "scale": s, "error": None})
+    lines = ['<svg xmlns="http://www.w3.org/2000/svg" '
+             'width="520" height="520" viewBox="0 0 520 520">']
+    title = str(placed.meta.get(NAME_KEY, "") or "") if hasattr(placed, "meta") else ""
+    if title:
+        lines.append(f"  <title>{_esc_html(title)}</title>")
+    layers = _by_layer(placed) if _layer_names(placed) else {None: placed}
+    for name, part in layers.items():
+        if name is None:
+            lines.extend(_elements(part, "  ", _PREC))
+            continue
+        lines.append(f'  <g inkscape:groupmode="layer" '
+                     f'inkscape:label={quoteattr(str(name))} id={quoteattr(str(name))}>')
+        lines.extend(_elements(part, "    ", _PREC))
+        lines.append("  </g>")
+    lines.append("</svg>")
+    return json.dumps({"svg": "\n".join(lines) + "\n", "scale": s, "error": None})
+
+def _num(value, precision):
+    text = f"{value:.{precision}f}"
+    if precision > 0:
+        text = text.rstrip("0").rstrip(".")
+    return "0" if text in {"-0", "", "-"} else text
+
+def _overrides(style):
+    if style is None:
+        return ""
+    parts = []
+    if style.stroke is not None and style.stroke != "#0b0b0b":
+        parts.append(f"stroke={quoteattr(style.stroke)}")
+    if style.width is not None and style.width != 1:
+        parts.append(f'stroke-width="{_num(style.width, 3)}"')
+    if style.fill is not None and style.fill != "none":
+        parts.append(f"fill={quoteattr(style.fill)}")
+    return (" " + " ".join(parts)) if parts else ""
+
+def _strokes(design, precision):
+    drawn = []
+    for path, style in zip(design.paths, _styles_of(design), strict=True):
+        pts = path.points
+        coords = [f"{_num(x, precision)} {_num(y, precision)}" for x, y in pts]
+        d = f"M {coords[0]}" if len(coords) == 1 else f"M {coords[0]} L {' '.join(coords[1:])}"
+        if path.closed and len(coords) > 2:
+            d += " Z"
+        drawn.append((d, _overrides(style)))
+    return drawn
+
+def _elements(part, pad, precision):
+    lines = []
+    if part.paths:
+        lines.append(pad + '<g fill="none" stroke="#0b0b0b" stroke-width="1" '
+                        "stroke-linecap=\"round\" stroke-linejoin=\"round\">")
+        for d, attrs in _strokes(part, precision):
+            lines.append(pad + "  " + f'<path d="{d}"{attrs}/>')
+        lines.append(pad + "</g>")
+    if part.points:
+        lines.append(pad + '<g fill="#0b0b0b" stroke="none">')
+        for (x, y), style in zip(part.points, _point_styles_of(part), strict=True):
+            radius = style.width if style is not None and style.width is not None else 1.0
+            color = ""
+            if style is not None and style.stroke is not None and style.stroke != "#0b0b0b":
+                color = f" fill={quoteattr(style.stroke)}"
+            lines.append(pad + "  " +
+                         f'<circle cx="{_num(x, precision)}" cy="{_num(y, precision)}" '
+                         f'r="{_num(radius, 3)}"{color}/>')
+        lines.append(pad + "</g>")
+    return lines
 
 def render_motif(name, params_json, example_json=None):
     try:
