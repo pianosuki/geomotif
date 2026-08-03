@@ -130,12 +130,18 @@ header {
 .nav-link:hover { color: var(--ink); border-color: var(--accent); }
 .nav-link:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 /* The theme toggle reads as pressed when the page is in dark mode, the same
-   affordance the old stage-toolbar toggle used. */
+   affordance the old stage-toolbar toggle used. The button shows a sun glyph in
+   light mode and a moon in dark mode, so the icon always names the mode that is
+   on and never contradicts the pressed state. */
 .nav-link#theme[aria-pressed="true"] {
   color: var(--accent-ink);
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+.nav-link#theme .ico { display: flex; }
+.nav-link#theme .moon { display: none; }
+:root[data-theme="dark"] .nav-link#theme .sun { display: none; }
+:root[data-theme="dark"] .nav-link#theme .moon { display: flex; }
 /* The Design / Animate segmented control sits between the wordmark and
    the search field, the single entry point to animation mode now that the
    stage-toolbar Play button is retired. A roving tabindex keeps keyboard
@@ -193,6 +199,27 @@ header {
 }
 .progress.on { display: inline-block; }
 .progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.25s ease; }
+/* Load-status toast: a small fixed pill at the bottom of the viewport that
+   auto-dismisses after ~2.5s (explore-view.js showToast). Boot-and-render
+   progress surfaces here instead of as a stranded string in the header's
+   #status slot. */
+.toast {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translate(-50%, 0.5rem);
+  z-index: 50;
+  padding: 0.5rem 0.9rem;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 92%, transparent);
+  color: var(--page);
+  font: 500 0.78rem/1 var(--sans);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* --- layout ---------------------------------------------------------------- */
 .layout {

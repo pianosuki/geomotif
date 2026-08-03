@@ -13,7 +13,7 @@
     stageEl, themeEl, tgGridEl, tgAxesEl, tgLabelsEl,
     tgPopoverEl, tgGearEl,
     coordReadoutEl, zoomIndEl,
-    zoomInEl, zoomOutEl, fitEl,
+    zoomInEl, zoomOutEl, fitEl, toastEl,
     statusEl, progressEl, progressFill,
     ZOOM_STEP, THEME_KEY, GRID_KEY, AXES_KEY, LABELS_KEY,
   } = E;
@@ -34,6 +34,19 @@
 
   function setStatus(t) { statusEl.textContent = t; }
   E.setStatus = setStatus;
+  // A transient load-status toast: a small fixed pill at the bottom of the
+  // viewport that auto-dismisses after ~2.5s. Boot-and-render progress ("ready",
+  // "loading Pyodide…", …) surfaces here instead of as a string stranded forever
+  // in the header's #status slot.
+  let toastTimer = null;
+  function showToast(msg) {
+    if (!toastEl) return;
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.classList.remove("show"), 2500);
+  }
+  E.showToast = showToast;
   function showProgress(frac) { progressEl.classList.add("on"); progressFill.style.width = (frac * 100) + "%"; }
   E.showProgress = showProgress;
   function hideProgress() { progressEl.classList.remove("on"); }
@@ -171,10 +184,9 @@
   }
 
   function applyThemeButton() {
-    // The label names the theme you would switch *to*, so a dark page shows
-    // "light" and vice versa -- the same convention the explore command line
-    // uses for its flags.
-    themeEl.textContent = effectiveTheme() === "dark" ? "light" : "dark";
+    // The button shows a sun glyph in light mode and a moon in dark mode, so
+    // the icon always reads as "the mode that is on now"; aria-pressed tracks
+    // "dark mode active", and the accent fill (see app.css) means "dark is on".
     themeEl.setAttribute("aria-pressed", String(effectiveTheme() === "dark"));
   }
   E.applyThemeButton = applyThemeButton;

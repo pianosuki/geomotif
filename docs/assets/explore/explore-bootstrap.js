@@ -78,6 +78,7 @@ window.EXPLORE = window.EXPLORE || {};
   // bare-name style survives the split.
   E.$ = (id) => document.getElementById(id);
   E.statusEl = E.$("status");
+  E.toastEl = E.$("toast");
   E.progressEl = E.$("progress");
   E.progressFill = E.progressEl.querySelector("i");
   E.familiesEl = E.$("families");

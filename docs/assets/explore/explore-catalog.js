@@ -19,7 +19,7 @@
       const res = await fetch("catalog.json");
       E.catalog = await res.json();
     } catch (e) {
-      E.setStatus("failed to load catalog.json");
+      E.showToast("failed to load catalog.json");
       placeholderEl.textContent = "could not load catalog.json";
       placeholderEl.classList.add("error");
       return;
@@ -28,7 +28,8 @@
     for (const m of E.catalog.motifs) E.byName[m.name] = m;
     paintFamilies();
     paintMotifs();
-    E.setStatus("ready — pick a motif");
+    E.showToast("ready — pick a motif");
+    E.setStatus("");
     // A shared view arrives in the URL fragment; if present it wins over the
     // default first motif so landing on a share URL boots straight into the
     // sender's state. Otherwise we fall back to the first available motif.

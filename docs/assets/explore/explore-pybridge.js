@@ -160,14 +160,14 @@ def export_gif(name, params_json, tracks_json, frames, fps, hold, easing, overla
   async function ensurePyodide() {
     if (E.pyPromise) return E.pyPromise;
     E.pyPromise = (async () => {
-      E.setStatus("loading Pyodide…");
+      E.showToast("loading Pyodide…");
       E.showProgress(0.1);
       await loadScript(`https://cdn.jsdelivr.net/pyodide/v${PYODIDE_VERSION}/full/pyodide.js`);
       E.showProgress(0.3);
       // eslint-disable-next-line no-undef
       E.pyodide = await loadPyodide();
       E.showProgress(0.55);
-      E.setStatus("loading geomotif…");
+      E.showToast("loading geomotif…");
       await E.pyodide.loadPackage("micropip");
       const micropip = E.pyodide.pyimport("micropip");
       await micropip.install(E.WHEEL_URL);
@@ -182,12 +182,12 @@ def export_gif(name, params_json, tracks_json, frames, fps, hold, easing, overla
       E.pyExportGif = E.pyodide.globals.get("export_gif");
       E.showProgress(1);
       E.hideProgress();
-      E.setStatus("ready");
+      E.showToast("ready");
       return E.pyodide;
     })().catch((e) => {
       E.pyPromise = null;
       E.hideProgress();
-      E.setStatus("Pyodide load failed");
+      E.showToast("Pyodide load failed");
       throw e;
     });
     return E.pyPromise;
