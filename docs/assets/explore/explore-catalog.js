@@ -251,18 +251,33 @@
   E.showUnavailable = showUnavailable;
 
   function paintMeta(info) {
-    const parts = [`<h2><code>${E.esc(info.name)}</code></h2>`];
-    parts.push(`<p class="summary">${E.esc(info.summary || "")}</p>`);
-    if (info.requires) {
-      parts.push(`<p><span class="badge">needs ${E.esc(info.requires)}</span></p>`);
-    }
-    if (info.doc) {
-      parts.push(`<div class="doc">${E.esc(info.doc)}</div>`);
-    }
+    const parts = [`<h2 class="motif-title"><code>${E.esc(info.name)}</code></h2>`];
+    parts.push(`<p class="motif-summary">${E.esc(info.summary || "")}</p>`);
+    const tags = [];
+    if (info.family) tags.push(`<span class="badge">${E.esc(info.family)}</span>`);
+    if (info.requires) tags.push(`<span class="badge">needs ${E.esc(info.requires)}</span>`);
+    if (tags.length) parts.push(`<div class="motif-tags">${tags.join("")}</div>`);
+    if (info.doc) parts.push(`<div class="motif-doc">${renderDoc(info.doc)}</div>`);
     metaEl.innerHTML = parts.join("");
     E.$("control-title").innerHTML = `<code>${E.esc(info.name)}</code>`;
   }
   E.paintMeta = paintMeta;
+
+  // Render the long-form description as readable paragraphs, not a mono blob.
+  // The doc is plain text: split it on blank lines into <p> breaks and apply a
+  // tiny inline formatter for `code` / ``code``, **bold** and *italic* -- the
+  // surrounding text is escaped first so nothing else is treated as markup.
+  function renderDoc(doc) {
+    const paras = String(doc).split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+    return paras.map((p) => `<p>${inlineDoc(p)}</p>`).join("");
+  }
+  function inlineDoc(text) {
+    let s = E.esc(text);
+    s = s.replace(/(``[^`]+``|`[^`]+`)/g, (m) => `<code>${m.replace(/`/g, "")}</code>`);
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|\W)\*([^*\n]+)\*/g, "$1<em>$2</em>");
+    return s;
+  }
 
   // --- debounced render + fragment sync ---------------------------------------
   // The hash is updated on the same ~30 ms cadence as the render so a slider

@@ -386,21 +386,24 @@ header {
   user-select: none;
 }
 
-.meta { margin: 1.25rem auto 0; max-width: min(100%, 100vh - 8rem); }
-.meta h2 { font-size: 1.25rem; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 0.15rem; }
-.meta h2 code { font-size: 1.25rem; font-weight: 500; }
-.meta .summary { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.5rem; }
-.meta .doc {
-  white-space: pre-wrap;
-  font-size: 0.78rem;
-  line-height: 1.5;
-  color: var(--muted);
-  max-height: 11rem;
-  overflow-y: auto;
-  padding: 0.6rem 0.75rem;
-  border-left: 2px solid var(--line);
-  margin-top: 0.5rem;
+/* The "about this motif" card under the stage: a structured surface (title,
+   tagline, metadata pills, rendered description) that pairs visually with the
+   stage's frame above it, instead of the old mono pre-wrap log block. */
+.meta {
+  margin: 1.25rem auto 0;
+  max-width: min(100%, 100vh - 8rem);
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
 }
+.motif-title code { font-size: 1.1rem; font-weight: 600; }
+.motif-summary { color: var(--ink); font-size: 0.95rem; margin: 0.2rem 0 0.6rem; }
+.motif-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.7rem; }
+.motif-doc p { color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin: 0 0 0.6rem; }
+.motif-doc p:last-child { margin-bottom: 0; }
+.motif-doc code { font-family: var(--mono); font-size: 0.82em; }
 
 /* --- controls panel -------------------------------------------------------- */
 /* The Design panel (.controls) and the Animator panel (.animator) are a
