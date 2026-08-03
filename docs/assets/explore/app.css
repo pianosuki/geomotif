@@ -24,6 +24,10 @@
   --dot: rgba(20, 20, 30, 0.06);
   --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* The sticky header's settled height; the workbench layout below it is
+     exactly the rest of the viewport. Kept as one token so the layout and
+     the header never drift apart. */
+  --header-h: 4.2rem;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -71,6 +75,10 @@ body {
   font: 15px/1.55 var(--sans);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  /* The workbench keeps its own per-column scrollbars (see .layout); the
+     page itself never scrolls on wide viewports. The narrow-width media
+     queries below re-enable body scroll when the columns stack instead. */
+  overflow: hidden;
 }
 h1, h2 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
 code, pre, .mono { font-family: var(--mono); font-size: 0.82em; }
@@ -243,26 +251,51 @@ header {
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 
 /* --- layout ---------------------------------------------------------------- */
+/* A viewport-height workbench: the three columns (rail / stage / controls)
+   fill exactly the space below the sticky header and each scrolls on its
+   own, so there is no page-level scrollbar and the sides never show the
+   gap a centred max-width cap used to leave on wide monitors. Each panel
+   carries its own chrome so the rails read as distinct surfaces around the
+   central stage. On narrower viewports (below) the columns stack and the
+   page scrolls again. */
 .layout {
   display: grid;
   grid-template-columns: 15rem minmax(0, 1fr) 21rem;
   gap: 1.5rem;
   padding: 1.5rem;
-  align-items: start;
-  max-width: min(110rem, 100vw);
+  height: calc(100vh - var(--header-h));
+  max-width: 100vw;
   margin: 0 auto;
 }
+/* The grid children must be allowed to shrink to the row and scroll their
+   own overflow; min-width: 0 is the standard grid-shrink guard too. */
+.rail, .stage-area, .controls, .animator { min-height: 0; min-width: 0; }
+/* The side rails are independent scroll containers with their own panel
+   chrome, so the rail / controls / animator read as distinct surfaces from
+   the central stage rather than all three sharing the page background. */
+.rail, .controls, .animator {
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: 0.9rem;
+}
+.stage-area { overflow-y: auto; overflow-x: hidden; }
 @media (max-width: 74rem) {
-  .layout { grid-template-columns: 14rem minmax(0, 1fr); }
+  /* Too narrow for three side-by-side: the right rail drops below the
+     stage-and-list pair and the page scrolls instead of the columns. */
+  body { overflow-y: auto; }
+  .layout { grid-template-columns: 14rem minmax(0, 1fr); height: auto; }
   .controls, .animator { grid-column: 1 / -1; }
 }
 @media (max-width: 50rem) {
-  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; height: auto; }
   .rail { max-height: none !important; }
 }
 
 /* --- rail (families + motif list) ------------------------------------------ */
-.rail { position: sticky; top: 4.2rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; padding-right: 0.25rem; }
+.rail { padding: 0.9rem; }
 .families {
   display: flex;
   flex-wrap: wrap;
@@ -441,11 +474,11 @@ header {
    #controls slider list is reparented between them, so both panels share one
    live set of slider handlers. */
 .controls, .animator {
-  position: sticky;
-  top: 4.2rem;
-  max-height: calc(100vh - 5.5rem);
-  overflow-y: auto;
-  padding-right: 0.25rem;
+  /* The rail chrome (background / border / padding) comes from the shared
+     .rail, .controls, .animator rule in the layout section; the scroll
+     behaviour lives there too, so the panel fills the column as an
+     independent scroll container. Keep only the panel-specific bits here. */
+  min-width: 0;
 }
 /* `hidden` must win over any later `display` rule so the inactive panel really
    leaves the grid flow (otherwise both asides would share the column). */
