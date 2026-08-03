@@ -82,6 +82,14 @@ every consumer of `ParamInfo` reads the bound from the same place.
   `make explore-stage` target mirrors CI locally: it builds the wheel, runs
   the docs build, and stages the SPA + wheel into `site/explore/`.
 
+- **An Explore landing page in the docs nav.** `docs/explore.md` is a
+  short page that explains what the web explorer is — still and animation
+  modes, live command line, share URL, SVG/PNG/spec/GIF export, zoom/pan,
+  theme toggles — and points into the SPA with a call-to-action button.
+  The Material nav gains an **Explore** entry beside **Contributing**, so
+  the boundary between the written docs and the web app is explicit and
+  the explorer is one click from the home page.
+
 ### Changed
 
 - **`geomotif explore` sweeps a declared range when there is one.** A
