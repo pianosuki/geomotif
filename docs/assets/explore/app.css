@@ -201,7 +201,7 @@ header {
   gap: 1.5rem;
   padding: 1.5rem;
   align-items: start;
-  max-width: 100rem;
+  max-width: min(110rem, 100vw);
   margin: 0 auto;
 }
 @media (max-width: 74rem) {
@@ -270,7 +270,7 @@ header {
 .stage {
   position: relative;
   width: 100%;
-  max-width: 720px;
+  max-width: min(100%, 100vh - 8rem);
   aspect-ratio: 1 / 1;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
@@ -290,8 +290,8 @@ header {
   position: absolute;
   inset: 0.5rem;
   display: block;
-  width: auto;
-  height: auto;
+  width: calc(100% - 1rem);
+  height: calc(100% - 1rem);
 }
 .grid-overlay { z-index: 1; pointer-events: none; overflow: visible; }
 .stage svg:not(.grid-overlay) { z-index: 2; }
@@ -344,7 +344,7 @@ header {
   align-items: center;
   gap: 0.7rem;
   width: 100%;
-  max-width: 720px;
+  max-width: min(100%, 100vh - 8rem);
   margin: 0.6rem auto 0;
   padding: 0 0.5rem;
 }
@@ -358,7 +358,7 @@ header {
   user-select: none;
 }
 
-.meta { margin: 1.25rem auto 0; max-width: 720px; }
+.meta { margin: 1.25rem auto 0; max-width: min(100%, 100vh - 8rem); }
 .meta h2 { font-size: 1.25rem; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 0.15rem; }
 .meta h2 code { font-size: 1.25rem; font-weight: 500; }
 .meta .summary { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.5rem; }
