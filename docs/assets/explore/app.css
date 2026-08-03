@@ -129,6 +129,27 @@ header {
 }
 .nav-link:hover { color: var(--ink); border-color: var(--accent); }
 .nav-link:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* The primary return affordance: an indigo pill that mirrors the docs-side
+   "explore" pill in the Material header, so the two ends of the docs <-> explore
+   link read as a matched pair (same border, same uppercase, same pill radius).
+   It is the rightmost header element, after the theme toggle. */
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.85rem;
+  border-radius: 99px;
+  border: 1px solid var(--accent);
+  color: var(--accent-ink);
+  background: transparent;
+  font: 600 0.72rem/1 var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-pill:hover { background: var(--accent); color: var(--page); }
+.nav-pill:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 /* The theme toggle reads as pressed when the page is in dark mode, the same
    affordance the old stage-toolbar toggle used. The button shows a sun glyph in
    light mode and a moon in dark mode, so the icon always names the mode that is

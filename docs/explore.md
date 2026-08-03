@@ -7,8 +7,10 @@ running in a browser: the same wheel that installs locally loads into
 Pyodide, so every render the page produces is byte-identical to
 `geomotif render`. No download, no server, no account.
 
-[Open the explore stage &rarr;](https://pianosuki.github.io/geomotif/explore/){ .md-button .md-button--primary }
+<div class="cta-row" markdown>
+[Open the explore stage &rarr;](explore/){ .md-button .md-button--primary }
 [Browse the catalog &rarr;](catalog.md){ .md-button }
+</div>
 
 <div class="strip" markdown>
 ![](assets/spiral.golden.svg){ .motif }
@@ -141,4 +143,6 @@ the page downloads.
   `Set keyframe` button, the per-track `+`, and the double-click hint are
   hidden on touch.
 
-[Open the explore stage &rarr;](https://pianosuki.github.io/geomotif/explore/){ .md-button .md-button--primary }
+<div class="cta-row" markdown>
+[Open the explore stage &rarr;](explore/){ .md-button .md-button--primary }
+</div>

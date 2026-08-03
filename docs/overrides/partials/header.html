@@ -50,7 +50,7 @@
       {% include "partials/javascripts/palette.html" %}
     {% endif %}
     {% block explore_anchor %}
-      <a class="md-header__button md-header__explore" href="{{ 'explore/' | url }}" title="Open the explore stage">explore</a>
+      <a class="md-header__button md-header__explore" href="{{ 'explore/' | url }}" title="Open the explore stage" aria-label="Open the explore stage">explore</a>
     {% endblock %}
     {% if config.extra.alternate %}
       {% include "partials/alternate.html" %}

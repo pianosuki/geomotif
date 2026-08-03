@@ -38,7 +38,11 @@
   white-space: normal;
 }
 
-/* The README's image strip, reused on the landing page. */
+/* The README's image strip, reused on the landing page. The flex defaults make
+ * each .motif (width: 100% with a 320px cap) want to stretch to its max-width,
+ * which turns a wrapped row of thumbnails into a stack that takes the whole
+ * page. Fix each image to a fixed 140px column so the row wraps in place.
+ */
 .strip {
   display: flex;
   flex-wrap: wrap;
@@ -48,8 +52,25 @@
 }
 
 .strip img {
+  flex: 0 0 140px;
   width: 140px;
   height: 140px;
+}
+
+.strip .motif {
+  max-width: none;
+  width: 140px;
+}
+
+/* A centered row for the call-to-action buttons on the landing and explore
+ * pages. The .md-button is inline-block and left-aligned by the surrounding
+ * paragraph; centering the row (with a little vertical rhythm) fixes that. */
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin: 1.5rem 0;
 }
 
 /* The "explore" pill in the Material header — a quiet indigo-accented anchor
