@@ -102,7 +102,7 @@ def _display_svg(placed, s):
         lines.extend(_elements(part, "    ", _PREC))
         lines.append("  </g>")
     lines.append("</svg>")
-    return json.dumps({"svg": "\n".join(lines) + "\n", "scale": s, "error": None})
+    return json.dumps({"svg": chr(10).join(lines) + chr(10), "scale": s, "error": None})
 
 def _num(value, precision):
     text = f"{value:.{precision}f}"
@@ -137,7 +137,7 @@ def _elements(part, pad, precision):
     lines = []
     if part.paths:
         lines.append(pad + '<g fill="none" stroke="#0b0b0b" stroke-width="1" '
-                        "stroke-linecap=\"round\" stroke-linejoin=\"round\">")
+                        'stroke-linecap="round" stroke-linejoin="round">')
         for d, attrs in _strokes(part, precision):
             lines.append(pad + "  " + f'<path d="{d}"{attrs}/>')
         lines.append(pad + "</g>")
