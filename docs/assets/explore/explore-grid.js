@@ -9,8 +9,9 @@
 // (the viewBox mapped back through the display scale), draws major (solid
 // --line-2) and minor (dotted --line) gridlines, the x/y axes through the
 // world origin with small arrowheads, and tick labels pinned to the edge the
-// axis left from so they persist -- and keep pointing at the right numbers --
-// when the axes are panned/zoomed off-screen (Desmos-style edge flipping).
+// axis went out toward, so they persist -- and keep pointing at the right
+// numbers -- when the axes are panned/zoomed off-screen (Desmos-style edge
+// keeping: numbers ride along beside the axis it belongs to).
 //
 // The stage renders in *world* coordinates: the motif SVG's viewBox is the
 // fixed 520x520 display square, where the world origin (0, 0, y up) sits at
@@ -193,18 +194,19 @@
     // Tick labels, decoupled from axis/origin visibility: the x numbers are
     // pinned along the x-axis when that is on-screen, the y numbers along the
     // y-axis. When an axis scrolls off, the labels follow Desmos and stick to
-    // the edge the axis left *from*: panning down pushes the x-axis past the
-    // bottom so the x numbers snap to the top, and panning left pushes the
-    // y-axis past the left so the y numbers snap to the right -- not always to
-    // the bottom / left. There is no crowding cap: niceStep already keeps ~6
-    // majors on screen, so a deep zoom keeps showing numbers instead of hiding
-    // them. Label offsets are negative (toward the inside of the box) to keep
-    // the rows from being pushed under the clip path.
+    // the edge the axis went out *toward*: panning up pushes the x-axis past
+    // the top so the x numbers hang on the top edge, and panning right pushes
+    // the y-axis past the right so the y numbers hug the right edge -- they
+    // ride along with the axis, staying readably close to it, instead of
+    // jumping to the far edge. There is no crowding cap: niceStep already
+    // keeps ~6 majors on screen, so a deep zoom keeps showing numbers instead
+    // of hiding them. Label offsets are negative (toward the inside of the
+    // box) to keep the rows from being pushed under the clip path.
     let labelY;
     if (visY && oy + fs <= y1 - fs * 0.3) labelY = oy + fs; // just under the x-axis
     else if (visY) labelY = y1 - fs * 0.3; // axis on-screen but low in the box
-    else if (oy < y0) labelY = y1 - fs * 0.3; // axis panned off the top -> bottom edge
-    else labelY = y0 + fs * 0.3; // axis panned off the bottom -> top edge
+    else if (oy < y0) labelY = y0 + fs * 0.3; // axis panned off the top -> top edge
+    else labelY = y1 - fs * 0.3; // axis panned off the bottom -> bottom edge
     for (let wx = Math.ceil(wx0 / worldStep) * worldStep; wx <= wx1 + 1e-9; wx += worldStep) {
       if (Math.abs(wx) < 1e-9) continue; // the origin gets its own "0"
       const t = el("text", {
@@ -216,8 +218,8 @@
     }
     let labelX, anchor;
     if (visX) { labelX = ox - fs * 0.35; anchor = "end"; } // left of the y-axis
-    else if (ox < x0) { labelX = x1 - fs * 0.35; anchor = "end"; } // axis left of view -> right edge
-    else { labelX = x0 + fs * 0.3; anchor = "start"; } // axis right of view -> left edge
+    else if (ox < x0) { labelX = x0 + fs * 0.3; anchor = "start"; } // axis left of view -> left edge
+    else { labelX = x1 - fs * 0.35; anchor = "end"; } // axis right of view -> right edge
     for (let wy = Math.ceil(wy0 / worldStep) * worldStep; wy <= wy1 + 1e-9; wy += worldStep) {
       if (Math.abs(wy) < 1e-9) continue;
       const t = el("text", {
@@ -228,10 +230,12 @@
       gLabels.appendChild(t);
     }
     // The origin's own "0" marks the crossing itself, so it moves with the
-    // plane and only appears when the origin is actually on-screen.
+    // plane and only appears when the origin is actually on-screen. It sits to
+    // the left of the y-axis and below the x-axis, tucking into the quadrant
+    // its row shares with the x numbers (below) and the y numbers (left).
     if (visX && visY) {
       const t = el("text", {
-        x: ox, y: oy, dx: fs * 0.4, dy: fs * 0.35, "text-anchor": "start",
+        x: ox, y: oy, dx: -fs * 0.42, dy: fs * 0.35, "text-anchor": "end",
         "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
       });
       t.textContent = "0";

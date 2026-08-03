@@ -209,6 +209,7 @@
       E.viewBox = null;
       E.naturalVB = null;
       E.scale = null;
+      E.dispBounds = null;
       return;
     }
     placeholderEl.classList.remove("busy", "error");
@@ -228,11 +229,16 @@
     // refresh it so the grid overlay, the cursor readout and the zoom
     // indicator stay correct after a still render (slider drag, motif switch).
     E.scale = (result.scale != null) ? result.scale : E.scale;
-    // The display renderer keeps the world origin centred in its own canvas,
-    // so the rendered viewBox is the placed design's bounds (which can be
-    // non-square). A slider drag (same motif, new SVG element) re-applies the
-    // user's zoom/pan; switching motifs starts fit-to-view instead, so a new
-    // picture is never cropped by the previous one's zoom.
+    // The renderer also reports the drawn picture's display bounds; refresh
+    // them so "fit to view" frames the motif at its current size (see
+    // captureNatural in explore-view.js).
+    E.dispBounds = (result.bounds && Number.isFinite(result.bounds.w) && result.bounds.w > 0)
+      ? result.bounds : null;
+    // A slider drag (same motif, new SVG element) re-applies the user's
+    // zoom/pan; switching motifs starts fit-to-view instead, so a new
+    // picture is never cropped by the previous one's zoom. "Fit" frames the
+    // drawn picture's current bounds (E.dispBounds -> captureNatural), so a
+    // resize shows the whole motif again, centered.
     E.captureNatural();
     if (prevMotif === info.name && E.viewBox) E.applyViewBox();
     else E.fitView();
@@ -254,6 +260,7 @@
     E.viewBox = null;
     E.naturalVB = null;
     E.scale = null;
+    E.dispBounds = null;
   }
   E.showUnavailable = showUnavailable;
 

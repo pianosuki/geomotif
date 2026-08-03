@@ -204,6 +204,12 @@ window.EXPLORE = window.EXPLORE || {};
   // restores to.
   E.viewBox = null;
   E.naturalVB = null;
+  // The drawn picture's display-space bounds (min-corner + size on the fixed
+  // 520x520 canvas), returned by the renderer alongside every SVG. "fit to
+  // view" frames *this* box (padded) instead of the whole canvas, so a motif
+  // that grows or shrinks with its parameters is refit and recentered after
+  // every render. `null` when the renderer did not report bounds.
+  E.dispBounds = null;
 
   // World -> display mapping, refreshed from every render/animation-frame
   // result. The display renderer anchors the world origin (0, 0, y-up) at the

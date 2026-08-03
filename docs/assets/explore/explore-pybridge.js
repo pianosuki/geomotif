@@ -85,7 +85,9 @@ def _placed(design, name, example_json):
 # placed coordinates are written verbatim onto a fixed 520x520 canvas instead:
 # the world origin stays exactly at (260, 260) for every motif, and the natural
 # viewBox is always the full 520x520 square, so the grid covers the whole stage
-# at fit-to-view rather than only the motif's own bounds rectangle.
+# at fit-to-view rather than only the motif's own bounds rectangle. The motif's
+# own display-space bounds are returned alongside so the SPA's "fit to view"
+# can frame the *drawn picture* whenever its size changes with a parameter.
 def _display_svg(placed, s):
     lines = ['<svg xmlns="http://www.w3.org/2000/svg" '
              'width="520" height="520" viewBox="0 0 520 520">']
@@ -102,7 +104,16 @@ def _display_svg(placed, s):
         lines.extend(_elements(part, "    ", _PREC))
         lines.append("  </g>")
     lines.append("</svg>")
-    return json.dumps({"svg": chr(10).join(lines) + chr(10), "scale": s, "error": None})
+    b = placed.bounds
+    return json.dumps({
+        "svg": chr(10).join(lines) + chr(10),
+        "scale": s,
+        "bounds": {
+            "x": float(b.min_x), "y": float(b.min_y),
+            "w": float(b.width), "h": float(b.height),
+        },
+        "error": None,
+    })
 
 def _num(value, precision):
     text = f"{value:.{precision}f}"

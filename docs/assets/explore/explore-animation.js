@@ -38,6 +38,13 @@
   E.bundle = null;
   E.preRaf = null;
   E.scrubbing = false;
+  // Playback intent that outlives a single rebuild. startAnim stops playback on
+  // every edit, so a burst of edits (say typing a keyframe value) would see
+  // `playState.on` false from the second edit onward and lose the "was playing"
+  // memory -- leaving the animation frozen with the last rebuild never
+  // restarted. This flag is set whenever a run is interrupted by a rebuild and
+  // consumed by the rebuild that actually finishes; pausing clears it.
+  E.playWanted = false;
   // The keyframe selected by a click/drag: { track: paramName, idx: index },
   // or null when nothing is selected. Selection drives the .sel dot ring, the
   // per-track value input / delete affordance, and Delete/Backspace removal.
@@ -67,9 +74,12 @@
 
   // The default timeline, per "Default state when entering animation mode": a
   // single track on the motif's primary numeric parameter (the first int/float
-  // in ParamInfo order) sweeping across its declared Range (or a 2x spread of
-  // the default when there is none), with cubic easing at 48 frames / 20 fps /
-  // hold 12. The user sees motion immediately and edits from there.
+  // in ParamInfo order) sweeping from the slider's *current* value to an end
+  // value, with cubic easing at 48 frames / 20 fps / hold 12. The first
+  // keyframe holds the value the user is already looking at, so entering
+  // Animate does not shrink the picture under them; the sweep goes to the
+  // farthest end of the declared Range (or a 2x spread of the default when
+  // there is none) so the user sees motion immediately and edits from there.
   function defaultAnim(info, st) {
     const nums = info.params.filter((p) =>
       !RESERVED.has(p.name) && (p.annotation === "int" || p.annotation === "float"));
@@ -79,15 +89,20 @@
       const cur = st[p.name];
       let v0, v1;
       if (p.min != null && p.max != null) {
-        v0 = p.min; v1 = p.max;
+        const lo = Number(p.min), hi = Number(p.max);
+        const c = Number(cur);
+        v0 = Math.min(hi, Math.max(lo, Number.isFinite(c) ? c : ((lo + hi) / 2)));
+        v1 = (Math.abs(hi - v0) >= Math.abs(v0 - lo)) ? hi : lo;
+        if (v1 === v0) v1 = v0 < (lo + hi) / 2 ? hi : lo;
       } else if (p.annotation === "int") {
         const base = Number(cur) || 5;
-        v0 = Math.max(1, Math.floor(base / SPREAD));
+        v0 = base;
         v1 = Math.max(v0 + 1, Math.ceil(base * SPREAD));
       } else {
-        const f = Number(cur) || 1;
-        v0 = f === 0 ? -1 : f / SPREAD;
-        v1 = f === 0 ? 1 : f * SPREAD;
+        const f = Number(cur) || 0;
+        v0 = f;
+        v1 = f === 0 ? 1 : (f > 0 ? f * SPREAD : f / SPREAD);
+        if (v1 === v0) v1 = v0 + 1;
       }
       tracks[p.name] = { keyframes: [[0.0, v0], [1.0, v1]], easing: null };
     }
@@ -248,6 +263,7 @@
     // Hide the stage scrubber on the way back to Design mode.
     if (stageScrubWrapEl) stageScrubWrapEl.hidden = true;
     expGifEl.disabled = true;
+    E.playWanted = false;
     stopPlayback();
     if (E.preRaf) { cancelAnimationFrame(E.preRaf); E.preRaf = null; }
     E.bundle = null;
@@ -690,85 +706,108 @@
   function startAnim(info, st, an) {
     // Playback never auto-starts here: entering Animate, or rebuilding the
     // bundle after an adjustment, shows the scrubber's frame and waits for the
-    // user to press play. Only a rebuild made while already playing keeps
-    // playing -- the reentry flag carries that across the async pre-render so a
-    // slider nudge during playback does not stop the motion.
-    const wasPlaying = E.playState.on;
+    // user to press play. A rebuild made while a run was playing, though, must
+    // keep it going once the new bundle is ready -- and the "was playing"
+    // intent is remembered on E.playWanted, not from playState.on at this
+    // instant, because a burst of edits calls stopPlayback once per edit and
+    // only the first one sees `on` true.
+    E.playWanted = E.playWanted || E.playState.on;
     stopPlayback();
     if (E.preRaf) { cancelAnimationFrame(E.preRaf); E.preRaf = null; }
     E.playState.idx = 0;
-    E.playState.reentry = wasPlaying;
     const key = animBundleKey(info, st, an);
     const cached = E.animCache.get(key);
     if (cached) {
       E.animCache.delete(key);
       E.animCache.set(key, cached);
-      E.bundle = { key, core: cached, count: cached.length + an.hold, ready: cached.length, total: cached.length, busy: false, scale: E.scale };
+      const bundle = {
+        key, core: cached.frames, bounds: cached.bounds || null,
+        count: cached.frames.length + an.hold, ready: cached.frames.length,
+        total: cached.frames.length, busy: false, scale: E.scale,
+      };
+      E.bundle = bundle;
       showAnimProgress(1);
       drawFrame(0);
-      if (wasPlaying) startPlayback(info, an);
+      if (E.playWanted) { E.playWanted = false; startPlayback(info, an); }
       return;
     }
-    E.bundle = { key, core: null, count: 0, ready: 0, total: 0, busy: true, scale: null };
+    // Each build owns its bundle object; preRenderChunks and the async body
+    // bail out when E.bundle no longer points at it, so a rapid edit cannot let
+    // an older build's frames bleed into the newest bundle.
+    const bundle = { key, core: null, count: 0, ready: 0, total: 0, busy: true, scale: null };
+    E.bundle = bundle;
     showAnimProgress(0);
     (async () => {
       await E.ensurePyodide();
+      if (E.bundle !== bundle) return; // a newer edit superseded this build
       const out = JSON.parse(E.pyBuildKeyframes(
         info.name, JSON.stringify(st || {}), JSON.stringify(animRecipe(an).tracks),
         an.frames, an.fps, 0, an.easing, JSON.stringify(an.overlays),
         JSON.stringify(info.example || {})
       ));
       if (out.error) {
-        E.bundle = null;
-        hideAnimProgress();
-        showAnimError(out.error);
+        if (E.bundle === bundle) {
+          E.bundle = null;
+          hideAnimProgress();
+          showAnimError(out.error);
+        }
         return;
       }
       const total = out.count - 0; // bridge built with hold=0; core length == frames
-      const core = new Array(total).fill(null);
-      E.bundle.core = core;
-      E.bundle.total = total;
-      E.bundle.count = total + an.hold;
-      preRenderChunks(info, an, 0);
+      bundle.core = new Array(total).fill(null);
+      bundle.bounds = new Array(total).fill(null);
+      bundle.total = total;
+      bundle.count = total + an.hold;
+      preRenderChunks(bundle, info, an, 0);
     })();
   }
   E.startAnim = startAnim;
 
-  // Fetch PRE_FRAMES_PER_TICK SVGs per rAF tick until the core bundle is full,
-  // then draw frame 0. Playback only starts if a rebuild happened while already
-  // playing (startAnim's reentry flag); otherwise the user presses play.
-  function preRenderChunks(info, an, from) {
+  // Fetch PRE_FRAMES_PER_TICK SVGs per rAF tick until `bundle` is full, then
+  // draw frame 0. Playback restarts after a rebuild only if play intent is
+  // live (E.playWanted -- see startAnim); otherwise the user presses play.
+  // The loop self-terminates the moment E.bundle is no longer this bundle, so
+  // a newer rebuild's loop is the only one writing frames.
+  function preRenderChunks(bundle, info, an, from) {
     let i = from;
     const tick = () => {
-      if (!E.bundle || !E.bundle.busy) return;
+      if (E.bundle !== bundle || !bundle.busy) return;
       let made = 0;
-      while (i < E.bundle.total && made < PRE_FRAMES_PER_TICK) {
+      while (i < bundle.total && made < PRE_FRAMES_PER_TICK) {
         const out = JSON.parse(E.pyRenderFrame(i));
         // Every frame carries the same world->display scale (the mapping is
         // per-motif); keep it current so the grid / readout / zoom indicator
         // track scrubbing and playback.
         if (out.scale != null) {
           E.scale = out.scale;
-          E.bundle.scale = out.scale;
+          bundle.scale = out.scale;
         }
-        E.bundle.core[i] = out.error ? null : out.svg;
+        bundle.bounds[i] = (out.bounds && Number.isFinite(out.bounds.w) && out.bounds.w > 0)
+          ? out.bounds : null;
+        bundle.core[i] = out.error ? null : out.svg;
         i++; made++;
       }
-      E.bundle.ready = i;
-      showAnimProgress(E.bundle.total ? E.bundle.ready / E.bundle.total : 1);
-      if (i < E.bundle.total) {
+      bundle.ready = i;
+      showAnimProgress(bundle.total ? bundle.ready / bundle.total : 1);
+      if (i < bundle.total) {
         E.preRaf = requestAnimationFrame(tick);
       } else {
-        E.bundle.busy = false;
+        bundle.busy = false;
         hideAnimProgress();
         // Cache the core bundle for replay.
         if (E.animCache.size >= ANIM_CACHE_SIZE) E.animCache.delete(E.animCache.keys().next().value);
-        E.animCache.set(E.bundle.key, E.bundle.core.slice());
-        // Show frame 0; only keep playing when a rebuild happened mid-playback.
-        drawFrame(0);
-        if (E.playState.reentry) {
-          E.playState.reentry = false;
-          startPlayback(info, an);
+        E.animCache.set(bundle.key, {
+          frames: bundle.core.slice(),
+          bounds: bundle.bounds ? bundle.bounds.slice() : null,
+        });
+        // Only the current bundle draws frame 0 and (re)starts playback; a
+        // superseded bundle finishing late must not touch the stage.
+        if (E.bundle === bundle) {
+          drawFrame(0);
+          if (E.playWanted) {
+            E.playWanted = false;
+            startPlayback(info, an);
+          }
         }
       }
     };
@@ -780,6 +819,7 @@
   // extra frames. Looping wraps to 0; non-looping stops at the end.
   function startPlayback(info, an) {
     if (!E.bundle || !E.bundle.core) return;
+    E.playWanted = false;
     E.playState.on = true;
     E.playState.last = performance.now();
     E.playState.idx = 0;
@@ -844,6 +884,13 @@
     // preRenderChunks); carry it onto the namespace so the grid overlay, the
     // readout and the zoom indicator stay right across playback and scrubbing.
     if (E.bundle.scale != null) E.scale = E.bundle.scale;
+    // The displayed frame's display bounds follow the frame, so "fit to view"
+    // frames the geometry the user is actually looking at (a growing radius
+    // changes the picture's box every frame).
+    if (E.bundle.bounds) {
+      const b = E.bundle.bounds[Math.min(idx, E.bundle.bounds.length - 1)];
+      E.dispBounds = (b && b.w > 0) ? b : null;
+    }
     E.motifSvgs().forEach((s) => s.remove());
     stageEl.insertAdjacentHTML("beforeend", E.stripXmlDecl(svg));
     placeholderEl.classList.remove("busy", "error");
@@ -1017,7 +1064,7 @@
   // --- transport events -------------------------------------------------------
   playPauseEl.addEventListener("click", () => {
     if (!E.animOn || !E.bundle) return;
-    if (E.playState.on) stopPlayback();
+    if (E.playState.on) { E.playWanted = false; stopPlayback(); }
     else startPlayback(E.byName[E.current], E.anim);
   });
 

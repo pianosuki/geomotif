@@ -381,9 +381,13 @@ header {
 }
 .grid-overlay { z-index: 1; pointer-events: none; overflow: visible; }
 .stage > svg:not(.grid-overlay) { z-index: 2; }
-/* The grid / axes / labels trio toggles the overlay's layers: .no-grid hides
-   the whole overlay, .no-axes the axis group, .no-labels the tick labels. */
-.stage.no-grid .grid-overlay { display: none; }
+/* The grid / axes / labels trio toggles the overlay's layers independently:
+   .no-grid hides only the minor/major background gridlines (the coordinate
+   grid, not the axes or their numbers), .no-axes the axis group, and
+   .no-labels the tick labels. All three are separate switches in the view
+   options. */
+.stage.no-grid .grid-overlay .grid-minor,
+.stage.no-grid .grid-overlay .grid-major { display: none; }
 .stage.no-axes .grid-overlay .grid-axes { display: none; }
 .stage.no-labels .grid-overlay .grid-labels { display: none; }
 @media (prefers-color-scheme: dark) {
@@ -445,6 +449,19 @@ header {
   user-select: none;
 }
 
+/* In animation mode the master clock (the stage scrubber) must be visible the
+   moment Animate is entered, without the user scrolling the stage column. The
+   stage is square, so its width cap is its height: shrink it in anim mode by
+   roughly the scrubber row's height (header + layout padding + scrubber row),
+   and hide the long "about this motif" card that sits below the scrubber, so
+   stage + clock comfortably fit the viewport. The description returns when
+   the user flips back to Design. */
+.stage.anim {
+  max-width: min(100%, calc(100vh - var(--header-h) - 7rem));
+}
+.stage-area:has(.stage.anim) .meta { display: none; }
+.stage-area:has(.stage.anim) .stage-scrubber { margin-bottom: 1.25rem; }
+
 /* The "about this motif" card under the stage: a structured surface (title,
    tagline, metadata pills, rendered description) that pairs visually with the
    stage's frame above it, instead of the old mono pre-wrap log block. */
@@ -472,9 +489,10 @@ header {
   margin: 0.8rem 0 0.2rem;
 }
 /* The numpydoc Parameters section as a tidy definition list: one row per
-   parameter, the name in mono on the left, the type tag and the description
-   stacked in the right column, so a card of many parameters stays scannable
-   instead of collapsing into one run-on paragraph. */
+   parameter with the mono name and type tag on the first line and the
+   description on its own left-aligned line below (spanning the row width), so
+   a card of many parameters stays scannable without hanging long descriptions
+   under the type column. */
 .motif-params { margin: 0.85rem 0 0; }
 .params-title {
   display: block;
@@ -504,10 +522,14 @@ header {
   font: 0.68rem/1.4 var(--mono);
   color: var(--faint);
 }
+/* The description drops to its own row, left-aligned with the name (the whole
+   card width), instead of being indented under the type tag in the column
+   where there used to be a wide empty gutter beside it. */
 .param-desc {
-  grid-column: 2;
+  grid-column: 1 / -1;
   font-size: 0.84rem;
   color: var(--muted);
+  padding-top: 0.05rem;
 }
 
 /* --- controls panel -------------------------------------------------------- */

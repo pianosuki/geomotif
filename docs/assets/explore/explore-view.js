@@ -79,8 +79,19 @@
   // Read the rendered <svg>'s own viewBox into `naturalVB` -- the box the
   // "fit" button restores to. The display render puts the world origin at the
   // canvas centre, but the viewBox is the placed design's own bounds, so it is
-  // read from the element rather than assumed.
+  // read from the element rather than assumed. When the renderer reports the
+  // drawn picture's display bounds (E.dispBounds -- see explore-bootstrap.js),
+  // those win and are padded slightly: they describe the *motif* at its
+  // current size, so fit-to-view frames it (and recenters it) after a render
+  // even when a parameter visibly rescales the picture, instead of always
+  // restoring the full 520x520 canvas.
   function captureNatural() {
+    const b = E.dispBounds;
+    if (b && b.w > 0 && b.h > 0) {
+      const pad = 8;
+      E.naturalVB = { x: b.x - pad, y: b.y - pad, w: b.w + 2 * pad, h: b.h + 2 * pad };
+      return;
+    }
     const svg = motifSvg();
     if (!svg) { E.naturalVB = null; return; }
     const vb = svg.viewBox && svg.viewBox.baseVal;
