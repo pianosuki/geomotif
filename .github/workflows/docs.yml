@@ -35,6 +35,25 @@ jobs:
       # documented as unavailable.
       - run: pip install -e '.[all]' --group docs
       - run: mkdocs build --strict
+      # The explorer is a static SPA served from <site>/explore/ alongside the
+      # docs. The SPA sources live under docs/assets/explore/ (mkdocs copies
+      # them to site/assets/explore/ as well, but the explorer's own index.html
+      # loads its assets relative to its own URL, so they must sit beside it).
+      # The wheel is built from the same code the docs describe, and its name
+      # carries catalog.geomotif's version, so app.js (which derives WHEEL_URL
+      # from that field) and the build stay in lockstep automatically.
+      - name: Build wheel
+        run: pip wheel . --no-deps -w dist
+      - name: Stage explorer
+        run: |
+          mkdir -p site/explore
+          cp dist/geomotif-*-py3-none-any.whl site/explore/
+          cp docs/assets/explore/index.html \
+             docs/assets/explore/app.css \
+             docs/assets/explore/app.js \
+             docs/assets/explore/lz-string.js \
+             docs/assets/explore/catalog.json \
+             site/explore/
       - uses: actions/upload-pages-artifact@v5
         with:
           path: site

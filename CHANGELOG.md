@@ -74,6 +74,13 @@ every consumer of `ParamInfo` reads the bound from the same place.
   writer. The recipe's `fps` is authoritative, so a shared animation plays at
   the same speed on the command line as in the browser. Mutually exclusive
   with a positional motif name and `--spec`.
+- **The explorer is staged into the deployed site.** The Pages build now builds
+  the geomotif wheel and copies it, alongside the SPA sources, into
+  `site/explore/`, so the explorer served at `/geomotif/explore/` loads the
+  matching-pinned wheel — `app.js` derives `WHEEL_URL` from `catalog.geomotif`,
+  so the build and the runtime stay in lockstep automatically. A new
+  `make explore-stage` target mirrors CI locally: it builds the wheel, runs
+  the docs build, and stages the SPA + wheel into `site/explore/`.
 
 ### Changed
 

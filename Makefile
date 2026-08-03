@@ -81,6 +81,22 @@ docs-check: docs-gen ## Fail if the committed generated docs are out of date
 		exit 1; \
 	fi
 
+.PHONY: explore-stage
+explore-stage: build docs ## Build the wheel and stage the explorer SPA + wheel into site/explore/ (local mirror of CI)
+	@# mkdocs already copied docs/assets/explore/* to site/assets/explore/,
+	@# but the SPA's index.html loads its assets relative to its own URL, so
+	@# they must sit beside it under site/explore/. The wheel name carries
+	@# catalog.geomotif's version, so app.js (which derives WHEEL_URL from
+	@# that field) stays in lockstep with the build automatically.
+	@mkdir -p site/explore
+	@cp dist/geomotif-*-py3-none-any.whl site/explore/
+	@cp docs/assets/explore/index.html \
+	    docs/assets/explore/app.css \
+	    docs/assets/explore/app.js \
+	    docs/assets/explore/lz-string.js \
+	    docs/assets/explore/catalog.json \
+	    site/explore/
+
 .PHONY: build
 build: ## Build the sdist and wheel into dist/
 	$(UV) build
