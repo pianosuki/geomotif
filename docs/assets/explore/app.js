@@ -8,6 +8,11 @@
 const PYODIDE_VERSION = "0.26.4";
 const CACHE_SIZE = 256;
 
+// A URL fragment past ~2 KB risks truncation in some browsers and chat
+// clients. When the animation recipe pushes the share fragment over this limit
+// the share button copies the spec JSON instead (see the share handler).
+const SHARE_URL_LIMIT = 2000;
+
 // Parameter names the CLI reserves for its own flags and never accepts on a
 // motif -- mirrors RESERVED in src/geomotif/cli.py so the command line is
 // copy-paste accurate.
@@ -209,17 +214,27 @@ let renderTimer = null;
 const SPREAD = 2.0;
 
 // --- share URL fragment ------------------------------------------------------
-// The still spec is encoded into the URL fragment as base64url of a compact
-// JSON blob `{"m": motif, "p": params}`. The SPA decodes it on boot to restore
-// the selected motif and its slider state. base64url keeps the hash free of
-// `+`/`/`/`=` so it never needs percent-encoding. The CLI never sees this
-// compact form: the SPA expands it back to the full `{"motif":..., "params":...}`
-// shape before calling from_spec, so a shared view round-trips with
-// `geomotif render --spec` byte-for-byte by construction.
+// The hash carries one or two key=value pairs separated by `&`:
 //
-// `m=` is a one-char discriminator so a later step can add an `a=` animation
-// fragment alongside the still one without colliding.
-const FRAGMENT_PREFIX = "m=";
+//   #m=<still>&a=<anim>
+//
+// `m=` is the still spec: base64url of a compact JSON blob `{"m": motif,
+// "p": params}`. base64url keeps the value free of `+`/`/`/`=` so it never
+// needs percent-encoding. The CLI never sees this compact form: the SPA
+// expands it back to the full `{"motif":..., "params":...}` shape before
+// calling from_spec, so a shared view round-trips with `geomotif render
+// --spec` byte-for-byte by construction.
+//
+// `a=` is the animation recipe (Step 9): the `animRecipe(anim)` output
+// compressed with lz-string's `compressToEncodedURIComponent` -- the one
+// vendored client dependency (see lz-string.js). That compressor's alphabet
+// is URL-safe (no `&`, no `=`, no `/`), so its output can sit directly in
+// the hash without a second base64 pass. Landing on a URL with an `a=` pair
+// boots straight into animation mode with the timeline populated.
+//
+// Both values use alphabets that omit `&` and `=`, so `&` is a safe pair
+// separator and `=` cleanly splits each pair into key/value. Either pair
+// may be absent; a still-only share URL is just `#m=...`.
 
 // --- DOM handles -------------------------------------------------------------
 const $ = (id) => document.getElementById(id);
@@ -287,7 +302,7 @@ async function boot() {
   // sender's state. Otherwise we fall back to the first available motif.
   const restored = readFragment();
   if (restored && byName[restored.motif]) {
-    selectMotif(restored.motif, restored.params, { fromFragment: true });
+    selectMotif(restored.motif, restored.params, { fromFragment: true, anim: restored.anim });
   } else {
     const first = catalog.motifs.find((m) => m.available) || catalog.motifs[0];
     if (first) selectMotif(first.name);
@@ -377,12 +392,19 @@ function selectMotif(name, override, opts) {
   const canExport = !!info.available;
   [expSvgEl, expPngEl, expSpecEl].forEach((b) => { b.disabled = !canExport; });
   expGifEl.disabled = true; // GIF export is animation-mode only
-  if (!opts.fromFragment) writeFragment(name, state, false);
+  // `animOn` was torn down above, so the still write carries no `a=` pair.
+  if (!opts.fromFragment) writeFragment(name, state, null, false);
   if (!info.available) {
     showUnavailable(info);
     return;
   }
-  render(info, state);
+  // A share URL's `a=` pair (decoded into `opts.anim`) boots straight into
+  // animation mode with the timeline populated; otherwise a still render.
+  if (opts.anim) {
+    enterAnim({ recipe: opts.anim, fromFragment: opts.fromFragment });
+  } else {
+    render(info, state);
+  }
 }
 
 // Build the initial parameter state for a motif. Example values win; settable
@@ -967,8 +989,22 @@ function scheduleRender(info, st) {
   if (renderTimer) clearTimeout(renderTimer);
   renderTimer = setTimeout(() => {
     renderTimer = null;
-    writeFragment(info.name, st, false);
+    writeFragment(info.name, st, animOn ? anim : null, false);
     requestAnimationFrame(() => render(info, st));
+  }, RENDER_DEBOUNCE_MS);
+}
+
+// Debounced replaceState of the full fragment (still + animation). Every
+// animation-mode change point (keyframe drop/drag/delete, easing, overlays,
+// frames, fps, hold) routes through here so a timeline edit never spams the
+// history stack -- it replaces the current entry on the same ~30 ms cadence
+// the still mode uses.
+let fragTimer = null;
+function scheduleFragmentWrite() {
+  if (fragTimer) clearTimeout(fragTimer);
+  fragTimer = setTimeout(() => {
+    fragTimer = null;
+    if (current) writeFragment(current, state, animOn ? anim : null, false);
   }, RENDER_DEBOUNCE_MS);
 }
 
@@ -989,30 +1025,77 @@ function applyOverride(st, info, override) {
 }
 
 // --- share URL fragment ------------------------------------------------------
-function encodeFragment(motif, params) {
+function encodeFragment(motif, params, anim) {
+  // Still pair: base64url of `{"m": motif, "p": params}`. btoa handles
+  // Latin-1; motif params are ASCII (numbers, strings, arrays, plain objects),
+  // so no UTF-8 re-encoding is needed.
   const json = JSON.stringify({ m: motif, p: params });
-  // btoa handles Latin-1; motif params are ASCII (numbers, strings, arrays,
-  // plain objects), so no UTF-8 re-encoding is needed.
   const b64 = btoa(json);
-  return "#" + FRAGMENT_PREFIX + b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  const still = "m=" + b64.replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+  // Animation pair (only when the timeline is live): the recipe compressed with
+  // lz-string's URI-safe codec. Its alphabet omits `&`/`=`/`/`, so the output
+  // drops straight into the hash without a second base64 pass.
+  const parts = [still];
+  if (anim) {
+    const recipe = animRecipe(anim);
+    const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(recipe));
+    if (compressed) parts.push("a=" + compressed);
+  }
+  return "#" + parts.join("&");
 }
 
 function decodeFragment(hash) {
   if (!hash) return null;
   let frag = String(hash);
   if (frag.startsWith("#")) frag = frag.slice(1);
-  if (!frag.startsWith(FRAGMENT_PREFIX)) return null;
-  let b64 = frag.slice(FRAGMENT_PREFIX.length).replace(/-/g, "+").replace(/_/g, "/");
-  while (b64.length % 4) b64 += "=";
-  try {
-    const obj = JSON.parse(atob(b64));
-    if (!obj || typeof obj.m !== "string") return null;
-    const params = obj.p;
-    if (params != null && typeof params !== "object") return null;
-    return { motif: obj.m, params: params || {} };
-  } catch (e) {
-    return null;
+  if (!frag) return null;
+  // The hash is `&`-separated `key=value` pairs. Each value's alphabet omits
+  // `&` and `=`, so a split on `&` then first-`=` split cleanly partitions it.
+  // An unknown key is ignored, so a later `x=` pair degrades instead of
+  // throwing the whole restore away.
+  let mRaw = null, aRaw = null;
+  for (const part of frag.split("&")) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    const key = part.slice(0, eq);
+    const val = part.slice(eq + 1);
+    if (key === "m") mRaw = val;
+    else if (key === "a") aRaw = val;
   }
+  if (mRaw == null) return null;
+  // Still pair: base64url -> JSON `{"m":..., "p":...}`. A malformed or
+  // hand-edited value degrades to null (the caller falls back to the default
+  // first motif).
+  let motif, params;
+  {
+    let b64 = mRaw.replace(/-/g, "+").replace(/_/g, "/");
+    while (b64.length % 4) b64 += "=";
+    try {
+      const obj = JSON.parse(atob(b64));
+      if (!obj || typeof obj.m !== "string") return null;
+      if (obj.p != null && typeof obj.p !== "object") return null;
+      motif = obj.m;
+      params = obj.p || {};
+    } catch (e) {
+      return null;
+    }
+  }
+  // Animation pair: lz-string URI-safe decompress -> JSON recipe. An empty or
+  // garbage value yields null, so a still-only share URL or a stale `a=` part
+  // boots into still mode rather than throwing.
+  let anim = null;
+  if (aRaw != null && aRaw !== "") {
+    try {
+      const json = LZString.decompressFromEncodedURIComponent(aRaw);
+      const recipe = json == null ? null : JSON.parse(json);
+      if (recipe && typeof recipe === "object" && recipe.type === "keyframes") {
+        anim = recipe;
+      }
+    } catch (e) {
+      anim = null;
+    }
+  }
+  return { motif, params, anim };
 }
 
 function readFragment() {
@@ -1021,9 +1104,11 @@ function readFragment() {
 
 // Write the current view into the URL fragment. `push` false uses replaceState
 // (in-session sync); `push` true uses pushState (explicit share, a real
-// history entry the back button can return to).
-function writeFragment(motif, params, push) {
-  const frag = encodeFragment(motif, params);
+// history entry the back button can return to). `anim` is the live animation
+// recipe when the timeline is open, so a shared animation URL carries the
+// keyframes alongside the still spec.
+function writeFragment(motif, params, anim, push) {
+  const frag = encodeFragment(motif, params, anim);
   if (frag === location.hash) return;
   const url = location.pathname + location.search + frag;
   if (push) history.pushState(null, "", url);
@@ -1183,11 +1268,31 @@ copyEl.addEventListener("click", async () => {
 
 // Copy the share URL for the current view. A real history entry is pushed so
 // the back button returns to the pre-share state, and the URL the user copies
-// is the one the address bar shows afterwards.
+// is the one the address bar shows afterwards. When the animation recipe
+// pushes the fragment past a safe URL limit (~2 KB), the URL would be
+// truncated by some browsers / chat clients; the share then falls back to
+// copying the spec JSON (which already carries the `animation` key from the
+// spec export) and flashes a hint to feed it to `geomotif render --animation`.
+// The CLI reproduces the GIF byte-for-byte from that spec either way.
 shareEl.addEventListener("click", async () => {
   if (!current) return;
+  const animArg = animOn ? anim : null;
+  const frag = encodeFragment(current, state, animArg);
+  if (frag.length > SHARE_URL_LIMIT) {
+    try {
+      const spec = { geomotif: catalog ? catalog.geomotif : null, motif: current, params: state };
+      if (animArg) spec.animation = animRecipe(animArg);
+      await navigator.clipboard.writeText(JSON.stringify(spec, null, 2) + "\n");
+      shareEl.textContent = "spec copied — too long for URL";
+      shareEl.classList.add("ok");
+      setTimeout(() => { shareEl.textContent = "copy share URL"; shareEl.classList.remove("ok"); }, 2000);
+    } catch (e) {
+      shareEl.textContent = "copy failed";
+    }
+    return;
+  }
   try {
-    writeFragment(current, state, true);
+    writeFragment(current, state, animArg, true);
     await navigator.clipboard.writeText(location.href);
     shareEl.textContent = "copied";
     shareEl.classList.add("ok");
@@ -1197,13 +1302,14 @@ shareEl.addEventListener("click", async () => {
   }
 });
 
-// Restoring from a back/forward navigation: the browser fires popstate when the
-// user lands on a fragment we wrote. Re-seed state from it so the back button
-// walks through shared views rather than jumping past them.
+// Restoring from a back/forward navigation: the browser fires popstate when
+// the user lands on a fragment we wrote. Re-seed both still state and
+// timeline from it so the back button walks through shared views (still and
+// animated) rather than jumping past them.
 window.addEventListener("popstate", () => {
   const restored = readFragment();
   if (restored && byName[restored.motif]) {
-    selectMotif(restored.motif, restored.params, { fromFragment: true });
+    selectMotif(restored.motif, restored.params, { fromFragment: true, anim: restored.anim });
   }
 });
 
@@ -1557,14 +1663,83 @@ function animBundleKey(info, st, an) {
   ].join("|");
 }
 
-function enterAnim() {
+// The inverse of `animRecipe`: turn a decoded share-URL recipe back into the
+// internal `anim` shape `paintTimeline` / `startAnim` read. A stale or
+// hand-edited recipe degrades gracefully -- unknown track names are kept (the
+// timeline paints them, and if the motif does not know them they simply never
+// fire), but malformed keyframes / overlays are dropped, and numeric fields
+// are clamped into the same bounds the transport enforces. This is the restore
+// half of the share-URL round-trip; `animRecipe` is the encode half.
+function recipeToAnim(recipe) {
+  const tracks = {};
+  if (recipe && recipe.tracks && typeof recipe.tracks === "object") {
+    for (const [name, tr] of Object.entries(recipe.tracks)) {
+      let kfs, easing = null;
+      if (Array.isArray(tr)) {
+        kfs = tr;
+      } else if (tr && Array.isArray(tr.keyframes)) {
+        kfs = tr.keyframes;
+        easing = typeof tr.easing === "string" && tr.easing ? tr.easing : null;
+      } else {
+        continue;
+      }
+      const norm = [];
+      for (const kf of kfs) {
+        if (!Array.isArray(kf) || kf.length < 2) continue;
+        const t = Number(kf[0]);
+        if (!Number.isFinite(t)) continue;
+        norm.push([Math.min(1, Math.max(0, t)), clone(kf[1])]);
+      }
+      norm.sort((a, b) => a[0] - b[0]);
+      if (norm.length) tracks[name] = { keyframes: norm, easing };
+    }
+  }
+  const frames = clampInt(recipe && recipe.frames, ANIM_FRAMES_MIN, ANIM_FRAMES_MAX, 48);
+  const fps = clampInt(recipe && recipe.fps, ANIM_FPS_MIN, ANIM_FPS_MAX, 20);
+  const holdMax = Math.max(ANIM_HOLD_MIN, Math.floor(frames / 4));
+  const hold = clampInt(recipe && recipe.hold, ANIM_HOLD_MIN, holdMax, 0);
+  const easing = recipe && EASINGS.includes(recipe.easing) ? recipe.easing : "cubic";
+  const overlays = [];
+  if (recipe && Array.isArray(recipe.overlay)) {
+    for (const o of recipe.overlay) {
+      const e = recipeOverlay(o);
+      if (e) overlays.push(e);
+    }
+  }
+  return { tracks, frames, fps, hold, easing, overlays };
+}
+
+function clampInt(v, lo, hi, fallback) {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(hi, Math.max(lo, n));
+}
+
+function recipeOverlay(o) {
+  if (!o || typeof o !== "object") return null;
+  if (o.type === "draw_on") {
+    const trail = o.trail == null ? null : Number(o.trail);
+    return { type: "draw_on", trail: Number.isFinite(trail) ? trail : null };
+  }
+  if (o.type === "spin") {
+    const turns = Number(o.turns);
+    return { type: "spin", turns: Number.isFinite(turns) ? turns : 1.0 };
+  }
+  return null;
+}
+
+// `opts.recipe` (from a share URL's `a=` pair) restores the timeline instead
+// of seeding the default sweep; `opts.fromFragment` keeps the just-consumed
+// hash in place rather than rewriting it.
+function enterAnim(opts) {
+  opts = opts || {};
   if (!current) return;
   const info = byName[current];
   if (!info || !info.available) return;
   animOn = true;
   playEl.setAttribute("aria-pressed", "true");
   playEl.textContent = "stop";
-  anim = defaultAnim(info, state);
+  anim = opts.recipe ? recipeToAnim(opts.recipe) : defaultAnim(info, state);
   timelineEl.classList.add("on");
   stageEl.classList.add("anim");
   // The slider panel stays live: moving a slider now pins a keyframe at the
@@ -1573,6 +1748,10 @@ function enterAnim() {
   paintTransport(anim);
   syncScrubber();
   expGifEl.disabled = false;
+  // Write the animation fragment unless we just consumed one from the URL
+  // (restoring a share URL keeps the landing hash rather than rewriting it
+  // over itself). replaceState keeps the back button on one entry per motif.
+  if (!opts.fromFragment) writeFragment(current, state, anim, false);
   startAnim(info, state, anim);
 }
 
@@ -1922,6 +2101,9 @@ function syncScrubber() {
 function restartPlayback(info, st, an) {
   if (!animOn) return;
   startAnim(info, st, an);
+  // The timeline changed, so the share URL's `a=` pair must follow. Debounced
+  // so a rapid drag rewrites the hash once, not once per pointermove tick.
+  scheduleFragmentWrite();
 }
 
 function showAnimError(msg) {
@@ -2004,11 +2186,13 @@ animFpsEl.addEventListener("input", () => {
   anim.fps = v;
   animFpsEl.value = v;
   // fps is a playback-only param: no re-render, just keep the live loop on the
-  // new cadence.
+  // new cadence. It still changes the share URL's recipe, so the fragment
+  // follows on the same debounced cadence.
   if (playState.on) {
     stopPlayback();
     startPlayback(byName[current], anim);
   }
+  scheduleFragmentWrite();
 });
 
 animHoldEl.addEventListener("input", () => {
@@ -2018,12 +2202,14 @@ animHoldEl.addEventListener("input", () => {
   anim.hold = v;
   animHoldEl.value = v;
   // hold is a playback-only param: the bundle's core is unchanged, only the
-  // tail length moves. No re-render.
+  // tail length moves. No re-render. The recipe's hold rides the share URL,
+  // so the fragment follows.
   if (bundle) bundle.count = bundle.core.length + v;
   if (playState.on) {
     stopPlayback();
     startPlayback(byName[current], anim);
   }
+  scheduleFragmentWrite();
 });
 
 animEaseEl.addEventListener("change", () => {

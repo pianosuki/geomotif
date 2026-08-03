@@ -126,6 +126,11 @@
     </aside>
   </main>
 
+  <!-- lz-string: the one justified client dependency, vendored (not CDN) so the
+       page stays offline-capable and the "no npm / no build step" criterion
+       holds. Used only to compress the animation recipe into the share URL's
+       `a=` fragment; the still `m=` fragment is plain base64url. -->
+  <script src="lz-string.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
