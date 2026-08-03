@@ -17,7 +17,7 @@
 (function (E) {
   const {
     timelineEl, stageEl, tracksEl, scrubEl, stageScrubEl, stageScrubWrapEl,
-    scrubTimeEl, transportEl,
+    scrubTimeEl, kfSetAllEl, kfSetAllTEl, transportEl,
     playPauseEl, loopEl, animFramesEl, animFpsEl, animHoldEl, animEaseEl,
     ovDrawEl, ovSpinEl, ovDrawOpts, ovSpinOpts, ovTrailEl, ovTurnsEl,
     expGifEl, animProgressEl, animProgressFill, placeholderEl, phMain,
@@ -268,6 +268,24 @@
       tracksEl.appendChild(note);
       return;
     }
+    // Empty-state hint card. When the animator opens with no keyframes on
+    // any track (e.g. a motif whose default recipe has no sweep -- only bool /
+    // Literal params, or a freshly-cleared timeline), a centered hint tells
+    // the user the scrub -> slider -> "Set keyframe" loop. It disappears the
+    // moment any track has >=1 keyframe, at which point the real track rows
+    // paint. The kf-set-all button above #tracks stays visible either way so
+    // the user can act on the hint.
+    const anyKf = params.some((p) => {
+      const tr = E.anim.tracks[p.name];
+      return tr && tr.keyframes && tr.keyframes.length;
+    });
+    if (!anyKf) {
+      const card = document.createElement("div");
+      card.className = "anim-empty-card";
+      card.textContent = "Move the scrubber to a time → adjust the sliders → click \u201cSet keyframe\u201d.";
+      tracksEl.appendChild(card);
+      return;
+    }
     for (const p of params) {
       tracksEl.appendChild(buildTrackRow(info, p, st, E.anim));
     }
@@ -327,6 +345,25 @@
       E.restartPlayback(info, st, an);
     });
     head.appendChild(ease);
+    // A per-track "add keyframe at the scrubber" button. Sits beside the
+    // easing dropdown so the row reads `[name] [step] [+] [easing]` then the
+    // lane below. Drops a single keyframe for this param at the scrubber's
+    // current time holding the slider's current value -- the same action as
+    // the top "Set keyframe" button, but scoped to one track. Disabled on
+    // touch (read-only timeline).
+    const add = document.createElement("button");
+    add.className = "kf-add-one";
+    add.type = "button";
+    add.textContent = "+";
+    add.title = "add keyframe for " + p.name + " at the scrubber";
+    if (IS_TOUCH) add.disabled = true;
+    add.addEventListener("click", () => {
+      const t = currentScrubT();
+      dropKeyframe(p, st, an, t);
+      paintLaneDots(lane, p, an);
+      E.restartPlayback(info, st, an);
+    });
+    head.appendChild(add);
     row.appendChild(head);
 
     const lane = document.createElement("div");
@@ -633,8 +670,26 @@
   E.syncScrubber = syncScrubber;
 
   function paintScrubTime(t) {
-    if (scrubTimeEl) scrubTimeEl.textContent = "t = " + Number(t).toFixed(3);
+    const txt = "t = " + Number(t).toFixed(3);
+    if (scrubTimeEl) scrubTimeEl.textContent = txt;
+    // The "Set keyframe at t=..." button's t= span follows the same clock
+    // so the button always shows the time a drop will land on. Mirrored on
+    // every syncScrubber + scrub-input call, so dragging either scrubber or
+    // playing back keeps the label honest.
+    if (kfSetAllTEl) kfSetAllTEl.textContent = Number(t).toFixed(3);
   }
+
+  // The scrubber's current time as a clamped 0..1 number, read from the
+  // panel scrubber's live value. Used by the "Set keyframe" + per-track "+"
+  // handlers so a drop lands at the time the user is looking at. Before a
+  // bundle is ready the scrubber sits at 0, which is the right default (the
+  // default recipe's first keyframe is at t=0).
+  function currentScrubT() {
+    const v = Number(scrubEl.value);
+    if (!Number.isFinite(v)) return 0;
+    return Math.min(1, Math.max(0, v));
+  }
+  E.currentScrubT = currentScrubT;
 
   // Restart pre-render + playback after a timeline edit. Reuses the cache when
   // the bundle key is unchanged (e.g. a pure playback param changed); otherwise
@@ -664,6 +719,33 @@
   E.showAnimProgress = showAnimProgress;
   function hideAnimProgress() { animProgressEl.classList.remove("on"); }
   E.hideAnimProgress = hideAnimProgress;
+
+  // --- discoverable keyframe creation -------------------------------------
+  // The "Set keyframe at t=..." button at the top of the tracks section drops a
+  // keyframe for every animatable parameter at the scrubber's current time,
+  // each holding its slider's current value. It is the obvious affordance --
+  // the per-track "+" buttons and the double-click-on-lane
+  // shortcut remain, but this is the one a new user finds first. If the
+  // timeline was in the empty state (no keyframes anywhere), the drop moves it
+  // out, so we repaint the whole timeline to bring the track rows in.
+  if (kfSetAllEl) {
+    kfSetAllEl.addEventListener("click", () => {
+      if (!E.animOn || !E.current) return;
+      const info = E.byName[E.current];
+      if (!info || !info.available) return;
+      const an = E.anim;
+      const params = animatableParams(info);
+      if (!params.length) return;
+      const t = currentScrubT();
+      const wasEmpty = !params.some((p) => {
+        const tr = an.tracks[p.name];
+        return tr && tr.keyframes && tr.keyframes.length;
+      });
+      for (const p of params) dropKeyframe(p, E.state, an, t);
+      if (wasEmpty) paintTimeline(info, E.state);
+      E.restartPlayback(info, E.state, an);
+    });
+  }
 
   // --- GIF export -------------------------------------------------------------
   // Rebuilds the same run the SPA just played, with the recipe's hold, and

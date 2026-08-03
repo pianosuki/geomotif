@@ -129,6 +129,14 @@ window.EXPLORE = window.EXPLORE || {};
   E.animHoldEl = E.$("tp-hold");
   E.animEaseEl = E.$("tp-easing");
   E.tracksEl = E.$("tracks");
+  // A prominent "Set keyframe at t=..." button at the top of the tracks
+  // section drops a keyframe for every animatable parameter at the scrubber's
+  // current time. The t= span (#kf-set-all-t) updates live with the scrubber
+  // so the button always reflects the time the user will get. The row wraps the
+  // button so CSS can hide the whole affordance on touch (read-only timeline).
+  E.kfSetAllEl = E.$("kf-set-all");
+  E.kfSetAllTEl = E.$("kf-set-all-t");
+  E.kfSetAllRowEl = E.$("kf-set-all-row");
   E.scrubEl = E.$("scrubber");
   // A duplicate scrubber pinned under the stage (the master clock lives
   // next to the picture). #scrubber stays in the animator panel; both share

@@ -924,12 +924,95 @@ pre.command {
   vertical-align: middle;
 }
 
+/* Discoverable keyframe creation. The "Set keyframe at t=..." button at the
+   top of the tracks section is the obvious affordance -- one click drops a
+   keyframe for every animatable parameter at the scrubber's current time. It
+   reads as a primary action (accent fill) so a new user finds it before the
+   per-track "+" or the double-click shortcut. The t= span is live, so the
+   button always tells the user what they will get. */
+.kf-set-all-row { margin: 0.2rem 0 0.45rem; }
+.kf-set-all {
+  width: 100%;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--accent);
+  border-radius: var(--r);
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  font: 600 0.78rem/1.2 var(--sans);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.kf-set-all:hover { background: color-mix(in srgb, var(--accent-soft) 70%, var(--accent) 12%); }
+.kf-set-all:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.kf-set-all #kf-set-all-t { font-family: var(--mono); font-weight: 500; }
+
+/* Per-track "+" button: drops a single keyframe at the scrubber's time. Sits
+   beside the easing dropdown so the row reads `[name] [step] [+] [easing]`.
+   Large enough to be the obvious per-track affordance, quiet enough not to
+   fight the easing dropdown's select arrow. */
+.kf-add-one {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--accent-ink);
+  font: 700 0.85rem/1 var(--sans);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.kf-add-one:hover { border-color: var(--accent); background: var(--accent-soft); }
+.kf-add-one:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.kf-add-one:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Empty-state hint card: shown when the animator opens with no keyframes on any
+   track. A centered, dashed card carries the scrub -> slider -> "Set keyframe"
+   loop. It disappears the moment any track has >=1 keyframe (paintTimeline
+   swaps it for the real track rows). Mirrors the .placeholder-note rhythm. */
+.anim-empty-card {
+  margin: 0.4rem 0 0.8rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  font: 0.74rem/1.5 var(--mono);
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Lane hover hint: a faint "dblclick to drop" tooltip so the power-user
+   shortcut is discoverable. Pointer-events: none keeps it from catching the
+   double-click the hint advertises. Hidden on touch (no dblclick on a finger
+   -- the timeline is read-only there anyway). */
+.lane::after {
+  content: "dblclick to drop";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  color: var(--faint);
+  font: 0.62rem/1 var(--mono);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.1s ease;
+  white-space: nowrap;
+}
+.lane:hover::after { opacity: 1; }
+
 /* On touch devices the timeline is read-only: scrub and play work, but
    keyframe editing (drag, drop, delete, per-track easing) is hidden so a
    finger does not fight a fat-finger drag. A hint says so up front. */
 .timeline.touch .lane { cursor: default; }
+.timeline.touch .lane::after { display: none; }
 .timeline.touch .kf { cursor: default; pointer-events: none; }
 .timeline.touch .track-easing { display: none; }
+.timeline.touch .kf-add-one { display: none; }
+.timeline.touch .kf-set-all-row { display: none; }
 .touch-hint {
   margin: 0.2rem 0 0;
   font: 0.68rem/1.4 var(--mono);
