@@ -493,8 +493,14 @@ header {
   white-space: nowrap;
 }
 .control-body { display: flex; flex-direction: column; gap: 0.35rem; }
-.control:has(input:disabled) .control-body,
+/* Only a wholly unavailable motif (the scipy-only case) greys out the whole
+   row. An individually-disabled input -- e.g. an optional numeric's value box
+   sitting at its "None" default -- dims just that input, so the "set value"
+   checkbox above it stays fully clickable and the parameter can be switched
+   on. (A :has(input:disabled) grey-out used to block the whole row, which made
+   every optional parameter impossible to set.) */
 .control.disabled .control-body { opacity: 0.5; pointer-events: none; }
+.control input:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* range slider + live readout */
 .slider-row { display: flex; align-items: center; gap: 0.6rem; }
