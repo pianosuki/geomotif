@@ -322,6 +322,10 @@
     zoomIndEl.textContent = (z >= 100 ? z.toFixed(0) : z >= 10 ? z.toFixed(1) : z.toFixed(2)) + "x";
   }
   E.updateZoomInd = updateZoomInd;
+  // Exposed for the smoke harness: the readout + its formatter so the
+  // screen -> viewBox mapping can be exercised without a real pointer event.
+  E.updateReadout = updateReadout;
+  E.fmtCoord = fmtCoord;
 
   // --- export helpers ----------------------------------------------------------
   function flash(btn, ok, okText, failText) {
