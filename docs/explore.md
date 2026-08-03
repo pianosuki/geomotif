@@ -17,7 +17,7 @@ Pyodide, so every render the page produces is byte-identical to
 ![](assets/tiling.penrose-p3.svg){ .motif }
 ![](assets/knot.celtic-grid.svg){ .motif }
 ![](assets/mandala.svg){ .motif }
-</div]
+</div>
 
 ## What it does
 
@@ -25,7 +25,31 @@ The page reads `catalog.json` — the registry serialized at build time —
 and builds its controls from it, so it knows every motif, every family and
 every parameter the way the CLI does.
 
-### Still mode
+A pair of **Design / Animate** tabs at the top of the page picks the
+working mode. Both share the same canvas, the same coordinate grid, and
+the same parameter sliders; only the right-hand panel swaps.
+
+### The stage
+
+- A real **coordinate plane** sits behind the motif: major and minor
+  gridlines in "nice" steps, the x and y axes through the origin with
+  arrowheads, and tick labels in the live viewBox units. It recomputes on
+  every zoom and pan, so the grid always matches the picture.
+- A **cursor coordinate readout** pinned to the bottom-left of the stage
+  shows `x: 123.4  y: -56.7` in viewBox units under the pointer; a
+  **zoom indicator** on the bottom-right (`1.2x`) tracks the current
+  magnification. Both are click-through, so they never catch a pan or a
+  zoom drag.
+- The **stage toolbar** is just the view: `[−] [fit] [+]` zoom cluster, a
+  separator, and `[grid] [axes] [labels]` toggles that flip the three
+  layers of the coordinate plane (all three persist in `localStorage`).
+  Under 50rem the toggles collapse into a gear popover.
+- **Zoom, pan, fit-to-view**, and the **light/dark theme** toggle in the
+  header. The theme persists and follows the OS when no manual choice is
+  stored.
+- A **docs** link in the header returns to this page.
+
+### Design mode
 
 - **Browse** the 147 motifs by family or by keyword search (`/` focuses the
   search box).
@@ -43,41 +67,51 @@ every parameter the way the CLI does.
   fragment, so a colleague lands on the same picture.
 - **Export** to SVG, PNG, or the spec JSON that feeds
   `geomotif render --spec`.
-- **Zoom, pan, fit-to-view**, and toggle the dot grid, the stage border,
-  and the light/dark theme — the last persists and follows the OS when no
-  manual choice is stored.
 
-### Animation mode
+### Animate mode
 
-The stage has a **Play** toggle that flips the bottom panel from sliders
-to a timeline. When you enter it:
+Click the **Animate** tab to flip the right panel from the Design sliders
+to the animator. The parameter sliders stay (they are now the keyframe
+value inputs), and a scrubber appears directly under the canvas so the
+clock is next to the picture.
 
 - The motif's current parameter values become **keyframe 0** at `t = 0`.
-- A **track** appears per animatable parameter, plus a global scrubber and
-  a `frames` / `fps` / `hold` / easing transport row.
-- Drag the scrubber to a new time, adjust any slider, and **drop a
-  keyframe** (a dot on that track at that time). Numeric parameters
+- A **track** appears per animatable parameter, plus a `frames` / `fps` /
+  `hold` / easing transport row under a **Playback** heading, and the
+  existing **draw-on** (pen reveal) and **spin** (rotate the whole design)
+  motion primitives appear under a **Motion overlays** heading.
+- **Drop keyframes** three ways: the prominent **Set keyframe at t=…**
+  button at the top of the tracks drops one for every animatable parameter
+  at the scrubber's current time; each track's own **+** button drops a
+  single keyframe for that parameter; and double-clicking a lane is the
+  power-user shortcut (a faint `dblclick to drop` hint appears on hover).
+  The big button's `t=` reads the live scrubber time so it always tells
+  you what you will get.
+- Drag the scrubber — the one under the stage or the one in the panel —
+  to a new time, adjust any slider, and drop. Numeric parameters
   interpolate component-wise with an easing curve from
   `geomotif.core.spacing` (`linear`, `quadratic`, `cubic`, `sinusoidal`,
   `exponential`, `circular`); `bool`, `Literal` and `str` parameters
   **step** at the next keyframe. Per-track easing overrides the global
   one.
-- The existing motion primitives — **draw-on** (pen reveal) and **spin**
-  (rotate the whole design) — are exposed as overlay checkboxes that
-  compose with the parameter keyframes, so a Hilbert curve can draw itself
-  on while its `depth` sweeps from 3 to 6.
+- An **empty-state hint** (`Move the scrubber to a time -> adjust the
+  sliders -> click "Set keyframe"`) appears when no track has a keyframe
+  yet, and disappears the moment one lands.
 - Frames render ahead of time in chunked `requestAnimationFrame` batches
   so the UI never freezes; a thin progress bar covers the cold render and
   playback starts as soon as the first frame is ready.
 - **Export** the animation as a **GIF** — byte-identical to
-  `geomotif render <motif> --out x.gif --animation spec.json`.
+  `geomotif render <motif> --out x.gif --animation spec.json` — and the
+  spec JSON of the current timeline, both from the animator's export row.
 - **Share the animation** in a URL: the full recipe (motif + params +
   keyframes + easing + frames + fps + hold + overlays) is compressed with
   `lz-string` into the `a=` fragment alongside the still `m=` fragment.
-  Landing on a shared animation URL boots straight into animation mode
+  Landing on a shared animation URL boots straight into Animate mode
   with the timeline populated. When a recipe is too large for a URL, the
   share button falls back to copying the spec JSON, which feeds the CLI's
   `--animation` flag directly.
+- Picking a new motif from the list while in Animate mode stays in
+  Animate, re-entering it on the new motif with a fresh default timeline.
 
 ## Round-trip with the CLI
 
@@ -102,6 +136,8 @@ the page downloads.
   they show a "needs scipy — try locally" badge instead of rendering, in
   both still and animation modes.
 - **Timeline editing on touch** is awkward; touch devices get a read-only
-  timeline (scrub and play) with an "edit on desktop" hint.
+  timeline (scrub and play) with an "edit on desktop" hint, so the
+  `Set keyframe` button, the per-track `+`, and the double-click hint are
+  hidden on touch.
 
 [Open the explore stage &rarr;](https://pianosuki.github.io/geomotif/explore/){ .md-button .md-button--primary }
