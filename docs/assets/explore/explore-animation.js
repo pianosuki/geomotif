@@ -38,6 +38,15 @@
   E.bundle = null;
   E.preRaf = null;
   E.scrubbing = false;
+  // The keyframe selected by a click/drag: { track: paramName, idx: index },
+  // or null when nothing is selected. Selection drives the .sel dot ring, the
+  // per-track value input / delete affordance, and Delete/Backspace removal.
+  E.selectedKf = null;
+
+  // Live references to the lane / value input / delete button / edit row / row
+  // for each track, repopulated on every paintTimeline, so dot selection and
+  // drag handlers can update the editor UI without re-querying the DOM.
+  const trackRefs = new Map();
 
   // The animatable parameters of a motif: anything a slider/dropdown/toggle can
   // move, i.e. the settable numeric/bool/Literal params the catalog reports.
@@ -260,6 +269,10 @@
 
   // --- timeline paint ---------------------------------------------------------
   function paintTimeline(info, st) {
+    // Drop stale refs to rows/lanes from the previous paint; selection UI
+    // state (E.selectedKf) is also cleared so a rebuild starts clean.
+    trackRefs.clear();
+    E.selectedKf = null;
     tracksEl.innerHTML = "";
     if (IS_TOUCH) {
       const hint = document.createElement("p");
@@ -278,7 +291,7 @@
     // Empty-state hint card. When the animator opens with no keyframes on
     // any track (e.g. a motif whose default recipe has no sweep -- only bool /
     // Literal params, or a freshly-cleared timeline), a centered hint tells
-    // the user the scrub -> slider -> "Set keyframe" loop. It disappears the
+    // the user the scrub -> slider -> "Set keyframes for all params" loop. It disappears the
     // moment any track has >=1 keyframe, at which point the real track rows
     // paint. The kf-set-all button above #tracks stays visible either way so
     // the user can act on the hint.
@@ -289,7 +302,7 @@
     if (!anyKf) {
       const card = document.createElement("div");
       card.className = "anim-empty-card";
-      card.textContent = "Move the scrubber to a time \u2192 adjust the sliders \u2192 click \u201cSet keyframe\u201d, then press play to preview.";
+      card.textContent = "Move the scrubber to a time \u2192 adjust the sliders \u2192 click \u201cSet keyframes for all params\u201d, then press play to preview.";
       tracksEl.appendChild(card);
       return;
     }
@@ -309,9 +322,107 @@
       || ann === "str" || ann === "str | None";
   }
 
+  // Numeric tracks get a value axis: their keyframe dots sit at a height
+  // matching their value, and vertical drag edits it. The range is the declared
+  // Range when there is one, else the same geometric heuristic the slider uses,
+  // so the axis is stable across repaints.
+  function isNumericKey(p) {
+    return p.annotation === "int" || p.annotation === "float";
+  }
+  E.isNumericKey = isNumericKey;
+
+  function valueRange(p) {
+    if (p.min != null && p.max != null) return [Number(p.min), Number(p.max)];
+    const ann = p.annotation;
+    const cur = (E.state && E.state[p.name] != null)
+      ? E.state[p.name]
+      : (p.default != null ? p.default : null);
+    if (ann === "int") {
+      const base = Number(cur) || 5;
+      const lo = Math.max(1, Math.floor(base / SPREAD));
+      return [lo, Math.max(lo + 1, Math.ceil(base * SPREAD))];
+    }
+    if (ann === "float") {
+      const f = Number(cur) || 1;
+      if (f === 0) return [-1, 1];
+      return [f / SPREAD, f * SPREAD];
+    }
+    return [0, 1];
+  }
+  E.valueRange = valueRange;
+
+  function parseNum(s, fallback) {
+    const n = Number(s);
+    return Number.isFinite(n) ? n : fallback;
+  }
+
+  // --- keyframe selection + editor UI --------------------------------------
+  // A selected dot shows a ring (.sel), and its track's edit row enables the
+  // precise value input and the delete button. Selection is per-(track, index),
+  // stored on E so Delete/Backspace and the row's controls all agree.
+  function syncSelClass(p, an) {
+    const ref = trackRefs.get(p.name);
+    if (!ref) return;
+    for (const dot of ref.lane.querySelectorAll(".kf")) {
+      dot.classList.toggle("sel", !!(
+        E.selectedKf && E.selectedKf.track === p.name &&
+        Number(dot.dataset.idx) === E.selectedKf.idx
+      ));
+    }
+  }
+
+  function syncEditRow(p, an) {
+    const ref = trackRefs.get(p.name);
+    if (!ref) return;
+    const sel = !!(E.selectedKf && E.selectedKf.track === p.name);
+    ref.row.classList.toggle("edit", sel);
+    const tr = an.tracks[p.name];
+    const kf = sel && tr ? tr.keyframes[E.selectedKf.idx] : null;
+    if (ref.valueInp) {
+      ref.valueInp.disabled = !sel;
+      ref.valueInp.value = sel && kf ? String(kf[1]) : "";
+    }
+    ref.delBtn.disabled = !sel || !tr || tr.keyframes.length <= 1;
+  }
+
+  // Mirror a drag-updated value into the track's number input (only used while
+  // dragging a numeric dot).
+  function syncValueInput(p, v) {
+    const ref = trackRefs.get(p.name);
+    if (ref && ref.valueInp && E.selectedKf && E.selectedKf.track === p.name) {
+      ref.valueInp.value = String(v);
+    }
+  }
+
+  function selectKey(p, idx, an) {
+    E.selectedKf = { track: p.name, idx };
+    syncSelClass(p, an);
+    syncEditRow(p, an);
+  }
+  E.selectKey = selectKey;
+
+  // Remove the selected keyframe (via the track's delete button or the
+  // Delete/Backspace key on a focused dot). Keep at least one keyframe per
+  // track; rebuilding the timeline clears the selection and redraws dots.
+  function removeSelected(p, an) {
+    if (!E.selectedKf || E.selectedKf.track !== p.name) return;
+    const kfs = an.tracks[p.name] && an.tracks[p.name].keyframes;
+    if (!kfs || kfs.length <= 1) return;
+    kfs.splice(E.selectedKf.idx, 1);
+    E.selectedKf = null;
+    const info = E.byName[E.current];
+    if (info) {
+      paintTimeline(info, E.state);
+      E.restartPlayback(info, E.state, an);
+    }
+  }
+  E.removeSelected = removeSelected;
+
   function buildTrackRow(info, p, st, an) {
     const row = document.createElement("div");
     row.className = "track";
+    const numeric = isNumericKey(p);
+    if (numeric) row.classList.add("numeric");
     const head = document.createElement("div");
     head.className = "track-head";
     const name = document.createElement("span");
@@ -356,7 +467,7 @@
     // easing dropdown so the row reads `[name] [step] [+] [easing]` then the
     // lane below. Drops a single keyframe for this param at the scrubber's
     // current time holding the slider's current value -- the same action as
-    // the top "Set keyframe" button, but scoped to one track. Disabled on
+    // the top "Set keyframes for all params" button, but scoped to one track. Disabled on
     // touch (read-only timeline).
     const add = document.createElement("button");
     add.className = "kf-add-one";
@@ -376,36 +487,87 @@
     const lane = document.createElement("div");
     lane.className = "lane";
     lane.dataset.param = p.name;
-    paintLaneDots(lane, p, an);
-    // Double-click drops a keyframe at the clicked time holding the slider's
-    // current value. Click-to-place would fight with dot dragging; a deliberate
-    // double-click is unambiguous. Disabled on touch (read-only timeline).
-    if (!IS_TOUCH) {
-      lane.addEventListener("dblclick", (e) => {
-        const rect = lane.getBoundingClientRect();
-        const t = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-        dropKeyframe(p, st, an, t);
+    if (numeric) lane.classList.add("numeric");
+    row.appendChild(lane);
+
+    // The edit row appears under the lane when a keyframe on this track is
+    // selected: a precise value input for numeric tracks, and always a visible
+    // delete (x) button (Delete/Backspace on a focused dot still works too).
+    // Touch keeps the timeline read-only, so the whole row is hidden there.
+    const editRow = document.createElement("div");
+    editRow.className = "kf-edit-row";
+    const valueInp = numeric ? document.createElement("input") : null;
+    if (valueInp) {
+      const lab = document.createElement("span");
+      lab.className = "kf-edit-label";
+      lab.textContent = "value";
+      valueInp.type = "number";
+      valueInp.className = "kf-value-input";
+      valueInp.step = p.annotation === "int" ? "1" : "any";
+      valueInp.disabled = true;
+      valueInp.title = "type the selected keyframe's value";
+      valueInp.addEventListener("input", () => {
+        if (!E.selectedKf || E.selectedKf.track !== p.name) return;
+        const kfs = an.tracks[p.name] && an.tracks[p.name].keyframes;
+        if (!kfs || !kfs[E.selectedKf.idx]) return;
+        const v = parseNum(valueInp.value, kfs[E.selectedKf.idx][1]);
+        kfs[E.selectedKf.idx][1] = p.annotation === "int" ? Math.round(v) : v;
         paintLaneDots(lane, p, an);
         E.restartPlayback(info, st, an);
       });
+      editRow.appendChild(lab);
+      editRow.appendChild(valueInp);
     }
-    row.appendChild(lane);
+    const delBtn = document.createElement("button");
+    delBtn.type = "button";
+    delBtn.className = "kf-del";
+    delBtn.textContent = "\u2715"; // x
+    delBtn.title = "remove selected keyframe";
+    delBtn.disabled = true;
+    delBtn.addEventListener("click", () => {
+      if (!E.selectedKf || E.selectedKf.track !== p.name) return;
+      deleteKeyframe(p, an, E.selectedKf.idx);
+      E.selectedKf = null;
+      paintLaneDots(lane, p, an);
+      syncEditRow(p, an);
+      E.restartPlayback(info, st, an);
+    });
+    editRow.appendChild(delBtn);
+    row.appendChild(editRow);
+
+    trackRefs.set(p.name, { lane, valueInp, delBtn, editRow, row });
+    paintLaneDots(lane, p, an);
     return row;
   }
 
   function paintLaneDots(lane, p, an) {
     // Keep the lane element; clear and re-add dots so a redraw after a drop /
-    // drag / delete is one DOM write.
+    // drag / delete / value edit is one DOM write.
     lane.querySelectorAll(".kf").forEach((d) => d.remove());
     const tr = an.tracks[p.name];
     if (!tr) return;
+    const numeric = isNumericKey(p);
+    const loHi = numeric ? valueRange(p) : [0, 1];
+    const lo = loHi[0], hi = loHi[1];
     for (let i = 0; i < tr.keyframes.length; i++) {
       const [t, v] = tr.keyframes[i];
       const dot = document.createElement("span");
       dot.className = "kf";
       dot.style.left = (t * 100) + "%";
+      // Numeric dots sit at a height encoding their value (max at the top of
+      // the lane), so vertical position is meaningful; discrete dots centre
+      // vertically. The transform (not margins) centres the dot on its point.
+      if (numeric && hi > lo) {
+        const frac = Math.min(1, Math.max(0, (Number(v) - lo) / (hi - lo)));
+        dot.style.top = ((1 - frac) * 100) + "%";
+      } else {
+        dot.style.top = "50%";
+      }
       dot.title = `${p.name} @ t=${t.toFixed(2)} = ${E.formatVal(v)}`;
       dot.dataset.idx = String(i);
+      if (E.selectedKf && E.selectedKf.track === p.name && E.selectedKf.idx === i) {
+        dot.classList.add("sel");
+      }
       // On touch the dots are display-only: no focus, no keydown delete, no
       // drag (pointer-events: none in CSS keeps them out of hit testing).
       if (!IS_TOUCH) {
@@ -413,35 +575,54 @@
         dot.addEventListener("keydown", (e) => {
           if (e.key === "Backspace" || e.key === "Delete") {
             e.preventDefault();
-            deleteKeyframe(p, an, i);
-            paintLaneDots(lane, p, an);
-            E.restartPlayback(E.byName[E.current], E.state, an);
+            selectKey(p, i, an);
+            removeSelected(p, an);
           }
         });
         dot.addEventListener("pointerdown", (e) => startDotDrag(e, dot, p, an, lane));
       }
       lane.appendChild(dot);
     }
+    syncEditRow(p, an);
   }
   E.paintLaneDots = paintLaneDots;
 
-  // Drag a keyframe dot horizontally to change its time. Vertically is a no-op
-  // (the value comes from the slider, not the dot's height).
+  // Drag a keyframe dot. Clicking selects it (ring + editor row). Dragging
+  // horizontally changes its time; on numeric tracks dragging vertically
+  // changes its value, so the dot moves both ways in the lane. The dragged
+  // dot is repositioned live and the keyframe pair is mutated in place;
+  // on release the list is time-sorted, re-indexed and repainted.
   function startDotDrag(e, dot, p, an, lane) {
     e.preventDefault();
     dot.focus();
-    const idx = Number(dot.dataset.idx);
+    const kfs = an.tracks[p.name].keyframes;
+    const kf = kfs[Number(dot.dataset.idx)];
+    if (!kf) return;
+    selectKey(p, Number(dot.dataset.idx), an);
+    const numeric = isNumericKey(p);
+    const loHi = numeric ? valueRange(p) : [0, 1];
     const rect = lane.getBoundingClientRect();
     const move = (ev) => {
       const t = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
-      an.tracks[p.name].keyframes[idx][0] = t;
-      // Keep keyframes time-sorted so the interpolator and the dot order agree.
-      an.tracks[p.name].keyframes.sort((a, b) => a[0] - b[0]);
-      paintLaneDots(lane, p, an);
+      kf[0] = t;
+      dot.style.left = (t * 100) + "%";
+      if (numeric && loHi[1] > loHi[0]) {
+        const frac = Math.min(1, Math.max(0, 1 - (ev.clientY - rect.top) / rect.height));
+        const v = loHi[0] + (loHi[1] - loHi[0]) * frac;
+        kf[1] = Number(v.toFixed(4));
+        dot.style.top = ((1 - frac) * 100) + "%";
+        syncValueInput(p, kf[1]);
+      }
+      dot.title = `${p.name} @ t=${t.toFixed(2)} = ${E.formatVal(kf[1])}`;
     };
     const up = () => {
       document.removeEventListener("pointermove", move);
       document.removeEventListener("pointerup", up);
+      // A horizontal drag may have reordered the list; fix the sort and the
+      // selection's index so the ring lands on the same keyframe.
+      kfs.sort((a, b) => a[0] - b[0]);
+      E.selectedKf.idx = Math.max(0, kfs.indexOf(kf));
+      paintLaneDots(lane, p, an);
       E.restartPlayback(E.byName[E.current], E.state, an);
     };
     document.addEventListener("pointermove", move);
@@ -706,7 +887,7 @@
   function paintScrubTime(t) {
     const txt = "t = " + Number(t).toFixed(3);
     if (scrubTimeEl) scrubTimeEl.textContent = txt;
-    // The "Set keyframe at t=..." button's t= span follows the same clock
+    // The "Set keyframes for all params at t=..." button's t= span follows the same clock
     // so the button always shows the time a drop will land on. Mirrored on
     // every syncScrubber + scrub-input call, so dragging either scrubber or
     // playing back keeps the label honest.
@@ -714,7 +895,7 @@
   }
 
   // The scrubber's current time as a clamped 0..1 number, read from the stage
-  // scrubber's live value. Used by the "Set keyframe" + per-track "+" handlers
+  // scrubber's live value. Used by the "Set keyframes for all params" + per-track "+" handlers
   // so a drop lands at the time the user is looking at. Before a bundle is
   // ready the scrubber sits at 0, which is the right default (the default
   // recipe's first keyframe is at t=0).
@@ -756,13 +937,12 @@
   E.hideAnimProgress = hideAnimProgress;
 
   // --- discoverable keyframe creation -------------------------------------
-  // The "Set keyframe at t=..." button at the top of the tracks section drops a
-  // keyframe for every animatable parameter at the scrubber's current time,
-  // each holding its slider's current value. It is the obvious affordance --
-  // the per-track "+" buttons and the double-click-on-lane
-  // shortcut remain, but this is the one a new user finds first. If the
-  // timeline was in the empty state (no keyframes anywhere), the drop moves it
-  // out, so we repaint the whole timeline to bring the track rows in.
+  // The "Set keyframes for all params at t=..." button at the top of the
+  // tracks section drops a keyframe for every animatable parameter at the
+  // scrubber's current time, each holding its slider's current value. It is
+  // the obvious affordance -- the per-track "+" buttons remain, but this is
+  // the one a new user finds first. The t= span is live, so the button always
+  // tells the user what they will get.
   if (kfSetAllEl) {
     kfSetAllEl.addEventListener("click", () => {
       if (!E.animOn || !E.current) return;
@@ -777,7 +957,22 @@
         return tr && tr.keyframes && tr.keyframes.length;
       });
       for (const p of params) dropKeyframe(p, E.state, an, t);
-      if (wasEmpty) paintTimeline(info, E.state);
+      // Always repaint after the drop. When the timeline was empty the whole
+      // track list has to come in (the empty-state card is replaced by real
+      // rows); when it already had keyframes the affected lanes' dots must
+      // appear immediately rather than waiting for a slider to touch them.
+      if (wasEmpty) {
+        paintTimeline(info, E.state);
+      } else {
+        for (const p of params) {
+          const ref = trackRefs.get(p.name);
+          if (ref) paintLaneDots(ref.lane, p, an);
+          else {
+            const lane = tracksEl.querySelector(`.lane[data-param="${p.name}"]`);
+            if (lane) paintLaneDots(lane, p, an);
+          }
+        }
+      }
       E.restartPlayback(info, E.state, an);
     });
   }

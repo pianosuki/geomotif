@@ -189,14 +189,14 @@
     <aside class="animator" id="animator" role="tabpanel" aria-labelledby="mode-animate" hidden>
       <div class="anim-controls-slot" id="anim-controls-slot"></div>
       <section class="timeline" id="timeline" aria-label="animation timeline">
-        <!-- A prominent "Set keyframe at t=..." button at the top of the
-             tracks section. Clicking drops a keyframe for every animatable
-             parameter at the scrubber's current time, holding each slider's
-             current value. The t= span updates live with the scrubber so the
-             button always tells the user what they will get. Hidden on touch
-             (the timeline is read-only there). -->
+        <!-- A prominent "Set keyframes for all params at t=..." button at the
+             top of the tracks section. Clicking drops a keyframe for every
+             animatable parameter at the scrubber's current time, holding each
+             slider's current value. The t= span updates live with the scrubber
+             so the button always tells the user what they will get. Hidden on
+             touch (the timeline is read-only there). -->
         <div class="kf-set-all-row" id="kf-set-all-row">
-          <button class="kf-set-all" id="kf-set-all" type="button" title="drop a keyframe for every animatable parameter at the scrubber's time">Set keyframe at t=<span id="kf-set-all-t">0.000</span></button>
+          <button class="kf-set-all" id="kf-set-all" type="button" title="set a keyframe for every animatable parameter at the scrubber's time">Set keyframes for all params at t=<span id="kf-set-all-t">0.000</span></button>
         </div>
         <div class="tracks" id="tracks"></div>
         <!-- The transport + overlays blocks stay in place but are now

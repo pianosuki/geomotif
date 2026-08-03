@@ -254,7 +254,7 @@ header {
 /* A viewport-height workbench: the three columns (rail / stage / controls)
    fill exactly the space below the sticky header and each scrolls on its
    own, so there is no page-level scrollbar and the sides never show the
-   gap a centred max-width cap used to leave on wide monitors. Each panel
+   gap a centered max-width cap used to leave on wide monitors. Each panel
    carries its own chrome so the rails read as distinct surfaces around the
    central stage. On narrower viewports (below) the columns stack and the
    page scrolls again. */
@@ -520,10 +520,10 @@ header {
    #controls slider list is reparented between them, so both panels share one
    live set of slider handlers. */
 .controls, .animator {
-  /* The rail chrome (background / border / padding) comes from the shared
-     .rail, .controls, .animator rule in the layout section; the scroll
-     behaviour lives there too, so the panel fills the column as an
-     independent scroll container. Keep only the panel-specific bits here. */
+   /* The rail chrome (background / border / padding) comes from the shared
+      .rail, .controls, .animator rule in the layout section; the scroll
+      behavior lives there too, so the panel fills the column as an
+      independent scroll container. Keep only the panel-specific bits here. */
   min-width: 0;
 }
 /* `hidden` must win over any later `display` rule so the inactive panel really
@@ -956,11 +956,17 @@ pre.command {
   border: 1px solid var(--line);
   cursor: crosshair;
 }
+/* Numeric tracks get a tall lane so their dots' height encodes the value
+   (max at the top), the axis a vertical drag edits. */
+.lane.numeric {
+  height: 64px;
+  border-radius: 8px;
+}
 .kf {
   position: absolute;
   top: 50%;
   width: 10px; height: 10px;
-  margin: -5px 0 0 -5px;
+  transform: translate(-50%, -50%);
   border-radius: 50%;
   background: var(--accent);
   border: 2px solid var(--panel-2);
@@ -970,6 +976,50 @@ pre.command {
 }
 .kf:focus { box-shadow: 0 0 0 2px var(--accent); }
 .kf:active { cursor: grabbing; }
+/* The selected keyframe: a brighter fill and a soft ring so the row's value
+   input / delete button visibly belong to it. */
+.kf.sel {
+  background: var(--accent-ink);
+  box-shadow: 0 0 0 1px var(--accent), 0 0 0 4px var(--accent-soft);
+}
+.track.edit .lane { border-color: var(--accent); }
+
+/* The edit row under a numeric track's lane: a precise value input for the
+   selected keyframe and a visible delete (x) button. Hidden until a dot on
+   that track is selected (the row carries .edit via its parent .track), and
+   always hidden on touch where the timeline is read-only. */
+.kf-edit-row {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0 5rem;
+  font: 0.68rem/1 var(--mono);
+  color: var(--faint);
+}
+.track.edit .kf-edit-row { display: flex; }
+.kf-edit-label { text-transform: none; letter-spacing: 0; }
+.kf-value-input {
+  width: 6rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.72rem/1.2 var(--mono);
+}
+.kf-value-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.kf-del {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.72rem/1 var(--sans);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.kf-del:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
+.kf-del:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .anim-empty {
   margin: 0.3rem 0;
@@ -1127,12 +1177,12 @@ pre.command {
   vertical-align: middle;
 }
 
-/* Discoverable keyframe creation. The "Set keyframe at t=..." button at the
-   top of the tracks section is the obvious affordance -- one click drops a
-   keyframe for every animatable parameter at the scrubber's current time. It
-   reads as a primary action (accent fill) so a new user finds it before the
-   per-track "+" or the double-click shortcut. The t= span is live, so the
-   button always tells the user what they will get. */
+/* Discoverable keyframe creation. The "Set keyframes for all params at t=..."
+   button at the top of the tracks section is the obvious affordance -- one
+   click drops a keyframe for every animatable parameter at the scrubber's
+   current time. It reads as a primary action (accent fill) so a new user
+   finds it before the per-track "+". The t= span is live, so the button
+   always tells the user what they will get. */
 .kf-set-all-row { margin: 0.2rem 0 0.45rem; }
 .kf-set-all {
   width: 100%;
@@ -1171,9 +1221,10 @@ pre.command {
 .kf-add-one:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* Empty-state hint card: shown when the animator opens with no keyframes on any
-   track. A centered, dashed card carries the scrub -> slider -> "Set keyframe"
-   loop. It disappears the moment any track has >=1 keyframe (paintTimeline
-   swaps it for the real track rows). Mirrors the .placeholder-note rhythm. */
+   track. A centered, dashed card carries the scrub -> slider -> "Set keyframes
+   for all params" loop. It disappears the moment any track has >=1 keyframe
+   (paintTimeline swaps it for the real track rows). Mirrors the
+   .placeholder-note rhythm. */
 .anim-empty-card {
   margin: 0.4rem 0 0.8rem;
   padding: 0.7rem 0.85rem;
@@ -1185,37 +1236,20 @@ pre.command {
   text-align: center;
 }
 
-/* Lane hover hint: a faint "dblclick to drop" tooltip so the power-user
-   shortcut is discoverable. Pointer-events: none keeps it from catching the
-   double-click the hint advertises. Hidden on touch (no dblclick on a finger
-   -- the timeline is read-only there anyway). */
-.lane::after {
-  content: "dblclick to drop";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  padding: 0.1rem 0.4rem;
-  border-radius: var(--r-sm);
-  background: color-mix(in srgb, var(--panel) 88%, transparent);
-  color: var(--faint);
-  font: 0.62rem/1 var(--mono);
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.1s ease;
-  white-space: nowrap;
-}
-.lane:hover::after { opacity: 1; }
+/* Keyframe dots are created with the per-track "+" and the "Set keyframes for
+   all params" button; a dot is then selected with a click and dragged to move
+   it (numeric tracks drag both time and value). The lane carries no implicit
+   drop affordance. */
 
 /* On touch devices the timeline is read-only: scrub and play work, but
    keyframe editing (drag, drop, delete, per-track easing) is hidden so a
    finger does not fight a fat-finger drag. A hint says so up front. */
 .timeline.touch .lane { cursor: default; }
-.timeline.touch .lane::after { display: none; }
 .timeline.touch .kf { cursor: default; pointer-events: none; }
 .timeline.touch .track-easing { display: none; }
 .timeline.touch .kf-add-one { display: none; }
 .timeline.touch .kf-set-all-row { display: none; }
+.timeline.touch .kf-edit-row { display: none; }
 .touch-hint {
   margin: 0.2rem 0 0;
   font: 0.68rem/1.4 var(--mono);

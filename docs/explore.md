@@ -84,13 +84,19 @@ is the master clock: **play** / **loop** sit beside the range scrub and the
   `hold` / easing transport row under a **Playback** heading, and the
   existing **draw-on** (pen reveal) and **spin** (rotate the whole design)
   motion primitives appear under a **Motion overlays** heading.
-- **Drop keyframes** three ways: the prominent **Set keyframe at t=…**
-  button at the top of the tracks drops one for every animatable parameter
-  at the scrubber's current time; each track's own **+** button drops a
-  single keyframe for that parameter; and double-clicking a lane is the
-  power-user shortcut (a faint `dblclick to drop` hint appears on hover).
-  The big button's `t=` reads the live scrubber time so it always tells
-  you what you will get.
+- **Drop keyframes** two ways: the prominent **Set keyframes for all
+  params at t=…** button at the top of the tracks drops one for every
+  animatable parameter at the scrubber's current time, and each track's own
+  **+** button drops a single keyframe for that parameter. The big button's
+  `t=` reads the live scrubber time so it always tells you what you will
+  get, and a dropped keyframe appears immediately.
+- **Edit keyframes**: click a dot to select it — it gains a ring and an
+  editor row appears under its lane. On a numeric track a dot sits at a
+  height matching its value, so drag it horizontally to change its time and
+  vertically to change its value; the selected dot's value also shows in a
+  number input for precise entry. An **×** button (or Delete / Backspace on
+  the focused dot) removes the selected keyframe, keeping at least one per
+  track. The per-track easing dropdown on each row is the curve control.
 - Drag the scrubber under the canvas to a new time, adjust any slider, and
   drop. Numeric parameters interpolate component-wise with an easing curve
   from `geomotif.core.spacing` (`linear`, `quadratic`, `cubic`,
@@ -98,8 +104,9 @@ is the master clock: **play** / **loop** sit beside the range scrub and the
   parameters **step** at the next keyframe. Per-track easing overrides the
   global one.
 - An **empty-state hint** (`Move the scrubber to a time -> adjust the
-  sliders -> click "Set keyframe", then press play`) appears when no track
-  has a keyframe yet, and disappears the moment one lands.
+  sliders -> click "Set keyframes for all params", then press play`)
+  appears when no track has a keyframe yet, and disappears the moment one
+  lands.
 - Frames render ahead of time in chunked `requestAnimationFrame` batches
   so the UI never freezes; a thin progress bar covers the cold render. The
   stage stays on the scrubber's frame until you press **play** — entering
@@ -141,8 +148,8 @@ the page downloads.
   both still and animation modes.
 - **Timeline editing on touch** is awkward; touch devices get a read-only
   timeline (scrub and play) with an "edit on desktop" hint, so the
-  `Set keyframe` button, the per-track `+`, and the double-click hint are
-  hidden on touch.
+  `Set keyframes for all params` button, the per-track `+`, and the
+  keyframe editing controls (drag, value entry, delete) are hidden on touch.
 
 <div class="cta-row" markdown>
 [Open the explore stage &rarr;](explore/){ .md-button .md-button--primary }
