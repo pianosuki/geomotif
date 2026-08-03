@@ -130,6 +130,13 @@ window.EXPLORE = window.EXPLORE || {};
   E.animEaseEl = E.$("tp-easing");
   E.tracksEl = E.$("tracks");
   E.scrubEl = E.$("scrubber");
+  // A duplicate scrubber pinned under the stage (the master clock lives
+  // next to the picture). #scrubber stays in the animator panel; both share
+  // state via E.playState.idx / E.syncScrubber() and the same drawFrame on
+  // input. scrubTimeEl is the `t = 0.000` readout beside the stage scrubber.
+  E.stageScrubEl = E.$("stage-scrub-input");
+  E.stageScrubWrapEl = E.$("stage-scrubber");
+  E.scrubTimeEl = E.$("scrub-time");
   E.ovDrawEl = E.$("ov-draw");
   E.ovSpinEl = E.$("ov-spin");
   E.ovDrawOpts = E.$("ov-draw-opts");

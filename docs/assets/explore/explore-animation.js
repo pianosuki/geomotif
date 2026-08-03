@@ -16,7 +16,8 @@
 
 (function (E) {
   const {
-    timelineEl, stageEl, tracksEl, scrubEl, transportEl,
+    timelineEl, stageEl, tracksEl, scrubEl, stageScrubEl, stageScrubWrapEl,
+    scrubTimeEl, transportEl,
     playPauseEl, loopEl, animFramesEl, animFpsEl, animHoldEl, animEaseEl,
     ovDrawEl, ovSpinEl, ovDrawOpts, ovSpinOpts, ovTrailEl, ovTurnsEl,
     expGifEl, animProgressEl, animProgressFill, placeholderEl, phMain,
@@ -207,6 +208,9 @@
     E.anim = opts.recipe ? recipeToAnim(opts.recipe) : defaultAnim(info, E.state);
     timelineEl.classList.add("on");
     stageEl.classList.add("anim");
+    // The stage scrubber is hidden in Design mode; show it now so the
+    // master clock sits directly under the canvas as well as in the panel.
+    if (stageScrubWrapEl) stageScrubWrapEl.hidden = false;
     // Read-only on touch: scrub + play work, keyframe editing is hidden.
     timelineEl.classList.toggle("touch", IS_TOUCH);
     // The slider panel stays live: moving a slider now pins a keyframe at the
@@ -231,6 +235,8 @@
     E.animOn = false;
     timelineEl.classList.remove("on", "touch");
     stageEl.classList.remove("anim");
+    // Hide the stage scrubber on the way back to Design mode.
+    if (stageScrubWrapEl) stageScrubWrapEl.hidden = true;
     expGifEl.disabled = true;
     stopPlayback();
     if (E.preRaf) { cancelAnimationFrame(E.preRaf); E.preRaf = null; }
@@ -607,13 +613,28 @@
   E.drawFrame = drawFrame;
 
   // Scrubber -> frame index. The scrubber spans the full core run (the hold
-  // tail is playback-only and not scrubbed).
+  // tail is playback-only and not scrubbed). Two scrubbers share one clock
+  // -- #scrubber in the animator panel and #stage-scrub-input under the stage.
+  // Both inputs mirror the same `t`, and the stage scrubber's `t = 0.000`
+  // readout follows so the canvas-side clock reads the live time.
   function syncScrubber() {
-    if (!E.bundle || !E.bundle.core) { scrubEl.value = 0; return; }
+    if (!E.bundle || !E.bundle.core) {
+      scrubEl.value = 0;
+      if (stageScrubEl) stageScrubEl.value = 0;
+      paintScrubTime(0);
+      return;
+    }
     const t = E.bundle.core.length > 1 ? E.playState.idx / (E.bundle.core.length - 1) : 0;
-    scrubEl.value = Math.min(1, Math.max(0, t));
+    const tc = Math.min(1, Math.max(0, t));
+    scrubEl.value = tc;
+    if (stageScrubEl) stageScrubEl.value = tc;
+    paintScrubTime(tc);
   }
   E.syncScrubber = syncScrubber;
+
+  function paintScrubTime(t) {
+    if (scrubTimeEl) scrubTimeEl.textContent = "t = " + Number(t).toFixed(3);
+  }
 
   // Restart pre-render + playback after a timeline edit. Reuses the cache when
   // the bundle key is unchanged (e.g. a pure playback param changed); otherwise
@@ -743,21 +764,36 @@
     restartPlayback(E.byName[E.current], E.state, E.anim);
   });
 
-  // Scrubber: drag to scrub (canvas shows the frame at that time), click to
+  // Scrubbers: drag to scrub (canvas shows the frame at that time), click to
   // jump. While scrubbing, playback is paused so the hand on the scrubber is
-  // the only clock.
-  scrubEl.addEventListener("pointerdown", () => {
+  // the only clock. The stage scrubber (#stage-scrub-input) and the panel
+  // scrubber (#scrubber) share one handler -- whichever the user drags, both
+  // inputs mirror the same `t` and the time readout follows.
+  function onScrubDown() {
     E.scrubbing = true;
     if (E.playState.on) stopPlayback();
-  });
-  scrubEl.addEventListener("input", () => {
+  }
+  function onScrubInput(src) {
     if (!E.bundle || !E.bundle.core) return;
-    const t = Number(scrubEl.value);
+    const t = Math.min(1, Math.max(0, Number(src.value)));
     const idx = Math.round(t * (E.bundle.core.length - 1));
     E.playState.idx = Math.min(idx, E.bundle.core.length - 1);
+    // Mirror the value onto the other scrubber so the two stay in sync.
+    if (src !== scrubEl) scrubEl.value = t;
+    if (src !== stageScrubEl && stageScrubEl) stageScrubEl.value = t;
+    paintScrubTime(t);
     drawFrame(E.playState.idx);
-  });
-  scrubEl.addEventListener("pointerup", () => { E.scrubbing = false; });
+  }
+  function onScrubUp() { E.scrubbing = false; }
+
+  scrubEl.addEventListener("pointerdown", onScrubDown);
+  scrubEl.addEventListener("input", () => onScrubInput(scrubEl));
+  scrubEl.addEventListener("pointerup", onScrubUp);
+  if (stageScrubEl) {
+    stageScrubEl.addEventListener("pointerdown", onScrubDown);
+    stageScrubEl.addEventListener("input", () => onScrubInput(stageScrubEl));
+    stageScrubEl.addEventListener("pointerup", onScrubUp);
+  }
 
   // Overlay checkboxes. Toggling one adds/removes the matching entry on
   // `anim.overlays` and re-renders (overlays are post-passes on the geometry).

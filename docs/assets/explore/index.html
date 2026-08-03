@@ -92,6 +92,18 @@
           </div>
           <div class="anim-progress" id="anim-progress" aria-hidden="true"><i></i></div>
         </div>
+        <!-- Stage scrubber: a duplicate of the animator panel's scrubber
+             pinned directly under the canvas, so the master clock is physically
+             next to the picture. It shares state with #scrubber via
+             E.playState.idx / E.syncScrubber() -- both call the same drawFrame
+             on input, and syncScrubber mirrors the index onto both inputs and
+             the time readout. Hidden in Design mode; enterAnim / exitAnim drop
+             the `hidden` attribute. The .scrubber class reuses the animator
+             scrubber's thumb styling. -->
+        <div class="stage-scrubber" id="stage-scrubber" hidden>
+          <input class="scrubber" id="stage-scrub-input" type="range" min="0" max="1" step="0.001" value="0" aria-label="scrub timeline">
+          <span class="scrub-time" id="scrub-time" aria-hidden="true">t = 0.000</span>
+        </div>
       </div>
       <div class="meta" id="meta"></div>
     </section>

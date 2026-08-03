@@ -331,6 +331,33 @@ header {
 .placeholder.busy .glyph { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
+/* Stage scrubber -- a duplicate of the animator panel's scrubber pinned
+   directly under the canvas, so the master clock is physically next to the
+   picture. Hidden in Design mode via the `hidden` attribute (toggled in
+   enterAnim / exitAnim); when shown it spans the same 720px max-width as the
+   stage and reads as a single row: the range input plus a `t = 0.000` mono
+   readout. The `.scrubber` class reuses the animator scrubber's thumb
+   styling, so the two look identical. */
+.stage-scrubber[hidden] { display: none; }
+.stage-scrubber {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  max-width: 720px;
+  margin: 0.6rem auto 0;
+  padding: 0 0.5rem;
+}
+.stage-scrubber .scrubber { flex: 1; }
+.stage-scrubber .scrub-time {
+  flex: none;
+  font: 0.72rem/1 var(--mono);
+  color: var(--muted);
+  min-width: 5rem;
+  text-align: right;
+  user-select: none;
+}
+
 .meta { margin: 1.25rem auto 0; max-width: 720px; }
 .meta h2 { font-size: 1.25rem; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 0.15rem; }
 .meta h2 code { font-size: 1.25rem; font-weight: 500; }
