@@ -264,20 +264,102 @@
     if (info.family) tags.push(`<span class="badge">${E.esc(info.family)}</span>`);
     if (info.requires) tags.push(`<span class="badge">needs ${E.esc(info.requires)}</span>`);
     if (tags.length) parts.push(`<div class="motif-tags">${tags.join("")}</div>`);
-    if (info.doc) parts.push(`<div class="motif-doc">${renderDoc(info.doc)}</div>`);
+    if (info.doc) parts.push(`<div class="motif-doc">${renderDoc(info.doc, info.summary)}</div>`);
     metaEl.innerHTML = parts.join("");
     E.$("control-title").innerHTML = `<code>${E.esc(info.name)}</code>`;
   }
   E.paintMeta = paintMeta;
 
   // Render the long-form description as readable paragraphs, not a mono blob.
-  // The doc is plain text: split it on blank lines into <p> breaks and apply a
-  // tiny inline formatter for `code` / ``code``, **bold** and *italic* -- the
-  // surrounding text is escaped first so nothing else is treated as markup.
-  function renderDoc(doc) {
-    const paras = String(doc).split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-    return paras.map((p) => `<p>${inlineDoc(p)}</p>`).join("");
+  // The catalog's `summary` is the docstring's first paragraph, which paintMeta
+  // already shows as its own .motif-summary line -- so the leading duplicate is
+  // dropped here. A numpydoc section (a title immediately followed by a solid
+  // underline) is detected by the underline, wherever the content sits: the
+  // "Parameters" section becomes a tidy definition list of per-parameter rows
+  // instead of collapsing into one run-on paragraph, and any other section
+  // (Returns, Notes, ...) gets a small heading. The surrounding text is escaped
+  // first and a tiny inline formatter applies to `code` / ``code``, **bold**
+  // and *italic*.
+  function renderDoc(doc, summary) {
+    let text = String(doc || "").trim();
+    if (!text) return "";
+    // Drop the first paragraph when it duplicates the summary line.
+    const first = text.split(/\n\s*\n/)[0].trim();
+    if (summary && first && first === String(summary).trim()) {
+      text = text.slice(text.indexOf(first) + first.length).trim();
+    }
+    const blocks = text.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+    // A block that opens a section: a short title line, then an underline of
+    // the same dashed/underscored character, with the section body (which may
+    // be indented after the underline, or in the following blocks) after it.
+    const isSectionBlock = (block) => /^[A-Za-z][A-Za-z ]*\n[-=~^]{3,}/.test(block);
+    const out = [];
+    const isParams = (t) => /^Parameters?$/i.test(t);
+    let i = 0;
+    const n = blocks.length;
+    while (i < n) {
+      const block = blocks[i];
+      const m = block.match(/^([A-Za-z][A-Za-z ]*)\n[-=~^]{3,}(?:\n([\s\S]*))?$/);
+      if (m && isSectionBlock(block)) {
+        const title = m[1].trim();
+        const paramsSec = isParams(title);
+        out.push(paramsSec
+          ? `<div class="motif-params"><span class="params-title">${E.esc(title)}</span>`
+          : `<h3>${E.esc(title)}</h3>`);
+        if (m[2] && m[2].trim()) {
+          out.push(paramsSec ? renderParam(m[2]) : `<p>${inlineDoc(m[2])}</p>`);
+        }
+        let j = i + 1;
+        while (j < n && !isSectionBlock(blocks[j])) {
+          out.push(paramsSec ? renderParam(blocks[j]) : `<p>${inlineDoc(blocks[j])}</p>`);
+          j++;
+        }
+        if (paramsSec) out.push("</div>");
+        i = j;
+        continue;
+      }
+      out.push(`<p>${inlineDoc(block)}</p>`);
+      i++;
+    }
+    return out.join("");
   }
+  E.renderDoc = renderDoc;
+
+  // One numpydoc parameter list, possibly many entries in a single block: each
+  // parameter opens at column 0 with `name : type` and its description
+  // continues on the following indented lines; the next parameter starts at
+  // column 0 again. Each entry is rendered as a tidy row -- name, then the
+  // type tag and the description -- so a card of many parameters stays
+  // scannable instead of collapsing into one run-on paragraph.
+  function renderParam(block) {
+    const items = [];
+    let cur = null;
+    for (const raw of block.split("\n")) {
+      if (!raw.trim()) continue;
+      if (/^\s+/.test(raw)) {
+        // An indented line continues the current parameter's description.
+        if (cur) cur.desc.push(raw.trim());
+        continue;
+      }
+      const m = raw.trim().match(/^([^:]+):\s*(.*)$/);
+      if (m) {
+        if (cur) items.push(cur);
+        cur = { name: m[1].trim(), type: m[2].trim(), desc: [] };
+      } else if (cur) {
+        cur.desc.push(raw.trim()); // a stray non-indented continuation line
+      } else {
+        cur = { name: raw.trim(), type: "", desc: [] };
+      }
+    }
+    if (cur) items.push(cur);
+    return items.map((it) =>
+      `<div class="param-row"><code class="param-name">${E.esc(it.name)}</code>` +
+      (it.type ? `<span class="param-type">${inlineDoc(it.type)}</span>` : "") +
+      (it.desc.length ? `<span class="param-desc">${inlineDoc(it.desc.join(" "))}</span>` : "") +
+      `</div>`
+    ).join("");
+  }
+  E.renderParam = renderParam;
   function inlineDoc(text) {
     let s = E.esc(text);
     s = s.replace(/(``[^`]+``|`[^`]+`)/g, (m) => `<code>${m.replace(/`/g, "")}</code>`);
