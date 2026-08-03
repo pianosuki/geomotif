@@ -798,14 +798,24 @@ pre.command {
   text-align: center;
 }
 
+/* Transport + overlays stay in place but are now visually grouped under
+    explicit "Playback" and "Motion overlays" section headings, so the
+    animator reads as labeled sections instead of two dashed rows. The
+    heading carries the top border that used to live on the block itself;
+    the block sits below it without its own separator. */
+.anim-section-head {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--line);
+}
+.anim-section-head .label { padding: 0; }
+
 /* Transport row: play/pause, loop, frames, fps, hold, easing. */
 .transport {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px dashed var(--line);
 }
 .tp {
   padding: 0.25rem 0.6rem;
@@ -844,17 +854,15 @@ pre.command {
   outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-/* Overlay checkboxes + their per-overlay option rows. */
+/* Overlay checkboxes + their per-overlay option rows. The "Motion overlays"
+    section heading lives above this block now, so the block no longer
+    carries its own top border or the inline "Overlays" label. */
 .overlays {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem 0.7rem;
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
-  border-top: 1px dashed var(--line);
 }
-.overlays .label { padding: 0; flex: none; }
 .ov-toggle {
   display: flex;
   align-items: center;

@@ -165,6 +165,11 @@
           <button class="kf-set-all" id="kf-set-all" type="button" title="drop a keyframe for every animatable parameter at the scrubber's time">Set keyframe at t=<span id="kf-set-all-t">0.000</span></button>
         </div>
         <div class="tracks" id="tracks"></div>
+        <!-- The transport + overlays blocks stay in place but are now
+             visually grouped under explicit "Playback" and "Motion overlays"
+             section headings, so the animator reads as labeled sections
+             instead of two dashed rows. No behavior change. -->
+        <div class="anim-section-head"><span class="label">Playback</span></div>
         <div class="transport" id="transport">
           <button class="tp" id="tp-play" type="button" title="play / pause">play</button>
           <button class="tp toggle" id="tp-loop" type="button" title="loop playback" aria-pressed="true">loop</button>
@@ -179,8 +184,8 @@
             </select>
           </label>
         </div>
+        <div class="anim-section-head"><span class="label">Motion overlays</span></div>
         <div class="overlays" id="overlays">
-          <span class="label">Overlays</span>
           <label class="ov-toggle"><input type="checkbox" id="ov-draw"> draw-on (pen reveal)</label>
           <span class="ov-opts" id="ov-draw-opts">
             <label>trail <input id="ov-trail" type="number" min="0" step="1" placeholder="none"></label>
