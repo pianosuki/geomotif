@@ -7,7 +7,7 @@
 // wired their own listeners; this just stitches the last few pieces together.
 
 (function (E) {
-  const { copyEl, shareEl, expSvgEl, expPngEl, expSpecEl, commandEl } = E;
+  const { copyEl, shareEl, expSvgEl, expPngEl, expSpecEl, expSpecAnimEl, commandEl } = E;
 
   // --- copy the live command line ---------------------------------------------
   copyEl.addEventListener("click", async () => {
@@ -113,13 +113,17 @@
     }
   });
 
-  expSpecEl.addEventListener("click", () => {
+  // Spec JSON export. The full `to_spec` shape (version key + motif name +
+  // params, plus an `animation` key when the timeline is live) -- this is the
+  // exact shape the CLI's `--spec` flag reads, so the downloaded file loads
+  // straight into `geomotif render --spec <file>` (and `--animation` when the
+  // `animation` key is present). Two buttons trigger it: the Design panel's
+  // `#exp-spec` (still mode) and the Animator panel's `#exp-spec-anim`
+  // (animation mode). Both produce the same bytes; the animator copy just
+  // lives next to the GIF button so an animation-only user does not have to
+  // flip back to Design to grab the spec.
+  function exportSpec(btn) {
     if (!E.lastMotif) return;
-    // The full `to_spec` shape: version key + motif name + params. `state` is
-    // exactly the JSON-encodable params dict io/spec.py round-trips, so this
-    // loads straight into `geomotif render --spec <file>`. In animation mode the
-    // `animation` key sits alongside, so the same file feeds
-    // `geomotif render --animation`.
     const spec = {
       geomotif: E.catalog ? E.catalog.geomotif : null,
       motif: E.lastMotif,
@@ -128,8 +132,10 @@
     if (E.animOn && E.anim) spec.animation = E.animRecipe(E.anim);
     const blob = new Blob([JSON.stringify(spec, null, 2) + "\n"], { type: "application/json" });
     E.download(blob, `${E.lastMotif}.json`);
-    E.flash(expSpecEl, true, "saved", "failed");
-  });
+    E.flash(btn, true, "saved", "failed");
+  }
+  expSpecEl.addEventListener("click", () => exportSpec(expSpecEl));
+  expSpecAnimEl.addEventListener("click", () => exportSpec(expSpecAnimEl));
 
   // --- go ---------------------------------------------------------------------
   E.initViewToggles();

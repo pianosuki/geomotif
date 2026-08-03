@@ -206,7 +206,7 @@ header {
 }
 @media (max-width: 74rem) {
   .layout { grid-template-columns: 14rem minmax(0, 1fr); }
-  .controls { grid-column: 1 / -1; }
+  .controls, .animator { grid-column: 1 / -1; }
 }
 @media (max-width: 50rem) {
   .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; }
@@ -348,7 +348,24 @@ header {
 }
 
 /* --- controls panel -------------------------------------------------------- */
-.controls { position: sticky; top: 4.2rem; max-height: calc(100vh - 5.5rem); overflow-y: auto; padding-right: 0.25rem; }
+/* The Design panel (.controls) and the Animator panel (.animator) are a
+   tabpair -- role="tabpanel" asides labeled by the header's mode tabs. Only
+   one is visible at a time; explore-mode.js toggles the animator's `hidden`
+   attribute (the Design aside is always visible; its contents are simply the
+   still controls + exports). Both occupy the same grid column (the right-
+   hand 21rem rail) so the layout does not jump when the mode flips. The
+   #controls slider list is reparented between them, so both panels share one
+   live set of slider handlers. */
+.controls, .animator {
+  position: sticky;
+  top: 4.2rem;
+  max-height: calc(100vh - 5.5rem);
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+/* `hidden` must win over any later `display` rule so the inactive panel really
+   leaves the grid flow (otherwise both asides would share the column). */
+.animator[hidden] { display: none; }
 .controls h2 { margin-bottom: 0.15rem; }
 .controls h2 code { font-size: 1rem; font-weight: 600; }
 .placeholder-note {
@@ -612,7 +629,11 @@ pre.command {
 .zoom-ind:empty { display: none; }
 
 /* --- export row ------------------------------------------------------------ */
-.export-row {
+/* The still SVG / PNG / spec exports live in the Design panel; the GIF +
+   spec-JSON animation exports live at the bottom of the Animator panel. Both
+   rows share the same rhythm (a tracked label + a wrap of buttons). */
+.export-row,
+.anim-export-row {
   display: flex;
   align-items: center;
   gap: 0.55rem;
@@ -620,35 +641,48 @@ pre.command {
   padding-top: 0.6rem;
   border-top: 1px dashed var(--line);
 }
-.export-row .label { padding: 0; }
+.export-row .label,
+.anim-export-row .label { padding: 0; }
 .export-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
 .copy.export { padding: 0.35rem 0.7rem; font-size: 0.72rem; }
 .copy.export:disabled { opacity: 0.5; cursor: not-allowed; }
 .copy.export.gif { font-weight: 600; }
 
 /* --- animation mode -------------------------------------------------------- */
-/* The timeline editor swaps in below the stage when the Play toggle is on. It
-   is hidden by default; `.timeline.on` reveals it. The stage gains an `.anim`
-   class so its layout can adjust (e.g. reserving room for the timeline). */
-.timeline {
-  display: none;
-  margin: 1rem auto 0;
-  max-width: 720px;
-  padding: 0.7rem 0.85rem;
-  border: 1px solid var(--line);
-  border-radius: var(--r);
-  background: var(--panel-2);
-  box-shadow: var(--shadow);
-}
-.timeline.on { display: block; }
-
-.timeline-head {
+/* The Animator panel is a tabpanel aside on the right rail, mirroring
+   .controls. It holds the scrubber (the master clock, visually attached to
+   the panel), the reparented #controls sliders, the timeline (tracks +
+   transport + overlays), and the animation export row. The timeline is no
+   longer a free-floating card under the stage -- it lives inside the panel, so
+   the card chrome (border / shadow / max-width / margin) is dropped here and
+   the inner blocks keep their own separators. */
+.animator { display: flex; flex-direction: column; gap: 0.6rem; }
+.animator-head {
   display: flex;
   align-items: center;
   gap: 0.6rem;
-  margin-bottom: 0.5rem;
 }
-.timeline-head .label { padding: 0; flex: none; }
+.animator-head .label { padding: 0; flex: none; }
+.animator-head .scrubber { flex: 1; }
+
+/* The timeline now lives inside the animator; drop the free-floating card
+   chrome (border / shadow / max-width / margin) but keep the inner blocks'
+   own separators. `.on` still gates visibility so a not-yet-entered animator
+   (hidden) does not flash the timeline. */
+.timeline {
+  display: none;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
+}
+.timeline.on { display: block; }
+
+/* The scrubber-row class is retired (the scrubber moved from #timeline's
+   head into .animator-head); keep the rule harmless in case a stale reference
+   remains. */
 .scrubber-row { flex: 1; display: flex; align-items: center; }
 .scrubber {
   flex: 1;

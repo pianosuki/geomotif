@@ -94,13 +94,55 @@
         </div>
       </div>
       <div class="meta" id="meta"></div>
-      <section class="timeline" id="timeline" aria-label="animation timeline">
-        <div class="timeline-head">
-          <span class="label">Timeline</span>
-          <span class="scrubber-row">
-            <input class="scrubber" id="scrubber" type="range" min="0" max="1" step="0.001" value="0" aria-label="scrub">
-          </span>
+    </section>
+
+    <!-- Design panel: the right-hand aside the user sees in Design mode --
+         the parameter sliders, the command line, and the still SVG / PNG / spec
+         JSON exports. It is a tabpanel labeled by the Design mode tab; the
+         Animate mode tab swaps it for the .animator aside below. The #controls
+         list is wrapped in a slot so it can reparent into the animator (and
+         back) without cloning -- appendChild preserves every slider handler. -->
+    <aside class="controls" id="design-panel" role="tabpanel" aria-labelledby="mode-design">
+      <div class="label">Parameters</div>
+      <h2 id="control-title">—</h2>
+      <div class="controls-slot" id="controls-slot">
+        <div class="controls-list" id="controls"></div>
+      </div>
+      <div class="command-block">
+        <div class="command-label"><span class="label">Command</span></div>
+        <pre class="command" id="command">geomotif render</pre>
+        <div class="command-buttons">
+          <button class="copy" id="copy" type="button">copy command</button>
+          <button class="copy share" id="share" type="button">copy share URL</button>
         </div>
+        <div class="export-row">
+          <span class="label">Export</span>
+          <div class="export-buttons">
+            <button class="copy export" id="exp-svg" type="button">SVG</button>
+            <button class="copy export" id="exp-png" type="button">PNG</button>
+            <button class="copy export" id="exp-spec" type="button">spec JSON</button>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Animator panel: the Animate-mode counterpart of .controls. Carries
+         role="tabpanel" labeled by the Animate mode tab and is hidden at boot;
+         explore-mode.js drops the `hidden` attribute and reparents #controls
+         into the slot below the scrubber so the same sliders set keyframe
+         values. The scrubber (the master clock) sits at the top, visually
+         attached to the panel; a duplicate under the stage arrives with the
+         stage scrubber. The
+         tracks / transport / overlays blocks move in here (formerly under
+         #timeline), and the animation export row (GIF + spec JSON) sits at the
+         bottom. The still SVG / PNG / spec exports stay in the Design panel. -->
+    <aside class="animator" id="animator" role="tabpanel" aria-labelledby="mode-animate" hidden>
+      <div class="animator-head">
+        <span class="label">Scrub</span>
+        <input class="scrubber" id="scrubber" type="range" min="0" max="1" step="0.001" value="0" aria-label="scrub">
+      </div>
+      <div class="anim-controls-slot" id="anim-controls-slot"></div>
+      <section class="timeline" id="timeline" aria-label="animation timeline">
         <div class="tracks" id="tracks"></div>
         <div class="transport" id="transport">
           <button class="tp" id="tp-play" type="button" title="play / pause">play</button>
@@ -116,7 +158,7 @@
             </select>
           </label>
         </div>
-        <div class="overlays">
+        <div class="overlays" id="overlays">
           <span class="label">Overlays</span>
           <label class="ov-toggle"><input type="checkbox" id="ov-draw"> draw-on (pen reveal)</label>
           <span class="ov-opts" id="ov-draw-opts">
@@ -128,27 +170,11 @@
           </span>
         </div>
       </section>
-    </section>
-
-    <aside class="controls">
-      <div class="label">Parameters</div>
-      <h2 id="control-title">—</h2>
-      <div class="controls-list" id="controls"></div>
-      <div class="command-block">
-        <div class="command-label"><span class="label">Command</span></div>
-        <pre class="command" id="command">geomotif render</pre>
-        <div class="command-buttons">
-          <button class="copy" id="copy" type="button">copy command</button>
-          <button class="copy share" id="share" type="button">copy share URL</button>
-        </div>
-        <div class="export-row">
-          <span class="label">Export</span>
-          <div class="export-buttons">
-            <button class="copy export" id="exp-svg" type="button">SVG</button>
-            <button class="copy export" id="exp-png" type="button">PNG</button>
-            <button class="copy export" id="exp-spec" type="button">spec JSON</button>
-            <button class="copy export gif" id="exp-gif" type="button" disabled>GIF</button>
-          </div>
+      <div class="anim-export-row">
+        <span class="label">Export</span>
+        <div class="export-buttons">
+          <button class="copy export gif" id="exp-gif" type="button" disabled>GIF</button>
+          <button class="copy export" id="exp-spec-anim" type="button">spec JSON</button>
         </div>
       </div>
     </aside>

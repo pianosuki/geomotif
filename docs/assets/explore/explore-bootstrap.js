@@ -105,6 +105,19 @@ window.EXPLORE = window.EXPLORE || {};
   E.themeEl = E.$("theme");
   E.modeDesignEl = E.$("mode-design");
   E.modeAnimateEl = E.$("mode-animate");
+  // The Design / Animate tabs each own a tabpanel aside
+  // (.controls / .animator). The shared #controls list lives in a slot
+  // (#controls-slot) so explore-mode.js can reparent it into the animator
+  // (and back) with appendChild -- preserving every slider handler -- rather
+  // than cloning. expGifEl now lives in the animator; the still SVG / PNG /
+  // spec exports stay in the Design panel, and an animation-mode spec export
+  // (#exp-spec-anim) sits beside the GIF button.
+  E.designPanelEl = E.$("design-panel");
+  E.animatorEl = E.$("animator");
+  E.controlsSlotEl = E.$("controls-slot");
+  E.animControlsSlotEl = E.$("anim-controls-slot");
+  E.overlaysEl = E.$("overlays");
+  E.expSpecAnimEl = E.$("exp-spec-anim");
   E.timelineEl = E.$("timeline");
   E.animProgressEl = E.$("anim-progress");
   E.animProgressFill = E.animProgressEl.querySelector("i");
