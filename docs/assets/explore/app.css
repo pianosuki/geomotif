@@ -585,12 +585,14 @@ pre.command {
 .copy.ok { color: var(--accent-ink); border-color: var(--accent); }
 
 /* --- stage view toolbar ---------------------------------------------------- */
-/* A small floating row of buttons pinned to the top-right of the drawing
-    surface: the zoom cluster (out / fit / in) and the grid / axes / labels
-    view toggles. It sits inside .stage so it stays aligned with the
-    (centered, max-width) drawing box, above the zoomed SVG. The Play entry to
-    animation mode retired in C1 in favor of the header's Design / Animate
-    mode tabs. */
+/* A small floating row of icon-glyph buttons pinned to the top-right of the
+    drawing surface: the zoom cluster (out / fit / in) and a gear-triggered
+    popover holding the grid / axes / labels view toggles. It sits inside
+    .stage so it stays aligned with the (centered, max-width) drawing box,
+    above the zoomed SVG. The Play entry to animation mode retired in favor
+    of the header's Design / Animate mode tabs; the wordy text labels gave
+    way to inline SVG icons and the gear popover so the three
+    view toggles collapse out of the way under 50rem. */
 .stage-toolbar {
   position: absolute;
   top: 0.6rem;
@@ -608,24 +610,67 @@ pre.command {
   box-shadow: var(--shadow);
 }
 .tb {
-  min-width: 1.9rem;
-  padding: 0.22rem 0.4rem;
+  min-width: 1.7rem;
+  height: 1.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: var(--r-sm);
   background: transparent;
   color: var(--muted);
-  font: 600 0.74rem/1 var(--mono);
   cursor: pointer;
   transition: all 0.1s ease;
 }
+.tb svg { display: block; pointer-events: none; }
 .tb:hover { color: var(--ink); background: var(--panel-2); }
 .tb:active { transform: translateY(1px); }
+.tb:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 .tb.toggle[aria-pressed="true"] {
   color: var(--accent-ink);
   background: var(--accent-soft);
   border-color: var(--accent);
 }
 .tb-sep { width: 1px; align-self: stretch; margin: 0.15rem 0.2rem; background: var(--line); }
+
+/* View-toggles popover: the grid / axes / labels trio lives in
+    .tg-popover-body. On wide viewports .tg-popover unwraps (display: contents)
+    so the body's three toggles flow inline after the separator and the gear is
+    hidden -- the row reads `[−][fit][+] | [grid][axes][labels]`. Under 50rem
+    the gear shows and the body becomes an absolutely-positioned popover that
+    floats below the gear; explore-view.js toggles the `.open` class on
+    .tg-popover (and mirrors aria-expanded). The same three buttons serve both
+    layouts -- no reparent, so every toggle's click handler keeps working. */
+.tg-popover { display: contents; }
+.tg-gear { display: none; }
+.tg-popover-body { display: inline-flex; align-items: center; gap: 0.2rem; }
+@media (max-width: 50rem) {
+  .tg-popover {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .tg-gear { display: inline-flex; }
+  .tg-popover-body {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+    padding: 0.3rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+    z-index: 5;
+  }
+  .tg-popover-body .tb { min-width: 1.9rem; }
+  .tg-popover.open .tg-popover-body { display: flex; }
+  .tg-popover.open .tg-gear { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent); }
+}
 
 /* --- cursor coordinate readout + zoom indicator ----------------------- */
 /* Pinned to the bottom-left / bottom-right of the stage, just inside the

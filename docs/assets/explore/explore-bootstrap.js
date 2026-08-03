@@ -99,6 +99,14 @@ window.EXPLORE = window.EXPLORE || {};
   E.tgGridEl = E.$("tg-grid");
   E.tgAxesEl = E.$("tg-axes");
   E.tgLabelsEl = E.$("tg-labels");
+  // The three view toggles collapse into a gear-triggered popover under
+  // 50rem. The popover wrapper (#tg-popover) holds the toggle body and the
+  // gear button (#tg-gear); explore-view.js toggles the wrapper's `.open`
+  // class and mirrors aria-expanded. On wide viewports the gear is hidden
+  // and the body unwraps inline (display: contents), so the same three toggle
+  // buttons serve both layouts.
+  E.tgPopoverEl = E.$("tg-popover");
+  E.tgGearEl = E.$("tg-gear");
   E.gridOverlayEl = E.$("grid-overlay");
   E.coordReadoutEl = E.$("coord-readout");
   E.zoomIndEl = E.$("zoom-ind");

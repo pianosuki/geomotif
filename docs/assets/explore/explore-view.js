@@ -11,6 +11,7 @@
 (function (E) {
   const {
     stageEl, themeEl, tgGridEl, tgAxesEl, tgLabelsEl,
+    tgPopoverEl, tgGearEl,
     coordReadoutEl, zoomIndEl,
     zoomInEl, zoomOutEl, fitEl,
     statusEl, progressEl, progressFill,
@@ -238,6 +239,38 @@
     syncToggle(tgLabelsEl, !on);
     writeToggle(LABELS_KEY, !on);
   });
+
+  // The gear popover: under 50rem the three view toggles collapse into a
+  // gear-triggered popover (CSS hides the body and floats it under the gear on
+  // narrow viewports; on wide viewports the body unwraps inline and the gear is
+  // hidden). The gear click toggles the wrapper's `.open` class and mirrors
+  // aria-expanded; a click outside the popover or an Escape closes it. The
+  // popover closes when the viewport crosses back to wide so an open popover
+  // never collides with the inline toggles re-appearing.
+  if (tgPopoverEl && tgGearEl) {
+    function closePopover() {
+      tgPopoverEl.classList.remove("open");
+      tgGearEl.setAttribute("aria-expanded", "false");
+    }
+    function openPopover() {
+      tgPopoverEl.classList.add("open");
+      tgGearEl.setAttribute("aria-expanded", "true");
+    }
+    tgGearEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      tgPopoverEl.classList.contains("open") ? closePopover() : openPopover();
+    });
+    document.addEventListener("click", (e) => {
+      if (!tgPopoverEl.classList.contains("open")) return;
+      if (!tgPopoverEl.contains(e.target)) closePopover();
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape" && tgPopoverEl.classList.contains("open")) closePopover();
+    });
+    const gearMq = window.matchMedia("(max-width: 50rem)");
+    if (gearMq.addEventListener) gearMq.addEventListener("change", () => closePopover());
+    else if (gearMq.addListener) gearMq.addListener(() => closePopover());
+  }
 
   function initViewToggles() {
     // All three default to on, so the stage opens with a full coordinate
