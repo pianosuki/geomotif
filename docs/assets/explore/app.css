@@ -335,8 +335,11 @@ header {
 /* Both the grid overlay and the motif SVG fill the stage's content box
    (inset 0.5rem == the padding) and stack by z-index: grid below, motif
    above, toolbar / readout / progress on top. Positioning both SVGs keeps
-   them in the same coordinate space without a vertical stack. */
-.stage svg {
+   them in the same coordinate space without a vertical stack. The selectors
+   are scoped to direct children (:scope > svg) so the floating toolbar's
+   inline icon glyphs and the placeholder's mark keep their own little boxes
+   instead of being stretched out to fill the stage. */
+.stage > svg {
   position: absolute;
   inset: 0.5rem;
   display: block;
@@ -344,17 +347,17 @@ header {
   height: calc(100% - 1rem);
 }
 .grid-overlay { z-index: 1; pointer-events: none; overflow: visible; }
-.stage svg:not(.grid-overlay) { z-index: 2; }
+.stage > svg:not(.grid-overlay) { z-index: 2; }
 /* The grid / axes / labels trio toggles the overlay's layers: .no-grid hides
    the whole overlay, .no-axes the axis group, .no-labels the tick labels. */
 .stage.no-grid .grid-overlay { display: none; }
 .stage.no-axes .grid-overlay .grid-axes { display: none; }
 .stage.no-labels .grid-overlay .grid-labels { display: none; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .stage svg:not(.grid-overlay) { filter: invert(1) hue-rotate(180deg); }
+  :root:not([data-theme="light"]) .stage > svg:not(.grid-overlay) { filter: invert(1) hue-rotate(180deg); }
 }
-:root[data-theme="dark"] .stage svg:not(.grid-overlay) { filter: invert(1) hue-rotate(180deg); }
-:root:not([data-theme="dark"]) .stage svg:not(.grid-overlay) { /* light theme keeps vector colors */ }
+:root[data-theme="dark"] .stage > svg:not(.grid-overlay) { filter: invert(1) hue-rotate(180deg); }
+:root:not([data-theme="dark"]) .stage > svg:not(.grid-overlay) { /* light theme keeps vector colors */ }
 .placeholder.error .main { color: #b3261e; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .placeholder.error .main { color: #f4847c; }
@@ -931,6 +934,21 @@ pre.command {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+/* The play / pause transport is a compact icon button: two swapped SVG glyphs
+   (a play triangle, two pause bars), toggled by the .playing class that
+   explore-animation.js sets on start/stop. The face stays icon-only so the
+   clock row reads tight; the title tooltip still explains it. */
+.tp#tp-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  padding: 0.28rem;
+}
+.tp#tp-play .ico { display: flex; width: 100%; height: 100%; }
+.tp#tp-play .ico.pause { display: none; }
+.tp#tp-play.playing .ico.play { display: none; }
+.tp#tp-play.playing .ico.pause { display: flex; }
 .tp-field {
   display: flex;
   align-items: center;

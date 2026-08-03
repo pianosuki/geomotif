@@ -595,7 +595,7 @@
     E.playState.last = performance.now();
     E.playState.idx = 0;
     E.playState.holdLeft = an.hold;
-    playPauseEl.textContent = "pause";
+    playPauseEl.classList.add("playing");
     const step = () => {
       if (!E.playState.on || !E.bundle) return;
       const now = performance.now();
@@ -639,7 +639,7 @@
     if (E.playState.raf) cancelAnimationFrame(E.playState.raf);
     E.playState.raf = null;
     E.playState.on = false;
-    playPauseEl.textContent = "play";
+    playPauseEl.classList.remove("playing");
   }
   E.stopPlayback = stopPlayback;
 
@@ -651,7 +651,7 @@
     if (!E.bundle || !E.bundle.core) return;
     const svg = E.bundle.core[Math.min(idx, E.bundle.core.length - 1)];
     if (!svg) return;
-    stageEl.querySelectorAll("svg:not(.grid-overlay)").forEach((s) => s.remove());
+    E.motifSvgs().forEach((s) => s.remove());
     stageEl.insertAdjacentHTML("beforeend", E.stripXmlDecl(svg));
     placeholderEl.classList.remove("busy", "error");
     placeholderEl.style.display = "none";
@@ -727,7 +727,7 @@
   E.restartPlayback = restartPlayback;
 
   function showAnimError(msg) {
-    stageEl.querySelectorAll("svg:not(.grid-overlay)").forEach((s) => s.remove());
+    E.motifSvgs().forEach((s) => s.remove());
     placeholderEl.classList.remove("busy");
     placeholderEl.classList.add("error");
     placeholderEl.style.display = "";

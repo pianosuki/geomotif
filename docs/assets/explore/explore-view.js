@@ -57,17 +57,31 @@
   // zoom around the centre and "fit" restores the natural viewBox. Everything is
   // pure client-side viewBox math on the already-rendered SVG, so it never calls
   // Pyodide and never busts the LRU (the cache key stays name + params).
+  // The stage's own rendered <svg> is always a *direct* child of .stage (the
+  // grid overlay is the other one, excluded by class). The floating toolbar and
+  // the placeholder also contain svg glyphs, so a bare "svg" query would hit
+  // those little icons first; scoping to direct children keeps every
+  // zoom/pan/readout/removal path talking about the real picture.
+  function motifSvg() {
+    return stageEl.querySelector(":scope > svg:not(.grid-overlay)");
+  }
+  E.motifSvg = motifSvg;
+  function motifSvgs() {
+    return [...stageEl.querySelectorAll(":scope > svg:not(.grid-overlay)")];
+  }
+  E.motifSvgs = motifSvgs;
+
   function svgRect() {
-    const svg = stageEl.querySelector("svg:not(.grid-overlay)");
+    const svg = motifSvg();
     return svg ? svg.getBoundingClientRect() : null;
   }
 
   // Read the rendered <svg>'s own viewBox into `naturalVB` -- the box the
-  // "fit" button restores to. The display render is a fixed 520x520 canvas, so
-  // in practice this is always {0,0,520,520}, but reading it from the element
-  // keeps the code honest if that ever changes.
+  // "fit" button restores to. The display render puts the world origin at the
+  // canvas centre, but the viewBox is the placed design's own bounds, so it is
+  // read from the element rather than assumed.
   function captureNatural() {
-    const svg = stageEl.querySelector("svg:not(.grid-overlay)");
+    const svg = motifSvg();
     if (!svg) { E.naturalVB = null; return; }
     const vb = svg.viewBox && svg.viewBox.baseVal;
     if (vb && vb.width > 0 && vb.height > 0) {
@@ -79,7 +93,7 @@
   E.captureNatural = captureNatural;
 
   function applyViewBox() {
-    const svg = stageEl.querySelector("svg:not(.grid-overlay)");
+    const svg = motifSvg();
     if (!svg || !E.viewBox) return;
     svg.setAttribute("viewBox", `${E.viewBox.x} ${E.viewBox.y} ${E.viewBox.w} ${E.viewBox.h}`);
     // The grid overlay mirrors the motif's box on every zoom/pan tick, and the

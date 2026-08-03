@@ -133,7 +133,10 @@
            `hidden` attribute. The .scrubber class reuses the former animator
            scrubber's thumb styling. -->
       <div class="stage-scrubber" id="stage-scrubber" hidden>
-        <button class="tp" id="tp-play" type="button" title="play / pause" aria-label="play or pause animation">play</button>
+        <button class="tp" id="tp-play" type="button" title="play / pause" aria-label="play or pause animation">
+          <svg class="ico play" width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 2.5 13 8 5 13.5z"/></svg>
+          <svg class="ico pause" width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><rect x="4" y="2.5" width="3.4" height="11" rx="0.8"/><rect x="8.6" y="2.5" width="3.4" height="11" rx="0.8"/></svg>
+        </button>
         <button class="tp toggle" id="tp-loop" type="button" title="loop playback" aria-label="loop playback" aria-pressed="true">loop</button>
         <input class="scrubber" id="stage-scrub-input" type="range" min="0" max="1" step="0.001" value="0" aria-label="scrub timeline">
         <span class="scrub-time" id="scrub-time" aria-hidden="true">t = 0.000</span>
