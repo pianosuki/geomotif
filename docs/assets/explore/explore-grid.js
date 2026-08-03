@@ -101,7 +101,18 @@
     const x0 = vb.x, y0 = vb.y, x1 = vb.x + vb.w, y1 = vb.y + vb.h;
     const major = niceStep(vb.w, 6);
     const minor = major / 5;
-    const fs = vb.w * 0.022; // label font size in user units, ~22px on a 520 box
+    // Stroke widths, dashes, arrowheads and label text all stay constant on
+    // screen regardless of the zoom: the strokes get vector-effect:
+    // non-scaling-stroke (so stroke-width and stroke-dasharray are in CSS
+    // pixels), and the arrowhead / label sizes are computed in screen pixels
+    // and converted back into user units at paint time. Without this the 1px
+    // hairlines balloon to fat fuzzy bars and the labels grow once the viewBox
+    // shrinks on a deep zoom.
+    const stagePx = (overlay.getBoundingClientRect().width) || 520;
+    const sc = vb.w / stagePx; // user units per screen pixel
+    const arrowSize = 7 * sc, half = arrowSize * 0.5;
+    const fs = 11 * sc; // ~11px on-screen label text
+    const hairline = { "vector-effect": "non-scaling-stroke" };
 
     // Minor gridlines (dotted, faint) -- skip the ones that coincide with a
     // major so the major lines read as the primary scaffold.
@@ -109,23 +120,23 @@
       if (Math.abs(x / major - Math.round(x / major)) < 1e-9) continue;
       gMinor.appendChild(el("line", {
         x1: x, y1: y0, x2: x, y2: y1,
-        stroke: c.line, "stroke-width": 1, "stroke-dasharray": "1 3",
+        stroke: c.line, "stroke-width": 1, "stroke-dasharray": "1 3", ...hairline,
       }));
     }
     for (let y = Math.ceil(y0 / minor) * minor; y <= y1 + 1e-9; y += minor) {
       if (Math.abs(y / major - Math.round(y / major)) < 1e-9) continue;
       gMinor.appendChild(el("line", {
         x1: x0, y1: y, x2: x1, y2: y,
-        stroke: c.line, "stroke-width": 1, "stroke-dasharray": "1 3",
+        stroke: c.line, "stroke-width": 1, "stroke-dasharray": "1 3", ...hairline,
       }));
     }
 
     // Major gridlines (solid).
     for (let x = Math.ceil(x0 / major) * major; x <= x1 + 1e-9; x += major) {
-      gMajor.appendChild(el("line", { x1: x, y1: y0, x2: x, y2: y1, stroke: c.line2, "stroke-width": 1 }));
+      gMajor.appendChild(el("line", { x1: x, y1: y0, x2: x, y2: y1, stroke: c.line2, "stroke-width": 1, ...hairline }));
     }
     for (let y = Math.ceil(y0 / major) * major; y <= y1 + 1e-9; y += major) {
-      gMajor.appendChild(el("line", { x1: x0, y1: y, x2: x1, y2: y, stroke: c.line2, "stroke-width": 1 }));
+      gMajor.appendChild(el("line", { x1: x0, y1: y, x2: x1, y2: y, stroke: c.line2, "stroke-width": 1, ...hairline }));
     }
 
     // Axes through the origin, clamped to the viewBox, with arrowheads at the
@@ -134,26 +145,28 @@
     const hasX = y0 <= 0 && 0 <= y1;
     const hasY = x0 <= 0 && 0 <= x1;
     if (hasX) {
-      gAxes.appendChild(el("line", { x1: x0, y1: 0, x2: x1, y2: 0, stroke: c.ink, "stroke-width": 1.5 }));
-      gAxes.appendChild(el("path", { d: `M ${x1} 0 l -8 -4 l 0 8 z`, fill: c.ink }));
-      gAxes.appendChild(el("path", { d: `M ${x0} 0 l 8 -4 l 0 8 z`, fill: c.ink }));
+      gAxes.appendChild(el("line", { x1: x0, y1: 0, x2: x1, y2: 0, stroke: c.ink, "stroke-width": 1.5, ...hairline }));
+      gAxes.appendChild(el("path", { d: `M ${x1} 0 l ${-arrowSize} ${-half} l 0 ${2 * half} z`, fill: c.ink }));
+      gAxes.appendChild(el("path", { d: `M ${x0} 0 l ${arrowSize} ${-half} l 0 ${2 * half} z`, fill: c.ink }));
     }
     if (hasY) {
-      gAxes.appendChild(el("line", { x1: 0, y1: y0, x2: 0, y2: y1, stroke: c.ink, "stroke-width": 1.5 }));
-      gAxes.appendChild(el("path", { d: `M 0 ${y1} l -4 -8 l 8 0 z`, fill: c.ink }));
-      gAxes.appendChild(el("path", { d: `M 0 ${y0} l -4 8 l 8 0 z`, fill: c.ink }));
+      gAxes.appendChild(el("line", { x1: 0, y1: y0, x2: 0, y2: y1, stroke: c.ink, "stroke-width": 1.5, ...hairline }));
+      gAxes.appendChild(el("path", { d: `M 0 ${y1} l ${-half} ${-arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
+      gAxes.appendChild(el("path", { d: `M 0 ${y0} l ${-half} ${arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
     }
 
-    // Tick labels: only when majors are wide enough apart that ~4-char labels
-    // do not overlap, and never more than ~10 across the box. The origin gets
-    // its own "0" so the two axes do not both label it.
+    // Tick labels, pinned to the stage edges rather than the origin so they
+    // survive zooming into a quadrant where the origin is off-screen: the x
+    // numbers run along the bottom edge of the viewBox, the y numbers along
+    // the left edge. Only rendered when majors are wide enough apart that
+    // ~4-char labels do not overlap, and never more than ~10 across the box.
     const crowded = major < fs * 3.5;
     const tooMany = vb.w / major > 10;
     if (hasX && !crowded && !tooMany) {
       for (let x = Math.ceil(x0 / major) * major; x <= x1 + 1e-9; x += major) {
         if (Math.abs(x) < 1e-9) continue;
         const t = el("text", {
-          x, y: 0, dy: -fs * 0.4, "text-anchor": "middle",
+          x, y: y1, dy: fs * 1.1, "text-anchor": "middle",
           "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
         });
         t.textContent = fmt(x);
@@ -164,13 +177,15 @@
       for (let y = Math.ceil(y0 / major) * major; y <= y1 + 1e-9; y += major) {
         if (Math.abs(y) < 1e-9) continue;
         const t = el("text", {
-          x: 0, y, dx: fs * 0.4, dy: fs * 0.35, "text-anchor": "start",
+          x: x0, y, dx: fs * 0.3, dy: fs * 0.35, "text-anchor": "start",
           "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
         });
         t.textContent = fmt(y);
         gLabels.appendChild(t);
       }
     }
+    // The origin's own "0" marks the crossing itself, so it moves with the
+    // plane and only appears when the origin is actually on-screen.
     if (hasX && hasY) {
       const t = el("text", {
         x: 0, y: 0, dx: fs * 0.4, dy: fs * 0.35, "text-anchor": "start",
