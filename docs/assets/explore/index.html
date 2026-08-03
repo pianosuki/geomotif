@@ -106,7 +106,10 @@
                   <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3h6l4 4-6 6-4-4z"/><circle cx="6" cy="6" r="1" fill="currentColor" stroke="none"/></svg>
                 </button>
               </div>
-              <button class="tb gear" id="tg-gear" type="button" title="view options" aria-label="view options" aria-haspopup="true" aria-expanded="false">
+              <!-- The class list carries `tg-gear` (the class the CSS targets
+                   to hide this button on wide viewports and style it when the
+                   popover is open), alongside the shared `tb` button style. -->
+              <button class="tb gear tg-gear" id="tg-gear" type="button" title="view options" aria-label="view options" aria-haspopup="true" aria-expanded="false">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M12.2 3.8l-1.4 1.4M5.2 10.8l-1.4 1.4"/></svg>
               </button>
             </div>
