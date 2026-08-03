@@ -32,6 +32,11 @@ __all__ = ["Range"]
 class Range(Mapping[str, float | None]):
     """A min/max/step bound for a parameter, as a field-metadata mapping.
 
+    Any of the three may be ``None`` to leave that bound unset; a consumer
+    then falls back to its own heuristic for the missing axis. The common
+    case is to set all three, and the commonest still is ``Range(lo, hi,
+    step=1)`` for an integer count.
+
     Parameters
     ----------
     min : float, optional
@@ -41,11 +46,6 @@ class Range(Mapping[str, float | None]):
     step : float, optional
         Granularity for an integer or quantized parameter. ``None`` means any
         value in the range is meaningful, which is the case for most floats.
-
-    Any of the three may be ``None`` to leave that bound unset; a consumer
-    then falls back to its own heuristic for the missing axis. The common
-    case is to set all three, and the commonest still is ``Range(lo, hi,
-    step=1)`` for an integer count.
 
     Examples
     --------

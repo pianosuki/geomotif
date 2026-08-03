@@ -749,3 +749,34 @@ pre.command {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+
+/* Step marker on discrete (bool / Literal / str) tracks: the value holds then
+   snaps at the next keyframe rather than easing, so a small stair glyph makes
+   the behavior visible without surprising a user who expects a smooth sweep. */
+.step-mark {
+  display: inline-flex;
+  align-items: center;
+  height: 1em;
+  margin-left: 0.1rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font: 0.6rem/1 var(--mono);
+  color: var(--faint);
+  background: var(--panel);
+  user-select: none;
+  vertical-align: middle;
+}
+
+/* On touch devices the timeline is read-only: scrub and play work, but
+   keyframe editing (drag, drop, delete, per-track easing) is hidden so a
+   finger does not fight a fat-finger drag. A hint says so up front. */
+.timeline.touch .lane { cursor: default; }
+.timeline.touch .kf { cursor: default; pointer-events: none; }
+.timeline.touch .track-easing { display: none; }
+.touch-hint {
+  margin: 0.2rem 0 0;
+  font: 0.68rem/1.4 var(--mono);
+  color: var(--faint);
+}
+.touch-hint code { font-family: var(--mono); }

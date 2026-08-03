@@ -93,6 +93,13 @@ explore-stage: build docs ## Build the wheel and stage the explorer SPA + wheel 
 	@cp docs/assets/explore/index.html \
 	    docs/assets/explore/app.css \
 	    docs/assets/explore/app.js \
+	    docs/assets/explore/explore-bootstrap.js \
+	    docs/assets/explore/explore-pybridge.js \
+	    docs/assets/explore/explore-view.js \
+	    docs/assets/explore/explore-fragment.js \
+	    docs/assets/explore/explore-controls.js \
+	    docs/assets/explore/explore-catalog.js \
+	    docs/assets/explore/explore-animation.js \
 	    docs/assets/explore/lz-string.js \
 	    docs/assets/explore/catalog.json \
 	    site/explore/

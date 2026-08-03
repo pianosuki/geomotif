@@ -131,6 +131,17 @@
        holds. Used only to compress the animation recipe into the share URL's
        `a=` fragment; the still `m=` fragment is plain base64url. -->
   <script src="lz-string.js"></script>
+  <!-- The SPA is split by concern into IIFE modules sharing one `EXPLORE`
+       namespace; order matters only for the namespace's creation, which the
+       bootstrap file owns. Classic scripts (no ES modules) preserve the
+       project's "no build step" ethos and work the same from a server. -->
+  <script src="explore-bootstrap.js"></script>
+  <script src="explore-pybridge.js"></script>
+  <script src="explore-view.js"></script>
+  <script src="explore-fragment.js"></script>
+  <script src="explore-controls.js"></script>
+  <script src="explore-catalog.js"></script>
+  <script src="explore-animation.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
