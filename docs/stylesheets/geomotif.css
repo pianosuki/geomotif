@@ -51,6 +51,15 @@
   margin: 1.5rem 0;
 }
 
+/* Markdown wraps each image line (and everything else) in a <p>, so the flex
+   children of .strip are actually one <p> per row, not the images -- and the
+   <p> stretches full width, stacking the imgs vertically. Making the <p>
+   layout-transparent (display: contents) lets the imgs become the flex items
+   the width-fixed rule below addresses. */
+.strip p {
+  display: contents;
+}
+
 .strip img {
   flex: 0 0 140px;
   width: 140px;
@@ -93,6 +102,22 @@
   text-transform: uppercase;
   text-decoration: none;
   transition: background 0.15s ease, color 0.15s ease;
+}
+/* Material's `.md-header__button:not([hidden]) { display: inline-block }` has
+   higher specificity than `.md-header__explore` alone, so the pill's own
+   inline-flex centering was being overridden and the text sat on the inline
+   block's line box (off-vertical-center). Re-declaring the pair here --
+   same specificity as Material's selector, later in the cascade -- restores
+   the flex centering and gives the pill a stable box. */
+.md-header__button.md-header__explore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  height: 2.2rem;
+  margin: 0.2rem;
+  padding: 0 0.85rem;
+  box-sizing: border-box;
 }
 .md-header__explore:hover {
   background: var(--md-accent-fg-color, #4f46e5);
