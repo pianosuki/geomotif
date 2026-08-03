@@ -167,7 +167,7 @@
     // stage has no SVG yet. On subsequent debounced updates we keep the current
     // picture in place and swap it once the new one is ready, so slider drags
     // never flash a placeholder between frames.
-    const hadSvg = !!stageEl.querySelector("svg");
+    const hadSvg = !!stageEl.querySelector("svg:not(.grid-overlay)");
     if (!hadSvg) {
       placeholderEl.classList.remove("error");
       placeholderEl.classList.add("busy");
@@ -187,7 +187,7 @@
       placeholderEl.classList.remove("busy");
       placeholderEl.classList.add("error");
       placeholderEl.style.display = "";
-      stageEl.querySelectorAll("svg").forEach((s) => s.remove());
+      stageEl.querySelectorAll("svg:not(.grid-overlay)").forEach((s) => s.remove());
       phMain.textContent = result.error;
       E.lastSvg = null;
       E.lastMotif = null;
@@ -199,7 +199,7 @@
     }
     placeholderEl.classList.remove("busy", "error");
     placeholderEl.style.display = "none";
-    stageEl.querySelectorAll("svg").forEach((s) => s.remove());
+    stageEl.querySelectorAll("svg:not(.grid-overlay)").forEach((s) => s.remove());
     stageEl.insertAdjacentHTML("beforeend", E.stripXmlDecl(result.svg));
     // Remember the full-prolog SVG (the bytes the CLI writes) and the inputs
     // that produced it, for the SVG / PNG / spec exporters. The display copy is
@@ -221,7 +221,7 @@
   E.render = render;
 
   function showUnavailable(info) {
-    stageEl.querySelectorAll("svg").forEach((s) => s.remove());
+    stageEl.querySelectorAll("svg:not(.grid-overlay)").forEach((s) => s.remove());
     placeholderEl.classList.remove("busy");
     placeholderEl.classList.add("error");
     placeholderEl.style.display = "";

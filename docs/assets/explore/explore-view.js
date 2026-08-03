@@ -1,17 +1,20 @@
 "use strict";
 
 // View layer: small shared helpers (XML prolog strip, HTML escape, status,
-// progress, flash, download) and the stage's zoom/pan + theme/grid/border
+// progress, flash, download) and the stage's zoom/pan + theme/grid/axes/labels
 // toggles. Everything is pure client-side viewBox math on the already-rendered
 // SVG (never calls Pyodide, never busts the LRU), and the toggle state
-// persists in localStorage across sessions.
+// persists in localStorage across sessions. The coordinate grid overlay is
+// painted by explore-grid.js; this module owns the toggle buttons, the cursor
+// coordinate readout, and the zoom indicator.
 
 (function (E) {
   const {
-    stageEl, themeEl, tgGridEl, tgBorderEl,
+    stageEl, themeEl, tgGridEl, tgAxesEl, tgLabelsEl,
+    coordReadoutEl, zoomIndEl,
     zoomInEl, zoomOutEl, fitEl,
     statusEl, progressEl, progressFill,
-    ZOOM_STEP, THEME_KEY, GRID_KEY, BORDER_KEY,
+    ZOOM_STEP, THEME_KEY, GRID_KEY, AXES_KEY, LABELS_KEY,
   } = E;
 
   // --- small helpers ----------------------------------------------------------
@@ -41,7 +44,7 @@
   // pure client-side viewBox math on the already-rendered SVG, so it never calls
   // Pyodide and never busts the LRU (the cache key stays name + params).
   function svgRect() {
-    const svg = stageEl.querySelector("svg");
+    const svg = stageEl.querySelector("svg:not(.grid-overlay)");
     return svg ? svg.getBoundingClientRect() : null;
   }
 
@@ -50,7 +53,7 @@
   // in practice this is always {0,0,520,520}, but reading it from the element
   // keeps the code honest if that ever changes.
   function captureNatural() {
-    const svg = stageEl.querySelector("svg");
+    const svg = stageEl.querySelector("svg:not(.grid-overlay)");
     if (!svg) { E.naturalVB = null; return; }
     const vb = svg.viewBox && svg.viewBox.baseVal;
     if (vb && vb.width > 0 && vb.height > 0) {
@@ -62,9 +65,14 @@
   E.captureNatural = captureNatural;
 
   function applyViewBox() {
-    const svg = stageEl.querySelector("svg");
+    const svg = stageEl.querySelector("svg:not(.grid-overlay)");
     if (!svg || !E.viewBox) return;
     svg.setAttribute("viewBox", `${E.viewBox.x} ${E.viewBox.y} ${E.viewBox.w} ${E.viewBox.h}`);
+    // The grid overlay mirrors the motif's box on every zoom/pan tick, and the
+    // zoom indicator (the factor relative to the motif's natural box) follows
+    // along so it stays correct through wheel-zoom, pan, fit, and the buttons.
+    if (E.paintGrid) E.paintGrid();
+    updateZoomInd();
   }
   E.applyViewBox = applyViewBox;
 
@@ -174,6 +182,10 @@
     document.documentElement.dataset.theme = t;
     try { localStorage.setItem(THEME_KEY, t); } catch (e) { /* private mode */ }
     applyThemeButton();
+    // The grid overlay reads --line / --ink / --muted from CSS, so a theme
+    // switch has to invalidate its color cache and repaint.
+    if (E.invalidateGridColors) E.invalidateGridColors();
+    if (E.paintGrid) E.paintGrid();
   }
 
   themeEl.addEventListener("click", () => {
@@ -188,11 +200,16 @@
     if (stored) return;
     document.documentElement.dataset.theme = e.matches ? "dark" : "light";
     applyThemeButton();
+    if (E.invalidateGridColors) E.invalidateGridColors();
+    if (E.paintGrid) E.paintGrid();
   });
   else if (mq.addListener) mq.addListener((e) => { /* Safari < 14 fallback */ });
 
-  // Grid + border toggles carry over between sessions the same way; their state
-  // is read at boot by initViewToggles and applied as classes on .stage.
+  // The grid / axes / labels trio carries over between sessions the same way
+  // the old single grid toggle did; their state is read at boot by
+  // initViewToggles and applied as classes on .stage. The classes drive the
+  // overlay: .no-grid hides the whole overlay SVG; .no-axes and .no-labels
+  // toggle the axis and label groups inside it (see app.css).
   function readToggle(key, def) {
     try { const v = localStorage.getItem(key); return v == null ? def : v === "on"; }
     catch (e) { return def; }
@@ -201,34 +218,77 @@
     try { localStorage.setItem(key, on ? "on" : "off"); } catch (e) { /* private */ }
   }
 
-  function syncGridToggle() {
-    const on = !stageEl.classList.contains("no-grid");
-    tgGridEl.setAttribute("aria-pressed", String(on));
-  }
-  function syncBorderToggle() {
-    const on = !stageEl.classList.contains("no-border");
-    tgBorderEl.setAttribute("aria-pressed", String(on));
-  }
+  function syncToggle(el, on) { el.setAttribute("aria-pressed", String(on)); }
 
   tgGridEl.addEventListener("click", () => {
+    const on = !stageEl.classList.contains("no-grid");
     stageEl.classList.toggle("no-grid");
-    syncGridToggle();
-    writeToggle(GRID_KEY, !stageEl.classList.contains("no-grid"));
+    syncToggle(tgGridEl, !on);
+    writeToggle(GRID_KEY, !on);
   });
-  tgBorderEl.addEventListener("click", () => {
-    stageEl.classList.toggle("no-border");
-    syncBorderToggle();
-    writeToggle(BORDER_KEY, !stageEl.classList.contains("no-border"));
+  tgAxesEl.addEventListener("click", () => {
+    const on = !stageEl.classList.contains("no-axes");
+    stageEl.classList.toggle("no-axes");
+    syncToggle(tgAxesEl, !on);
+    writeToggle(AXES_KEY, !on);
+  });
+  tgLabelsEl.addEventListener("click", () => {
+    const on = !stageEl.classList.contains("no-labels");
+    stageEl.classList.toggle("no-labels");
+    syncToggle(tgLabelsEl, !on);
+    writeToggle(LABELS_KEY, !on);
   });
 
   function initViewToggles() {
+    // All three default to on, so the stage opens with a full coordinate
+    // plane; a user who has turned one off restores that choice.
     if (!readToggle(GRID_KEY, true)) stageEl.classList.add("no-grid");
-    if (!readToggle(BORDER_KEY, true)) stageEl.classList.add("no-border");
-    syncGridToggle();
-    syncBorderToggle();
+    if (!readToggle(AXES_KEY, true)) stageEl.classList.add("no-axes");
+    if (!readToggle(LABELS_KEY, true)) stageEl.classList.add("no-labels");
+    syncToggle(tgGridEl, !stageEl.classList.contains("no-grid"));
+    syncToggle(tgAxesEl, !stageEl.classList.contains("no-axes"));
+    syncToggle(tgLabelsEl, !stageEl.classList.contains("no-labels"));
     applyThemeButton();
+    if (E.paintGrid) E.paintGrid();
+    updateZoomInd();
   }
   E.initViewToggles = initViewToggles;
+
+  // --- cursor coordinate readout + zoom indicator -------------------------
+  // The readout maps the pointer's screen position into the live viewBox units
+  // and shows `x: 12.3  y: -4.5` pinned to the bottom-left of the stage. It is
+  // filled on pointermove and cleared when the pointer leaves (or when no
+  // viewBox is live). Pure client-side math via svgRect() + E.viewBox.
+  function fmtCoord(v) {
+    if (Math.abs(v) < 1e-9) return "0";
+    const s = Math.abs(v) < 1 ? v.toFixed(2) : v.toFixed(1);
+    return s.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
+  }
+  function updateReadout(e) {
+    if (!E.viewBox) { coordReadoutEl.textContent = ""; return; }
+    const r = svgRect();
+    if (!r || !r.width || !r.height) return;
+    const px = (e.clientX - r.left) / r.width;
+    const py = (e.clientY - r.top) / r.height;
+    const cx = E.viewBox.x + px * E.viewBox.w;
+    const cy = E.viewBox.y + py * E.viewBox.h;
+    coordReadoutEl.textContent = `x: ${fmtCoord(cx)}  y: ${fmtCoord(cy)}`;
+  }
+  stageEl.addEventListener("pointermove", updateReadout);
+  stageEl.addEventListener("pointerleave", () => { coordReadoutEl.textContent = ""; });
+
+  // The zoom indicator is the factor of the motif's natural box currently in
+  // view (natural.w / view.w): 1.0x at fit, >1 when zoomed in, <1 when zoomed
+  // out. Updated on every applyViewBox; cleared when there is no viewBox.
+  function updateZoomInd() {
+    if (!E.viewBox || !E.naturalVB || !(E.naturalVB.w > 0)) {
+      zoomIndEl.textContent = "";
+      return;
+    }
+    const z = E.naturalVB.w / E.viewBox.w;
+    zoomIndEl.textContent = (z >= 100 ? z.toFixed(0) : z >= 10 ? z.toFixed(1) : z.toFixed(2)) + "x";
+  }
+  E.updateZoomInd = updateZoomInd;
 
   // --- export helpers ----------------------------------------------------------
   function flash(btn, ok, okText, failText) {

@@ -54,7 +54,8 @@ window.EXPLORE = window.EXPLORE || {};
 
   E.THEME_KEY = "geomotif.theme";
   E.GRID_KEY = "geomotif.grid";
-  E.BORDER_KEY = "geomotif.border";
+  E.AXES_KEY = "geomotif.axes";
+  E.LABELS_KEY = "geomotif.labels";
 
   // Animation-mode bounds and pre-render chunk size.
   E.EASINGS = ["linear", "quadratic", "cubic", "sinusoidal", "exponential", "circular"];
@@ -96,7 +97,11 @@ window.EXPLORE = window.EXPLORE || {};
   E.zoomInEl = E.$("zoom-in");
   E.fitEl = E.$("fit");
   E.tgGridEl = E.$("tg-grid");
-  E.tgBorderEl = E.$("tg-border");
+  E.tgAxesEl = E.$("tg-axes");
+  E.tgLabelsEl = E.$("tg-labels");
+  E.gridOverlayEl = E.$("grid-overlay");
+  E.coordReadoutEl = E.$("coord-readout");
+  E.zoomIndEl = E.$("zoom-ind");
   E.themeEl = E.$("theme");
   E.playEl = E.$("play");
   E.timelineEl = E.$("timeline");

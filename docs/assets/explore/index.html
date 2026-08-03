@@ -44,16 +44,35 @@
     <section class="stage-area">
       <div class="stage-wrap">
         <div class="stage" id="stage">
+          <!-- Coordinate grid overlay: an SVG layer behind the motif that
+               renders a Desmos-style plane -- major/minor gridlines, axes
+               through the origin with arrowheads, and tick labels. It mirrors
+               E.viewBox on every zoom/pan tick (repainted by explore-grid.js)
+               and is hidden by .no-grid / .no-axes / .no-labels on .stage. -->
+          <svg class="grid-overlay" id="grid-overlay" viewBox="0 0 520 520" preserveAspectRatio="none" aria-hidden="true">
+            <g class="grid-minor"></g>
+            <g class="grid-major"></g>
+            <g class="grid-axes"></g>
+            <g class="grid-labels"></g>
+          </svg>
           <div class="stage-toolbar" id="toolbar" role="toolbar" aria-label="view">
             <button class="tb" id="zoom-out" type="button" title="zoom out">−</button>
-            <button class="tb" id="zoom-in" type="button" title="zoom in">+</button>
             <button class="tb" id="fit" type="button" title="fit to view">fit</button>
+            <button class="tb" id="zoom-in" type="button" title="zoom in">+</button>
             <span class="tb-sep" aria-hidden="true"></span>
-            <button class="tb toggle" id="tg-grid" type="button" title="toggle dot grid" aria-pressed="true">grid</button>
-            <button class="tb toggle" id="tg-border" type="button" title="toggle stage border" aria-pressed="true">border</button>
+            <button class="tb toggle" id="tg-grid" type="button" title="toggle coordinate grid" aria-pressed="true">grid</button>
+            <button class="tb toggle" id="tg-axes" type="button" title="toggle axes through the origin" aria-pressed="true">axes</button>
+            <button class="tb toggle" id="tg-labels" type="button" title="toggle tick labels" aria-pressed="true">labels</button>
             <span class="tb-sep" aria-hidden="true"></span>
             <button class="tb toggle" id="play" type="button" title="enter / leave animation mode" aria-pressed="false">play</button>
           </div>
+          <!-- Cursor coordinate readout: pinned bottom-left of the stage,
+               showing the live viewBox x/y under the pointer. Filled by
+               explore-view.js on pointermove; cleared on pointerleave. -->
+          <div class="coord-readout" id="coord-readout" aria-hidden="true"></div>
+          <!-- Zoom indicator: the current zoom factor relative to the
+               motif's natural viewBox, updated on every applyViewBox. -->
+          <div class="zoom-ind" id="zoom-ind" aria-hidden="true"></div>
           <div class="placeholder" id="placeholder">
             <svg class="glyph" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" aria-hidden="true">
               <circle cx="12" cy="12" r="9"/>
@@ -137,6 +156,7 @@
        project's "no build step" ethos and work the same from a server. -->
   <script src="explore-bootstrap.js"></script>
   <script src="explore-pybridge.js"></script>
+  <script src="explore-grid.js"></script>
   <script src="explore-view.js"></script>
   <script src="explore-fragment.js"></script>
   <script src="explore-controls.js"></script>

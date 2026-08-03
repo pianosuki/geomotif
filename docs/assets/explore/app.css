@@ -235,6 +235,9 @@ header {
 /* --- stage (the drawing surface) ------------------------------------------- */
 .stage-area { min-width: 0; }
 .stage-wrap { display: flex; justify-content: center; }
+/* The stage's 1px border + soft shadow are now a permanent frame (the old
+   border toggle retired), and the old decorative dot-grid background is gone -- a real
+   coordinate plane lives in the .grid-overlay SVG behind the motif. */
 .stage {
   position: relative;
   width: 100%;
@@ -242,9 +245,7 @@ header {
   aspect-ratio: 1 / 1;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
-  background:
-    radial-gradient(var(--dot) 1px, transparent 1px) 0 0 / 14px 14px,
-    var(--panel-2);
+  background: var(--panel-2);
   box-shadow: var(--shadow);
   padding: 0.5rem;
   overflow: hidden;
@@ -252,15 +253,29 @@ header {
   cursor: grab;
 }
 .stage:active { cursor: grabbing; }
-.stage.no-grid { background: var(--panel-2); }
-.stage.no-border { border-color: transparent; box-shadow: none; }
-.stage.no-grid.no-border { background: transparent; }
-.stage svg { width: 100%; height: 100%; display: block; }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .stage svg { filter: invert(1) hue-rotate(180deg); }
+/* Both the grid overlay and the motif SVG fill the stage's content box
+   (inset 0.5rem == the padding) and stack by z-index: grid below, motif
+   above, toolbar / readout / progress on top. Positioning both SVGs keeps
+   them in the same coordinate space without a vertical stack. */
+.stage svg {
+  position: absolute;
+  inset: 0.5rem;
+  display: block;
+  width: auto;
+  height: auto;
 }
-:root[data-theme="dark"] .stage svg { filter: invert(1) hue-rotate(180deg); }
-:root:not([data-theme="dark"]) .stage svg { /* light theme keeps vector colors */ }
+.grid-overlay { z-index: 1; pointer-events: none; overflow: visible; }
+.stage svg:not(.grid-overlay) { z-index: 2; }
+/* The grid / axes / labels trio toggles the overlay's layers: .no-grid hides
+   the whole overlay, .no-axes the axis group, .no-labels the tick labels. */
+.stage.no-grid .grid-overlay { display: none; }
+.stage.no-axes .grid-overlay .grid-axes { display: none; }
+.stage.no-labels .grid-overlay .grid-labels { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .stage svg:not(.grid-overlay) { filter: invert(1) hue-rotate(180deg); }
+}
+:root[data-theme="dark"] .stage svg:not(.grid-overlay) { filter: invert(1) hue-rotate(180deg); }
+:root:not([data-theme="dark"]) .stage svg:not(.grid-overlay) { /* light theme keeps vector colors */ }
 .placeholder.error .main { color: #b3261e; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .placeholder.error .main { color: #f4847c; }
@@ -277,6 +292,8 @@ header {
   text-align: center;
   color: var(--faint);
   padding: 2rem;
+  z-index: 3;
+  pointer-events: none;
 }
 .placeholder .glyph { color: var(--line-2); margin-bottom: 0.25rem; }
 .placeholder .main { font-size: 0.95rem; color: var(--muted); }
@@ -496,9 +513,10 @@ pre.command {
 
 /* --- stage view toolbar ---------------------------------------------------- */
 /* A small floating row of buttons pinned to the top-right of the drawing
-   surface: zoom out / in / fit, the grid + border view toggles, and the
-   light/dark theme switch. It sits inside .stage so it stays aligned with the
-   (centered, max-width) drawing box, above the zoomed SVG and below nothing. */
+   surface: the zoom cluster (out / fit / in), the grid / axes / labels view
+   toggles, and the play entry to animation mode (kept until C1's Design /
+   Animate tabs retire it). It sits inside .stage so it stays aligned with the
+   (centered, max-width) drawing box, above the zoomed SVG. */
 .stage-toolbar {
   position: absolute;
   top: 0.6rem;
@@ -534,6 +552,34 @@ pre.command {
   border-color: var(--accent);
 }
 .tb-sep { width: 1px; align-self: stretch; margin: 0.15rem 0.2rem; background: var(--line); }
+
+/* --- cursor coordinate readout + zoom indicator ----------------------- */
+/* Pinned to the bottom-left / bottom-right of the stage, just inside the
+   frame. Both are pointer-events: none so they never catch a pan / zoom
+   drag, and they clear themselves when there is no viewBox (no motif loaded)
+   or the pointer has left the stage. The mono font matches the rest of the
+   drafting-surface readouts. */
+.coord-readout,
+.zoom-ind {
+  position: absolute;
+  bottom: 0.6rem;
+  z-index: 3;
+  padding: 0.18rem 0.45rem;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  font: 0.68rem/1 var(--mono);
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+.coord-readout { left: 0.6rem; }
+.zoom-ind { right: 0.6rem; }
+.coord-readout:empty,
+.zoom-ind:empty { display: none; }
 
 /* --- export row ------------------------------------------------------------ */
 .export-row {

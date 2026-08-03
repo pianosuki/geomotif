@@ -95,6 +95,7 @@ explore-stage: build docs ## Build the wheel and stage the explorer SPA + wheel 
 	    docs/assets/explore/app.js \
 	    docs/assets/explore/explore-bootstrap.js \
 	    docs/assets/explore/explore-pybridge.js \
+	    docs/assets/explore/explore-grid.js \
 	    docs/assets/explore/explore-view.js \
 	    docs/assets/explore/explore-fragment.js \
 	    docs/assets/explore/explore-controls.js \

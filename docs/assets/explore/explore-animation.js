@@ -592,7 +592,7 @@
     if (!E.bundle || !E.bundle.core) return;
     const svg = E.bundle.core[Math.min(idx, E.bundle.core.length - 1)];
     if (!svg) return;
-    stageEl.querySelectorAll("svg").forEach((s) => s.remove());
+    stageEl.querySelectorAll("svg:not(.grid-overlay)").forEach((s) => s.remove());
     stageEl.insertAdjacentHTML("beforeend", E.stripXmlDecl(svg));
     placeholderEl.classList.remove("busy", "error");
     placeholderEl.style.display = "none";
@@ -632,7 +632,7 @@
   E.restartPlayback = restartPlayback;
 
   function showAnimError(msg) {
-    stageEl.querySelectorAll("svg").forEach((s) => s.remove());
+    stageEl.querySelectorAll("svg:not(.grid-overlay)").forEach((s) => s.remove());
     placeholderEl.classList.remove("busy");
     placeholderEl.classList.add("error");
     placeholderEl.style.display = "";
