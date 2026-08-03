@@ -146,6 +146,9 @@
     if (!E.viewBox || e.button !== 0) return;
     // Ignore presses on the floating toolbar so its buttons still work.
     if (e.target.closest(".stage-toolbar")) return;
+    // Block the browser's text selection during the drag: without this a fast
+    // pan selects the grid labels and any other text under the pointer.
+    e.preventDefault();
     E.pan = {
       x: e.clientX, y: e.clientY,
       vx: E.viewBox.x, vy: E.viewBox.y, w: E.viewBox.w, h: E.viewBox.h,
