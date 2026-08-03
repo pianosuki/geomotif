@@ -105,10 +105,37 @@ header {
   -webkit-backdrop-filter: saturate(1.4) blur(10px);
   border-bottom: 1px solid var(--line);
 }
-.wordmark { display: flex; align-items: center; gap: 0.55rem; margin-right: auto; }
+.wordmark { display: flex; align-items: center; gap: 0.55rem; margin-right: auto; text-decoration: none; color: inherit; }
 .wordmark svg { color: var(--accent); flex: none; }
 .wordmark b { font-weight: 600; font-size: 0.95rem; letter-spacing: -0.02em; }
 .wordmark .dim { color: var(--faint); font-weight: 400; }
+.wordmark:hover .dim { color: var(--muted); }
+/* Right-aligned quiet buttons in the SPA header — a "docs" anchor back to the
+   mkdocs home and the light/dark theme toggle. They sit where the theme
+   button used to live on the stage, matching the .search/.status rhythm. */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.78rem/1 var(--sans);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.nav-link:hover { color: var(--ink); border-color: var(--accent); }
+.nav-link:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* The theme toggle reads as pressed when the page is in dark mode, the same
+   affordance the old stage-toolbar toggle used. */
+.nav-link#theme[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
 .search {
   width: clamp(10rem, 22vw, 20rem);
   padding: 0.45rem 0.7rem 0.45rem 1.85rem;
@@ -211,7 +238,7 @@ header {
 .stage {
   position: relative;
   width: 100%;
-  max-width: 560px;
+  max-width: 720px;
   aspect-ratio: 1 / 1;
   border: 1px solid var(--line);
   border-radius: var(--r-lg);
@@ -258,7 +285,7 @@ header {
 .placeholder.busy .glyph { animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
-.meta { margin: 1.25rem auto 0; max-width: 560px; }
+.meta { margin: 1.25rem auto 0; max-width: 720px; }
 .meta h2 { font-size: 1.25rem; font-weight: 500; letter-spacing: -0.02em; margin-bottom: 0.15rem; }
 .meta h2 code { font-size: 1.25rem; font-weight: 500; }
 .meta .summary { color: var(--muted); font-size: 0.9rem; margin: 0 0 0.5rem; }
@@ -530,7 +557,7 @@ pre.command {
 .timeline {
   display: none;
   margin: 1rem auto 0;
-  max-width: 560px;
+  max-width: 720px;
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--line);
   border-radius: var(--r);

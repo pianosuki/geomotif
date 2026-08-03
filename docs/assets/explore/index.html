@@ -19,15 +19,17 @@
 </head>
 <body>
   <header>
-    <div class="wordmark">
+    <a class="wordmark" href="/" title="back to docs">
       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
         <circle cx="12" cy="12" r="9"/>
         <path d="M3 12h18M12 3v18"/>
         <circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/>
       </svg>
       <b>geomotif</b><span class="dim">/ explore</span>
-    </div>
+    </a>
     <input class="search" type="search" placeholder="search motifs…" autocomplete="off" aria-label="search motifs">
+    <a class="nav-link" href="/" title="back to docs">docs</a>
+    <button class="nav-link" id="theme" type="button" title="toggle light / dark" aria-pressed="false">theme</button>
     <span class="status" id="status">loading catalog…</span>
     <span class="progress" id="progress" aria-hidden="true"><i></i></span>
   </header>
@@ -49,8 +51,6 @@
             <span class="tb-sep" aria-hidden="true"></span>
             <button class="tb toggle" id="tg-grid" type="button" title="toggle dot grid" aria-pressed="true">grid</button>
             <button class="tb toggle" id="tg-border" type="button" title="toggle stage border" aria-pressed="true">border</button>
-            <span class="tb-sep" aria-hidden="true"></span>
-            <button class="tb" id="theme" type="button" title="toggle light / dark">theme</button>
             <span class="tb-sep" aria-hidden="true"></span>
             <button class="tb toggle" id="play" type="button" title="enter / leave animation mode" aria-pressed="false">play</button>
           </div>
