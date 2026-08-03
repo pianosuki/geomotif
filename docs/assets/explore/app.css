@@ -136,6 +136,35 @@ header {
   background: var(--accent-soft);
   border-color: var(--accent);
 }
+/* The Design / Animate segmented control sits between the wordmark and
+   the search field, the single entry point to animation mode now that the
+   stage-toolbar Play button is retired. A roving tabindex keeps keyboard
+   focus on the active tab; aria-selected is driven by explore-mode.js. */
+.mode-tabs {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  gap: 0;
+}
+.mode-tab {
+  padding: 0.32rem 0.85rem;
+  border: none;
+  border-radius: calc(var(--r) - 2px);
+  background: transparent;
+  color: var(--muted);
+  font: 500 0.78rem/1 var(--sans);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.mode-tab:hover { color: var(--ink); }
+.mode-tab:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.mode-tab[aria-selected="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
 .search {
   width: clamp(10rem, 22vw, 20rem);
   padding: 0.45rem 0.7rem 0.45rem 1.85rem;
@@ -513,10 +542,11 @@ pre.command {
 
 /* --- stage view toolbar ---------------------------------------------------- */
 /* A small floating row of buttons pinned to the top-right of the drawing
-   surface: the zoom cluster (out / fit / in), the grid / axes / labels view
-   toggles, and the play entry to animation mode (kept until C1's Design /
-   Animate tabs retire it). It sits inside .stage so it stays aligned with the
-   (centered, max-width) drawing box, above the zoomed SVG. */
+    surface: the zoom cluster (out / fit / in) and the grid / axes / labels
+    view toggles. It sits inside .stage so it stays aligned with the
+    (centered, max-width) drawing box, above the zoomed SVG. The Play entry to
+    animation mode retired in C1 in favor of the header's Design / Animate
+    mode tabs. */
 .stage-toolbar {
   position: absolute;
   top: 0.6rem;
@@ -813,14 +843,6 @@ pre.command {
   width: 0;
   background: var(--accent);
   transition: width 0.15s ease;
-}
-
-/* The Play toggle on the stage toolbar uses the same .tb.toggle styling as
-   grid/border; it just needs a distinct accent when active. */
-.tb.toggle#play[aria-pressed="true"] {
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  border-color: var(--accent);
 }
 
 /* Step marker on discrete (bool / Literal / str) tracks: the value holds then

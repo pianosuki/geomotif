@@ -27,6 +27,17 @@
       </svg>
       <b>geomotif</b><span class="dim">/ explore</span>
     </a>
+    <!-- Mode tabs: a segmented Design / Animate control that replaces the
+         stage-toolbar Play button as the single entry point to animation mode.
+         Clicking Animate calls E.enterAnim(); clicking Design calls E.exitAnim().
+         explore-mode.js owns the tab wiring and keeps aria-selected in sync with
+         E.animOn so a share URL that boots into animation lights the right tab.
+         Arrow keys move focus between tabs; Enter / Space (the <button> default)
+         activates. The tabpanel roles land with the animator panel. -->
+    <div class="mode-tabs" role="tablist" aria-label="mode">
+      <button class="mode-tab" role="tab" id="mode-design" type="button" aria-selected="true" tabindex="0">Design</button>
+      <button class="mode-tab" role="tab" id="mode-animate" type="button" aria-selected="false" tabindex="-1">Animate</button>
+    </div>
     <input class="search" type="search" placeholder="search motifs…" autocomplete="off" aria-label="search motifs">
     <a class="nav-link" href="/" title="back to docs">docs</a>
     <button class="nav-link" id="theme" type="button" title="toggle light / dark" aria-pressed="false">theme</button>
@@ -63,8 +74,6 @@
             <button class="tb toggle" id="tg-grid" type="button" title="toggle coordinate grid" aria-pressed="true">grid</button>
             <button class="tb toggle" id="tg-axes" type="button" title="toggle axes through the origin" aria-pressed="true">axes</button>
             <button class="tb toggle" id="tg-labels" type="button" title="toggle tick labels" aria-pressed="true">labels</button>
-            <span class="tb-sep" aria-hidden="true"></span>
-            <button class="tb toggle" id="play" type="button" title="enter / leave animation mode" aria-pressed="false">play</button>
           </div>
           <!-- Cursor coordinate readout: pinned bottom-left of the stage,
                showing the live viewBox x/y under the pointer. Filled by
@@ -162,6 +171,7 @@
   <script src="explore-controls.js"></script>
   <script src="explore-catalog.js"></script>
   <script src="explore-animation.js"></script>
+  <script src="explore-mode.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

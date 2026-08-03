@@ -101,6 +101,7 @@ explore-stage: build docs ## Build the wheel and stage the explorer SPA + wheel 
 	    docs/assets/explore/explore-controls.js \
 	    docs/assets/explore/explore-catalog.js \
 	    docs/assets/explore/explore-animation.js \
+	    docs/assets/explore/explore-mode.js \
 	    docs/assets/explore/lz-string.js \
 	    docs/assets/explore/catalog.json \
 	    site/explore/

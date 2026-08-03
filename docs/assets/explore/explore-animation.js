@@ -1,7 +1,7 @@
 "use strict";
 
-// Animation mode: a mode toggle on the stage toolbar flips the bottom of the
-// stage-area from a still picture into a timeline editor. The Step-7
+// Animation mode: the SPA header's Design / Animate mode tabs flip the
+// bottom of the stage-area from a still picture into a timeline editor. The
 // `keyframes` primitive is the wire format: `anim.tracks` is exactly the
 // `tracks` mapping the Python function takes, and `build_keyframes` runs it
 // under Pyodide, stashing the per-frame Designs for chunked SVG fetch. Playback
@@ -16,7 +16,7 @@
 
 (function (E) {
   const {
-    playEl, timelineEl, stageEl, tracksEl, scrubEl, transportEl,
+    timelineEl, stageEl, tracksEl, scrubEl, transportEl,
     playPauseEl, loopEl, animFramesEl, animFpsEl, animHoldEl, animEaseEl,
     ovDrawEl, ovSpinEl, ovDrawOpts, ovSpinOpts, ovTrailEl, ovTurnsEl,
     expGifEl, animProgressEl, animProgressFill, placeholderEl, phMain,
@@ -204,8 +204,6 @@
     const info = E.byName[E.current];
     if (!info || !info.available) return;
     E.animOn = true;
-    playEl.setAttribute("aria-pressed", "true");
-    playEl.textContent = "stop";
     E.anim = opts.recipe ? recipeToAnim(opts.recipe) : defaultAnim(info, E.state);
     timelineEl.classList.add("on");
     stageEl.classList.add("anim");
@@ -222,13 +220,15 @@
     // over itself). replaceState keeps the back button on one entry per motif.
     if (!opts.fromFragment) E.writeFragment(E.current, E.state, E.anim, false);
     startAnim(info, E.state, E.anim);
+    // Reflect the new mode on the header's tab strip. explore-mode.js owns the
+    // tab UI; calling it through E keeps this module unaware of whether the
+    // tabs exist (the call is a no-op if they don't).
+    if (E.syncModeTabs) E.syncModeTabs();
   }
   E.enterAnim = enterAnim;
 
   function exitAnim() {
     E.animOn = false;
-    playEl.setAttribute("aria-pressed", "false");
-    playEl.textContent = "play";
     timelineEl.classList.remove("on", "touch");
     stageEl.classList.remove("anim");
     expGifEl.disabled = true;
@@ -240,14 +240,10 @@
     // Return to a still render of the current slider state.
     const info = E.byName[E.current];
     if (info && info.available) E.render(info, E.state);
+    // Mirror the exit onto the header's tab strip (see enterAnim).
+    if (E.syncModeTabs) E.syncModeTabs();
   }
   E.exitAnim = exitAnim;
-
-  function toggleAnim() {
-    if (E.animOn) exitAnim();
-    else enterAnim();
-  }
-  E.toggleAnim = toggleAnim;
 
   // --- timeline paint ---------------------------------------------------------
   function paintTimeline(info, st) {
@@ -805,10 +801,5 @@
     if (!e) return;
     e.turns = Number(ovTurnsEl.value) || 1.0;
     restartPlayback(E.byName[E.current], E.state, E.anim);
-  });
-
-  // The Play toggle on the stage toolbar enters / exits animation mode.
-  playEl.addEventListener("click", () => {
-    toggleAnim();
   });
 })(window.EXPLORE);

@@ -133,5 +133,9 @@
 
   // --- go ---------------------------------------------------------------------
   E.initViewToggles();
+  // The mode tabs default to Design (E.animOn is false at boot); syncing here
+  // sets the initial aria-selected / tabIndex so a share URL that boots into
+  // Animate mode can flip them later via enterAnim -> syncModeTabs.
+  if (E.syncModeTabs) E.syncModeTabs();
   E.boot();
 })(window.EXPLORE);
