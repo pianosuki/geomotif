@@ -122,18 +122,19 @@
           </div>
           <div class="anim-progress" id="anim-progress" aria-hidden="true"><i></i></div>
         </div>
-        <!-- Stage scrubber: a duplicate of the animator panel's scrubber
-             pinned directly under the canvas, so the master clock is physically
-             next to the picture. It shares state with #scrubber via
-             E.playState.idx / E.syncScrubber() -- both call the same drawFrame
-             on input, and syncScrubber mirrors the index onto both inputs and
-             the time readout. Hidden in Design mode; enterAnim / exitAnim drop
-             the `hidden` attribute. The .scrubber class reuses the animator
-             scrubber's thumb styling. -->
-        <div class="stage-scrubber" id="stage-scrubber" hidden>
-          <input class="scrubber" id="stage-scrub-input" type="range" min="0" max="1" step="0.001" value="0" aria-label="scrub timeline">
-          <span class="scrub-time" id="scrub-time" aria-hidden="true">t = 0.000</span>
-        </div>
+      </div>
+      <!-- Stage scrubber: the single master clock, pinned directly under the
+           canvas so the transport (play / loop), the range scrub and the t=
+           readout live as one self-contained row next to the picture. It reads
+           the live frame via E.playState.idx / E.syncScrubber(); dragging it
+           draws that frame. Hidden in Design mode; enterAnim / exitAnim drop the
+           `hidden` attribute. The .scrubber class reuses the former animator
+           scrubber's thumb styling. -->
+      <div class="stage-scrubber" id="stage-scrubber" hidden>
+        <button class="tp" id="tp-play" type="button" title="play / pause" aria-label="play or pause animation">play</button>
+        <button class="tp toggle" id="tp-loop" type="button" title="loop playback" aria-label="loop playback" aria-pressed="true">loop</button>
+        <input class="scrubber" id="stage-scrub-input" type="range" min="0" max="1" step="0.001" value="0" aria-label="scrub timeline">
+        <span class="scrub-time" id="scrub-time" aria-hidden="true">t = 0.000</span>
       </div>
       <div class="meta" id="meta"></div>
     </section>
@@ -171,18 +172,12 @@
     <!-- Animator panel: the Animate-mode counterpart of .controls. Carries
          role="tabpanel" labeled by the Animate mode tab and is hidden at boot;
          explore-mode.js drops the `hidden` attribute and reparents #controls
-         into the slot below the scrubber so the same sliders set keyframe
-         values. The scrubber (the master clock) sits at the top, visually
-         attached to the panel; a duplicate under the stage arrives with the
-         stage scrubber. The
-         tracks / transport / overlays blocks move in here (formerly under
-         #timeline), and the animation export row (GIF + spec JSON) sits at the
+         into the slot so the same sliders set keyframe values. The single
+         master clock (the stage scrubber with play / loop) lives under the
+         canvas, not here. The tracks / transport / overlays blocks live in
+         #timeline, and the animation export row (GIF + spec JSON) sits at the
          bottom. The still SVG / PNG / spec exports stay in the Design panel. -->
     <aside class="animator" id="animator" role="tabpanel" aria-labelledby="mode-animate" hidden>
-      <div class="animator-head">
-        <span class="label">Scrub</span>
-        <input class="scrubber" id="scrubber" type="range" min="0" max="1" step="0.001" value="0" aria-label="scrub">
-      </div>
       <div class="anim-controls-slot" id="anim-controls-slot"></div>
       <section class="timeline" id="timeline" aria-label="animation timeline">
         <!-- A prominent "Set keyframe at t=..." button at the top of the
@@ -199,10 +194,11 @@
              visually grouped under explicit "Playback" and "Motion overlays"
              section headings, so the animator reads as labeled sections
              instead of two dashed rows. No behavior change. -->
+        <!-- The transport row now carries only the recipe fields (frames / fps
+             / hold / easing); the play / pause and loop buttons moved onto the
+             stage scrubber, the single clock under the canvas. -->
         <div class="anim-section-head"><span class="label">Playback</span></div>
         <div class="transport" id="transport">
-          <button class="tp" id="tp-play" type="button" title="play / pause">play</button>
-          <button class="tp toggle" id="tp-loop" type="button" title="loop playback" aria-pressed="true">loop</button>
           <label class="tp-field">frames <input id="tp-frames" type="number" min="32" max="240" step="1" value="48"></label>
           <label class="tp-field">fps <input id="tp-fps" type="number" min="1" max="60" step="1" value="20"></label>
           <label class="tp-field">hold <input id="tp-hold" type="number" min="0" step="1" value="12"></label>

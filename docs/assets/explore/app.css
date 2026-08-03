@@ -369,6 +369,7 @@ header {
 .stage-scrubber {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.7rem;
   width: 100%;
   max-width: min(100%, 100vh - 8rem);
@@ -749,20 +750,13 @@ pre.command {
 
 /* --- animation mode -------------------------------------------------------- */
 /* The Animator panel is a tabpanel aside on the right rail, mirroring
-   .controls. It holds the scrubber (the master clock, visually attached to
-   the panel), the reparented #controls sliders, the timeline (tracks +
-   transport + overlays), and the animation export row. The timeline is no
-   longer a free-floating card under the stage -- it lives inside the panel, so
-   the card chrome (border / shadow / max-width / margin) is dropped here and
-   the inner blocks keep their own separators. */
+   .controls. It holds the reparented #controls sliders, the timeline (tracks +
+   transport + overlays), and the animation export row. The master clock (play
+   / loop / scrub) is not here -- it lives on the stage scrubber under the
+   canvas. The timeline is no longer a free-floating card under the stage -- it
+   lives inside the panel, so the card chrome (border / shadow / max-width /
+   margin) is dropped here and the inner blocks keep their own separators. */
 .animator { display: flex; flex-direction: column; gap: 0.6rem; }
-.animator-head {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-}
-.animator-head .label { padding: 0; flex: none; }
-.animator-head .scrubber { flex: 1; }
 
 /* The timeline now lives inside the animator; drop the free-floating card
    chrome (border / shadow / max-width / margin) but keep the inner blocks'
@@ -779,8 +773,8 @@ pre.command {
 }
 .timeline.on { display: block; }
 
-/* The scrubber-row class is retired (the scrubber moved from #timeline's
-   head into .animator-head); keep the rule harmless in case a stale reference
+/* The scrubber-row class is retired (the scrubber lives on the stage
+   scrubber row now); keep the rule harmless in case a stale reference
    remains. */
 .scrubber-row { flex: 1; display: flex; align-items: center; }
 .scrubber {

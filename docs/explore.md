@@ -72,8 +72,9 @@ the same parameter sliders; only the right-hand panel swaps.
 
 Click the **Animate** tab to flip the right panel from the Design sliders
 to the animator. The parameter sliders stay (they are now the keyframe
-value inputs), and a scrubber appears directly under the canvas so the
-clock is next to the picture.
+value inputs), and a scrubber appears directly under the canvas. That row
+is the master clock: **play** / **loop** sit beside the range scrub and the
+`t = 0.000` readout, so the whole transport is next to the picture.
 
 - The motif's current parameter values become **keyframe 0** at `t = 0`.
 - A **track** appears per animatable parameter, plus a `frames` / `fps` /
@@ -87,19 +88,19 @@ clock is next to the picture.
   power-user shortcut (a faint `dblclick to drop` hint appears on hover).
   The big button's `t=` reads the live scrubber time so it always tells
   you what you will get.
-- Drag the scrubber — the one under the stage or the one in the panel —
-  to a new time, adjust any slider, and drop. Numeric parameters
-  interpolate component-wise with an easing curve from
-  `geomotif.core.spacing` (`linear`, `quadratic`, `cubic`, `sinusoidal`,
-  `exponential`, `circular`); `bool`, `Literal` and `str` parameters
-  **step** at the next keyframe. Per-track easing overrides the global
-  one.
+- Drag the scrubber under the canvas to a new time, adjust any slider, and
+  drop. Numeric parameters interpolate component-wise with an easing curve
+  from `geomotif.core.spacing` (`linear`, `quadratic`, `cubic`,
+  `sinusoidal`, `exponential`, `circular`); `bool`, `Literal` and `str`
+  parameters **step** at the next keyframe. Per-track easing overrides the
+  global one.
 - An **empty-state hint** (`Move the scrubber to a time -> adjust the
-  sliders -> click "Set keyframe"`) appears when no track has a keyframe
-  yet, and disappears the moment one lands.
+  sliders -> click "Set keyframe", then press play`) appears when no track
+  has a keyframe yet, and disappears the moment one lands.
 - Frames render ahead of time in chunked `requestAnimationFrame` batches
-  so the UI never freezes; a thin progress bar covers the cold render and
-  playback starts as soon as the first frame is ready.
+  so the UI never freezes; a thin progress bar covers the cold render. The
+  stage stays on the scrubber's frame until you press **play** — entering
+  Animate or adjusting a parameter never starts motion on its own.
 - **Export** the animation as a **GIF** — byte-identical to
   `geomotif render <motif> --out x.gif --animation spec.json` — and the
   spec JSON of the current timeline, both from the animator's export row.

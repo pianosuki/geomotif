@@ -16,7 +16,7 @@
 
 (function (E) {
   const {
-    timelineEl, stageEl, tracksEl, scrubEl, stageScrubEl, stageScrubWrapEl,
+    timelineEl, stageEl, tracksEl, stageScrubEl, stageScrubWrapEl,
     scrubTimeEl, kfSetAllEl, kfSetAllTEl, transportEl,
     playPauseEl, loopEl, animFramesEl, animFpsEl, animHoldEl, animEaseEl,
     ovDrawEl, ovSpinEl, ovDrawOpts, ovSpinOpts, ovTrailEl, ovTurnsEl,
@@ -208,8 +208,8 @@
     E.anim = opts.recipe ? recipeToAnim(opts.recipe) : defaultAnim(info, E.state);
     timelineEl.classList.add("on");
     stageEl.classList.add("anim");
-    // The stage scrubber is hidden in Design mode; show it now so the
-    // master clock sits directly under the canvas as well as in the panel.
+    // The stage scrubber is hidden in Design mode; show it now so the master
+    // clock (play / loop / scrub) sits directly under the canvas.
     if (stageScrubWrapEl) stageScrubWrapEl.hidden = false;
     // Read-only on touch: scrub + play work, keyframe editing is hidden.
     timelineEl.classList.toggle("touch", IS_TOUCH);
@@ -289,7 +289,7 @@
     if (!anyKf) {
       const card = document.createElement("div");
       card.className = "anim-empty-card";
-      card.textContent = "Move the scrubber to a time → adjust the sliders → click \u201cSet keyframe\u201d.";
+      card.textContent = "Move the scrubber to a time \u2192 adjust the sliders \u2192 click \u201cSet keyframe\u201d, then press play to preview.";
       tracksEl.appendChild(card);
       return;
     }
@@ -507,8 +507,16 @@
   // synthesised on playback by repeating the last frame, so changing `hold` is
   // a free re-playback with no re-render.
   function startAnim(info, st, an) {
+    // Playback never auto-starts here: entering Animate, or rebuilding the
+    // bundle after an adjustment, shows the scrubber's frame and waits for the
+    // user to press play. Only a rebuild made while already playing keeps
+    // playing -- the reentry flag carries that across the async pre-render so a
+    // slider nudge during playback does not stop the motion.
+    const wasPlaying = E.playState.on;
     stopPlayback();
     if (E.preRaf) { cancelAnimationFrame(E.preRaf); E.preRaf = null; }
+    E.playState.idx = 0;
+    E.playState.reentry = wasPlaying;
     const key = animBundleKey(info, st, an);
     const cached = E.animCache.get(key);
     if (cached) {
@@ -516,7 +524,8 @@
       E.animCache.set(key, cached);
       E.bundle = { key, core: cached, count: cached.length + an.hold, ready: cached.length, total: cached.length, busy: false };
       showAnimProgress(1);
-      startPlayback(info, an);
+      drawFrame(0);
+      if (wasPlaying) startPlayback(info, an);
       return;
     }
     E.bundle = { key, core: null, count: 0, ready: 0, total: 0, busy: true };
@@ -544,9 +553,8 @@
   E.startAnim = startAnim;
 
   // Fetch PRE_FRAMES_PER_TICK SVGs per rAF tick until the core bundle is full,
-  // then start playback if it has not already. Playback kicks off as soon as
-  // the first frame is ready so the user sees motion without waiting on the
-  // whole run.
+  // then draw frame 0. Playback only starts if a rebuild happened while already
+  // playing (startAnim's reentry flag); otherwise the user presses play.
   function preRenderChunks(info, an, from) {
     let i = from;
     const tick = () => {
@@ -567,7 +575,12 @@
         // Cache the core bundle for replay.
         if (E.animCache.size >= ANIM_CACHE_SIZE) E.animCache.delete(E.animCache.keys().next().value);
         E.animCache.set(E.bundle.key, E.bundle.core.slice());
-        if (!E.playState.on) startPlayback(info, an);
+        // Show frame 0; only keep playing when a rebuild happened mid-playback.
+        drawFrame(0);
+        if (E.playState.reentry) {
+          E.playState.reentry = false;
+          startPlayback(info, an);
+        }
       }
     };
     E.preRaf = requestAnimationFrame(tick);
@@ -642,36 +655,38 @@
     stageEl.insertAdjacentHTML("beforeend", E.stripXmlDecl(svg));
     placeholderEl.classList.remove("busy", "error");
     placeholderEl.style.display = "none";
+    // The display render is a fixed 520x520 canvas, so the stage's zoom/pan
+    // viewBox applies the same way it does to a still. Reapply the live
+    // viewBox across frames so playback and scrubbing do not clobber the
+    // user's zoom/pan; only fit on the first frame or after a motif switch
+    // (the zoom belongs to the old picture then).
+    const fit = E.lastMotif !== E.current || !E.viewBox;
     // Stash the current frame so SVG export (which reads lastSvg) and PNG
     // export (which keys on lastFrameIdx) match the scrubber, not the last
     // still render.
     E.lastSvg = svg;
     E.lastMotif = E.current;
     E.lastFrameIdx = Math.min(idx, E.bundle.core.length - 1);
-    // The display render is a fixed 520x520 canvas, so the stage's zoom/pan
-    // viewBox applies the same way it does to a still. We do not preserve zoom
-    // across frames (a parameter sweep changes the bounds), so each frame fits.
     E.captureNatural();
-    E.fitView();
+    if (fit) E.fitView();
+    else E.applyViewBox();
   }
   E.drawFrame = drawFrame;
 
   // Scrubber -> frame index. The scrubber spans the full core run (the hold
-  // tail is playback-only and not scrubbed). Two scrubbers share one clock
-  // -- #scrubber in the animator panel and #stage-scrub-input under the stage.
-  // Both inputs mirror the same `t`, and the stage scrubber's `t = 0.000`
-  // readout follows so the canvas-side clock reads the live time.
+  // tail is playback-only and not scrubbed). The single clock is the stage
+  // scrubber; its `t = 0.000` readout follows so the canvas-side clock reads
+  // the live time.
   function syncScrubber() {
+    if (!stageScrubEl) return;
     if (!E.bundle || !E.bundle.core) {
-      scrubEl.value = 0;
-      if (stageScrubEl) stageScrubEl.value = 0;
+      stageScrubEl.value = 0;
       paintScrubTime(0);
       return;
     }
     const t = E.bundle.core.length > 1 ? E.playState.idx / (E.bundle.core.length - 1) : 0;
     const tc = Math.min(1, Math.max(0, t));
-    scrubEl.value = tc;
-    if (stageScrubEl) stageScrubEl.value = tc;
+    stageScrubEl.value = tc;
     paintScrubTime(tc);
   }
   E.syncScrubber = syncScrubber;
@@ -686,13 +701,14 @@
     if (kfSetAllTEl) kfSetAllTEl.textContent = Number(t).toFixed(3);
   }
 
-  // The scrubber's current time as a clamped 0..1 number, read from the
-  // panel scrubber's live value. Used by the "Set keyframe" + per-track "+"
-  // handlers so a drop lands at the time the user is looking at. Before a
-  // bundle is ready the scrubber sits at 0, which is the right default (the
-  // default recipe's first keyframe is at t=0).
+  // The scrubber's current time as a clamped 0..1 number, read from the stage
+  // scrubber's live value. Used by the "Set keyframe" + per-track "+" handlers
+  // so a drop lands at the time the user is looking at. Before a bundle is
+  // ready the scrubber sits at 0, which is the right default (the default
+  // recipe's first keyframe is at t=0).
   function currentScrubT() {
-    const v = Number(scrubEl.value);
+    if (!stageScrubEl) return 0;
+    const v = Number(stageScrubEl.value);
     if (!Number.isFinite(v)) return 0;
     return Math.min(1, Math.max(0, v));
   }
@@ -855,32 +871,25 @@
 
   // Scrubbers: drag to scrub (canvas shows the frame at that time), click to
   // jump. While scrubbing, playback is paused so the hand on the scrubber is
-  // the only clock. The stage scrubber (#stage-scrub-input) and the panel
-  // scrubber (#scrubber) share one handler -- whichever the user drags, both
-  // inputs mirror the same `t` and the time readout follows.
+  // the only clock. The single scrubber is the stage scrubber
+  // (#stage-scrub-input); the time readout follows.
   function onScrubDown() {
     E.scrubbing = true;
     if (E.playState.on) stopPlayback();
   }
-  function onScrubInput(src) {
-    if (!E.bundle || !E.bundle.core) return;
-    const t = Math.min(1, Math.max(0, Number(src.value)));
+  function onScrubInput() {
+    if (!E.bundle || !E.bundle.core || !stageScrubEl) return;
+    const t = Math.min(1, Math.max(0, Number(stageScrubEl.value)));
     const idx = Math.round(t * (E.bundle.core.length - 1));
     E.playState.idx = Math.min(idx, E.bundle.core.length - 1);
-    // Mirror the value onto the other scrubber so the two stay in sync.
-    if (src !== scrubEl) scrubEl.value = t;
-    if (src !== stageScrubEl && stageScrubEl) stageScrubEl.value = t;
     paintScrubTime(t);
     drawFrame(E.playState.idx);
   }
   function onScrubUp() { E.scrubbing = false; }
 
-  scrubEl.addEventListener("pointerdown", onScrubDown);
-  scrubEl.addEventListener("input", () => onScrubInput(scrubEl));
-  scrubEl.addEventListener("pointerup", onScrubUp);
   if (stageScrubEl) {
     stageScrubEl.addEventListener("pointerdown", onScrubDown);
-    stageScrubEl.addEventListener("input", () => onScrubInput(stageScrubEl));
+    stageScrubEl.addEventListener("input", onScrubInput);
     stageScrubEl.addEventListener("pointerup", onScrubUp);
   }
 

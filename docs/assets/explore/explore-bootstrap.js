@@ -146,11 +146,9 @@ window.EXPLORE = window.EXPLORE || {};
   E.kfSetAllEl = E.$("kf-set-all");
   E.kfSetAllTEl = E.$("kf-set-all-t");
   E.kfSetAllRowEl = E.$("kf-set-all-row");
-  E.scrubEl = E.$("scrubber");
-  // A duplicate scrubber pinned under the stage (the master clock lives
-  // next to the picture). #scrubber stays in the animator panel; both share
-  // state via E.playState.idx / E.syncScrubber() and the same drawFrame on
-  // input. scrubTimeEl is the `t = 0.000` readout beside the stage scrubber.
+  // The single master clock, pinned directly under the stage (the animator
+  // panel no longer carries a scrubber). scrubTimeEl is the `t = 0.000` readout
+  // beside the stage scrubber.
   E.stageScrubEl = E.$("stage-scrub-input");
   E.stageScrubWrapEl = E.$("stage-scrubber");
   E.scrubTimeEl = E.$("scrub-time");
