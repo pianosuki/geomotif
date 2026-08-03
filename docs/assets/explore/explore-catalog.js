@@ -102,9 +102,15 @@
   // consumed (which would replace the entry we want to keep as the landing one).
   function selectMotif(name, override, opts) {
     opts = opts || {};
-    // Leaving animation mode tears down the timeline and the frame bundle; the
-    // timeline is per-motif and a new selection renders a still.
-    if (E.animOn) E.exitAnim();
+    // A motif switch while Animate is active stays in Animate mode. The
+    // timeline is per-motif, so we still tear down the outgoing animation
+    // (bundle + pre-render), but `skipStillRender` keeps exitAnim from firing a
+    // wasted still render of the motif we are leaving -- the new motif renders
+    // (or re-enters Animate) below. A share URL's `a=` pair (`opts.anim`) still
+    // wins over the inherited mode: it boots straight into Animate with that
+    // recipe regardless of which mode the user was in.
+    const wasAnim = E.animOn;
+    if (E.animOn) E.exitAnim({ skipStillRender: true });
     E.current = name;
     const info = E.byName[name];
     if (!info) return;
@@ -126,16 +132,22 @@
     const canExport = !!info.available;
     [expSvgEl, expPngEl, expSpecEl].forEach((b) => { b.disabled = !canExport; });
     expGifEl.disabled = true; // GIF export is animation-mode only
-    // `animOn` was torn down above, so the still write carries no `a=` pair.
+    // `wasAnim` was torn down above; in Design mode the still write carries no
+    // `a=` pair. In Animate mode enterAnim writes the `a=` pair for the fresh
+    // default recipe below.
     if (!opts.fromFragment) E.writeFragment(name, E.state, null, false);
     if (!info.available) {
       showUnavailable(info);
       return;
     }
     // A share URL's `a=` pair (decoded into `opts.anim`) boots straight into
-    // animation mode with the timeline populated; otherwise a still render.
+    // animation mode with the timeline populated; otherwise a still render --
+    // unless the user was already in Animate mode, in which case we re-enter
+    // Animate on the new motif with a fresh default recipe.
     if (opts.anim) {
       E.enterAnim({ recipe: opts.anim, fromFragment: opts.fromFragment });
+    } else if (wasAnim) {
+      E.enterAnim({});
     } else {
       render(info, E.state);
     }

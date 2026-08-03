@@ -231,7 +231,8 @@
   }
   E.enterAnim = enterAnim;
 
-  function exitAnim() {
+  function exitAnim(opts) {
+    opts = opts || {};
     E.animOn = false;
     timelineEl.classList.remove("on", "touch");
     stageEl.classList.remove("anim");
@@ -243,9 +244,15 @@
     E.bundle = null;
     E.anim = null;
     hideAnimProgress();
-    // Return to a still render of the current slider state.
-    const info = E.byName[E.current];
-    if (info && info.available) E.render(info, E.state);
+    // Return to a still render of the current slider state, unless the caller
+    // is about to render something else (e.g. selectMotif switching to a new
+    // motif and re-entering Animate on it -- keeps the active mode across a
+    // motif switch, so the outgoing motif's still render would be wasted work
+    // and could briefly flash before the new motif renders).
+    if (!opts.skipStillRender) {
+      const info = E.byName[E.current];
+      if (info && info.available) E.render(info, E.state);
+    }
     // Mirror the exit onto the header's tab strip (see enterAnim).
     if (E.syncModeTabs) E.syncModeTabs();
   }
