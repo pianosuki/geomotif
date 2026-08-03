@@ -34,11 +34,12 @@ the same parameter sliders; only the right-hand panel swaps.
 ### The stage
 
 - A real **coordinate plane** sits behind the motif: major and minor
-  gridlines in "nice" steps, the x and y axes through the origin with
-  arrowheads, and tick labels in the live viewBox units. It recomputes on
-  every zoom and pan, so the grid always matches the picture.
+  gridlines in "nice" steps, the x and y axes through the world origin with
+  arrowheads, and tick labels in the motif's own world units (y up). It
+  recomputes on every zoom and pan, and the labels are pinned to the stage
+  edges so they survive when the axes scroll out of view.
 - A **cursor coordinate readout** pinned to the bottom-left of the stage
-  shows `x: 123.4  y: -56.7` in viewBox units under the pointer; a
+  shows `x: 123.4  y: -56.7` in those same world units under the pointer; a
   **zoom indicator** on the bottom-right (`1.2x`) tracks the current
   magnification. Both are click-through, so they never catch a pan or a
   zoom drag.

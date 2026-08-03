@@ -208,6 +208,7 @@
       E.lastFrameIdx = -1;
       E.viewBox = null;
       E.naturalVB = null;
+      E.scale = null;
       return;
     }
     placeholderEl.classList.remove("busy", "error");
@@ -223,10 +224,15 @@
     E.lastMotif = info.name;
     E.lastParams = params;
     E.lastFrameIdx = -1; // a still render clears the frame marker
-    // The renderer always emits viewBox="0 0 520 520", so a slider drag (same
-    // motif, new SVG element) can keep the user's zoom/pan: reapply the live
-    // box to the new <svg>. Switching motifs starts fit-to-view instead, so a
-    // new picture is never cropped by the previous one's zoom.
+    // The renderer carries the world->display scale alongside the picture;
+    // refresh it so the grid overlay, the cursor readout and the zoom
+    // indicator stay correct after a still render (slider drag, motif switch).
+    E.scale = (result.scale != null) ? result.scale : E.scale;
+    // The display renderer keeps the world origin centred in its own canvas,
+    // so the rendered viewBox is the placed design's bounds (which can be
+    // non-square). A slider drag (same motif, new SVG element) re-applies the
+    // user's zoom/pan; switching motifs starts fit-to-view instead, so a new
+    // picture is never cropped by the previous one's zoom.
     E.captureNatural();
     if (prevMotif === info.name && E.viewBox) E.applyViewBox();
     else E.fitView();
@@ -247,6 +253,7 @@
     E.lastFrameIdx = -1;
     E.viewBox = null;
     E.naturalVB = null;
+    E.scale = null;
   }
   E.showUnavailable = showUnavailable;
 

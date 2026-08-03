@@ -16,22 +16,80 @@ import json
 from geomotif.io.spec import from_spec
 from geomotif.io.svg import to_svg
 from geomotif.io.png import to_png
+from geomotif.core.transform import Affine
 
 _EXC = (ValueError, TypeError, KeyError, IndexError, ZeroDivisionError, OverflowError, RecursionError)
 
-# The same canvas size and precision the SPA's display render uses -- kept in
-# one place so the live picture and the SVG export stay the same picture.
+# The display canvas and its margin. The display renderer maps the world
+# coordinate plane (y up, origin at 0,0) onto this canvas with a fixed
+# per-motif scale (see _scale_for below), the world origin anchored at the
+# canvas centre (260, 260). Because the mapping is fixed, a slider change
+# *visibly rescales* the picture instead of being re-fit to the box on every
+# render, and the grid / readout can translate between world and screen.
 _W, _H, _PREC = 520, 520, 1
+_PAD = 40
 
-def render_motif(name, params_json):
+# Per-motif display scale, computed once from the registered example design
+# and cached. The example is what the gallery shows and what the SPA seeds its
+# sliders with, so by construction the motif fills the canvas nicely at its
+# default state -- and stays at the same scale when sliders move it.
+_EXAMPLE_SCALES = {}
+
+def _example_scale(name, example_json):
+    s = 1.0
+    try:
+        params = json.loads(example_json) if example_json else {}
+        motif = from_spec({"motif": name, "params": params})
+        bounds = motif.build().bounds
+        # Scale so the example's own radius around the world origin fills the
+        # canvas: the world origin stays at (260, 260) and nothing is clipped
+        # even for a motif drawn off-centre (e.g. a cardioid). For an
+        # origin-centred motif this equals extent -> _W - 2*_PAD; for an
+        # off-centre one it zooms out just far enough that the whole example
+        # is visible.
+        radius = max(abs(bounds.min_x), abs(bounds.max_x),
+                     abs(bounds.min_y), abs(bounds.max_y))
+        if not radius > 0:
+            radius = max(bounds.width, bounds.height) / 2.0
+        if radius > 0:
+            s = (_W - 2 * _PAD) / (2.0 * radius)
+    except _EXC:
+        pass
+    return s if s > 0 else 1.0
+
+def _scale_for(name, example_json):
+    if name not in _EXAMPLE_SCALES:
+        _EXAMPLE_SCALES[name] = _example_scale(name, example_json)
+    return _EXAMPLE_SCALES[name]
+
+# Map a world-space design into display space: flip to y-down, then scale by
+# the fixed per-motif factor and translate the world origin to the canvas
+# centre. Returns (placed design, scale) so the JS side can drive the grid,
+# the readout and the zoom indicator from the live scale.
+def _placed(design, name, example_json):
+    s = _scale_for(name, example_json)
+    affine = Affine.translate(_W / 2.0, _H / 2.0) @ Affine.scale(s)
+    return design.flipped_y().transformed(affine), s
+
+# Render an SVG for display. to_svg is called with width=/height=/padding=0
+# (no explicit canvas), which makes its internal fit the identity -- exactly
+# the placed design's own bounds, so the fixed scale and the origin-anchored
+# placement survive the write. flip_y=False because _placed already produced
+# y-down coordinates; a second flip would invert the picture.
+def _display_svg(placed, s):
+    svg = to_svg(placed, width=None, height=None, padding=0,
+                 precision=_PREC, title=None, flip_y=False)
+    return json.dumps({"svg": svg, "scale": s, "error": None})
+
+def render_motif(name, params_json, example_json=None):
     try:
         params = json.loads(params_json) if params_json else {}
         motif = from_spec({"motif": name, "params": params})
         design = motif.build()
-        svg = to_svg(design, width=_W, height=_H, precision=_PREC, title=None)
-        return json.dumps({"svg": svg, "error": None})
+        placed, s = _placed(design, name, example_json)
+        return _display_svg(placed, s)
     except _EXC as e:
-        return json.dumps({"svg": None, "error": type(e).__name__ + ": " + str(e)})
+        return json.dumps({"svg": None, "scale": None, "error": type(e).__name__ + ": " + str(e)})
 
 # PNG export -- matches the CLI's "geomotif render <motif> --out x.png" default
 # styling (canvas 480, ink #0b0b0b, paper #ffffff, thickness 1, padding 8, no
@@ -82,7 +140,7 @@ from geomotif.animate import (
 )
 from geomotif.io.gif import save_gif as _save_gif
 
-_STORE = {"frames": ()}
+_STORE = {"frames": (), "name": None, "example": None}
 
 def _overlay_motions(overlays):
     motions = []
@@ -98,7 +156,7 @@ def _overlay_motions(overlays):
             ))
     return motions
 
-def build_keyframes(name, params_json, tracks_json, frames, fps, hold, easing, overlays_json):
+def build_keyframes(name, params_json, tracks_json, frames, fps, hold, easing, overlays_json, example_json=None):
     try:
         params = json.loads(params_json) if params_json else {}
         tracks = json.loads(tracks_json) if tracks_json else {}
@@ -110,6 +168,11 @@ def build_keyframes(name, params_json, tracks_json, frames, fps, hold, easing, o
         if motions:
             built = _compose(motions, built)
         _STORE["frames"] = built
+        # Animation frames are built in world coordinates and get the same
+        # fixed display mapping as a still, so thread the motif (and its
+        # example for the scale cache) through _STORE for render_stored_frame.
+        _STORE["name"] = name
+        _STORE["example"] = example_json
         return json.dumps({"count": len(built), "error": None})
     except _EXC as e:
         _STORE["frames"] = ()
@@ -120,10 +183,10 @@ def render_stored_frame(i):
     try:
         if i < 0 or i >= len(frames):
             raise IndexError(f"frame {i} out of range (0..{len(frames)-1})")
-        svg = to_svg(frames[i], width=_W, height=_H, precision=_PREC, title=None)
-        return json.dumps({"svg": svg, "error": None})
+        placed, s = _placed(frames[i], _STORE["name"], _STORE["example"])
+        return _display_svg(placed, s)
     except _EXC as e:
-        return json.dumps({"svg": None, "error": type(e).__name__ + ": " + str(e)})
+        return json.dumps({"svg": None, "scale": None, "error": type(e).__name__ + ": " + str(e)})
 
 def clear_stored_frames():
     _STORE["frames"] = ()
@@ -215,7 +278,11 @@ def export_gif(name, params_json, tracks_json, frames, fps, hold, easing, overla
       return hit;
     }
     await ensurePyodide();
-    const out = JSON.parse(E.pyRender(name, JSON.stringify(params || {})));
+    // The bridge computes the display scale from the motif's registered
+    // example (see the PY_CODE _scale_for cache); hand it over so the first
+    // render of a motif caches the right per-motif scale.
+    const ex = E.byName && E.byName[name] ? E.byName[name].example : null;
+    const out = JSON.parse(E.pyRender(name, JSON.stringify(params || {}), JSON.stringify(ex || {})));
     if (E.cache.size >= CACHE_SIZE) E.cache.delete(E.cache.keys().next().value);
     E.cache.set(key, out);
     return out;

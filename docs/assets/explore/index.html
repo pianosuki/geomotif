@@ -64,8 +64,12 @@
                renders a Desmos-style plane -- major/minor gridlines, axes
                through the origin with arrowheads, and tick labels. It mirrors
                E.viewBox on every zoom/pan tick (repainted by explore-grid.js)
-               and is hidden by .no-grid / .no-axes / .no-labels on .stage. -->
-          <svg class="grid-overlay" id="grid-overlay" viewBox="0 0 520 520" preserveAspectRatio="none" aria-hidden="true">
+               and is hidden by .no-grid / .no-axes / .no-labels on .stage.
+               It keeps the motif SVG's default preserveAspectRatio (xMidYMid
+               meet) so the two layers are always mapped identically -- with
+               preserveAspectRatio="none" the overlay could stretch differently
+               from the picture on a non-square viewBox and drift. -->
+          <svg class="grid-overlay" id="grid-overlay" viewBox="0 0 520 520" aria-hidden="true">
             <g class="grid-minor"></g>
             <g class="grid-major"></g>
             <g class="grid-axes"></g>

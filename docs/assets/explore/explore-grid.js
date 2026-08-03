@@ -5,11 +5,18 @@
 // of .stage; its viewBox attribute mirrors E.viewBox on every zoom/pan tick,
 // so the plane stays aligned with the picture as the user moves around. On
 // every applyViewBox() call (and on a theme switch) explore-view.js asks this
-// module to repaint, which recomputes a "nice" step from the live viewBox
-// width, draws major (solid --line-2) and minor (dotted --line) gridlines,
-// the x/y axes through the origin with small arrowheads, and tick labels in
-// --muted mono -- but only when they fit without crowding (a density check
-// caps the label count).
+// module to repaint, which recomputes a "nice" step from the live world width
+// (the viewBox mapped back through the display scale), draws major (solid
+// --line-2) and minor (dotted --line) gridlines, the x/y axes through the
+// world origin with small arrowheads, and tick labels pinned to the stage
+// edges so they persist when the axes are panned/zoomed off-screen.
+//
+// The stage renders in *world* coordinates: the motif SVG's viewBox is the
+// display space, where the world origin (0, 0, y up) sits at E.origin and
+// every world unit spans E.scale display units. This module reads both from
+// the namespace (set from each render result) and draws gridlines at whole
+// world multiples, so the numbers along the axes are the real coordinates the
+// library plots and the user's radius/scale sliders move in.
 //
 // Pure client-side viewBox math: no Pyodide, no cache impact (the LRU stays
 // keyed on geometry). The .no-grid class on .stage hides the whole overlay;
@@ -84,6 +91,13 @@
     const s = Math.abs(v) < 1 ? v.toFixed(2) : v.toFixed(1);
     return s.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
   }
+  E.fmt = fmt;
+
+  // The world origin in display units: E.origin, with the canvas-centre
+  // default so the grid is well-defined before the first render too.
+  function origin() {
+    return E.origin && E.origin.x != null ? E.origin : { x: 260, y: 260 };
+  }
 
   function paintGrid() {
     ensure();
@@ -92,15 +106,30 @@
     if (gAxes) gAxes.replaceChildren();
     if (gLabels) gLabels.replaceChildren();
     const vb = E.viewBox;
-    if (!vb || !overlay) return;
+    const sc = E.scale;
+    if (!vb || !overlay || !(sc > 0)) return;
     // Mirror the motif's viewBox so a coordinate (x, y) lands on the same
-    // screen pixel in both SVGs; preserveAspectRatio="none" keeps the overlay
-    // from letterboxing if the stage is ever not square.
+    // screen pixel in both SVGs. preserveAspectRatio matches the motif SVG's
+    // (the default xMidYMid meet), so the overlay can never drift from the
+    // picture even when the viewBox is non-square.
     overlay.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
     const c = readColors();
+    const o = origin();
+    const ox = o.x, oy = o.y;
     const x0 = vb.x, y0 = vb.y, x1 = vb.x + vb.w, y1 = vb.y + vb.h;
-    const major = niceStep(vb.w, 6);
-    const minor = major / 5;
+
+    // Visible world range: invert display -> world (display x = ox + w*sc,
+    // display y = oy - w*sc), so a "nice" step is chosen in the motif's own
+    // units and the labels show real coordinates.
+    const wx0 = (x0 - ox) / sc, wx1 = (x1 - ox) / sc;
+    const wy0 = (oy - y1) / sc, wy1 = (oy - y0) / sc;
+    const worldStep = niceStep(wx1 - wx0, 6);
+    const uStep = worldStep * sc; // display units per major step
+    // Axes through the world origin: the y-axis (world x = 0) is visible when
+    // the origin's x lands in the box, the x-axis (world y = 0) when its y does.
+    const visX = ox >= x0 && ox <= x1;
+    const visY = oy >= y0 && oy <= y1;
+
     // Stroke widths, dashes, arrowheads and label text all stay constant on
     // screen regardless of the zoom: the strokes get vector-effect:
     // non-scaling-stroke (so stroke-width and stroke-dasharray are in CSS
@@ -109,86 +138,92 @@
     // hairlines balloon to fat fuzzy bars and the labels grow once the viewBox
     // shrinks on a deep zoom.
     const stagePx = (overlay.getBoundingClientRect().width) || 520;
-    const sc = vb.w / stagePx; // user units per screen pixel
-    const arrowSize = 7 * sc, half = arrowSize * 0.5;
-    const fs = 11 * sc; // ~11px on-screen label text
+    const scPx = vb.w / stagePx; // user units per screen pixel
+    const arrowSize = 7 * scPx, half = arrowSize * 0.5;
+    const fs = 11 * scPx; // ~11px on-screen label text
     const hairline = { "vector-effect": "non-scaling-stroke" };
 
     // Minor gridlines (dotted, faint) -- skip the ones that coincide with a
     // major so the major lines read as the primary scaffold.
-    for (let x = Math.ceil(x0 / minor) * minor; x <= x1 + 1e-9; x += minor) {
-      if (Math.abs(x / major - Math.round(x / major)) < 1e-9) continue;
+    const minor = worldStep / 5;
+    for (let wx = Math.ceil(wx0 / minor) * minor; wx <= wx1 + 1e-9; wx += minor) {
+      if (Math.abs(wx / worldStep - Math.round(wx / worldStep)) < 1e-9) continue;
+      const ux = ox + wx * sc;
       gMinor.appendChild(el("line", {
-        x1: x, y1: y0, x2: x, y2: y1,
+        x1: ux, y1: y0, x2: ux, y2: y1,
         stroke: c.line, "stroke-width": 1, "stroke-dasharray": "1 3", ...hairline,
       }));
     }
-    for (let y = Math.ceil(y0 / minor) * minor; y <= y1 + 1e-9; y += minor) {
-      if (Math.abs(y / major - Math.round(y / major)) < 1e-9) continue;
+    for (let wy = Math.ceil(wy0 / minor) * minor; wy <= wy1 + 1e-9; wy += minor) {
+      if (Math.abs(wy / worldStep - Math.round(wy / worldStep)) < 1e-9) continue;
+      const uy = oy - wy * sc;
       gMinor.appendChild(el("line", {
-        x1: x0, y1: y, x2: x1, y2: y,
+        x1: x0, y1: uy, x2: x1, y2: uy,
         stroke: c.line, "stroke-width": 1, "stroke-dasharray": "1 3", ...hairline,
       }));
     }
 
-    // Major gridlines (solid).
-    for (let x = Math.ceil(x0 / major) * major; x <= x1 + 1e-9; x += major) {
-      gMajor.appendChild(el("line", { x1: x, y1: y0, x2: x, y2: y1, stroke: c.line2, "stroke-width": 1, ...hairline }));
+    // Major gridlines (solid), at whole world multiples.
+    for (let wx = Math.ceil(wx0 / worldStep) * worldStep; wx <= wx1 + 1e-9; wx += worldStep) {
+      const ux = ox + wx * sc;
+      gMajor.appendChild(el("line", { x1: ux, y1: y0, x2: ux, y2: y1, stroke: c.line2, "stroke-width": 1, ...hairline }));
     }
-    for (let y = Math.ceil(y0 / major) * major; y <= y1 + 1e-9; y += major) {
-      gMajor.appendChild(el("line", { x1: x0, y1: y, x2: x1, y2: y, stroke: c.line2, "stroke-width": 1, ...hairline }));
-    }
-
-    // Axes through the origin, clamped to the viewBox, with arrowheads at the
-    // box edges so the direction of each axis reads even when the origin is
-    // off-screen.
-    const hasX = y0 <= 0 && 0 <= y1;
-    const hasY = x0 <= 0 && 0 <= x1;
-    if (hasX) {
-      gAxes.appendChild(el("line", { x1: x0, y1: 0, x2: x1, y2: 0, stroke: c.ink, "stroke-width": 1.5, ...hairline }));
-      gAxes.appendChild(el("path", { d: `M ${x1} 0 l ${-arrowSize} ${-half} l 0 ${2 * half} z`, fill: c.ink }));
-      gAxes.appendChild(el("path", { d: `M ${x0} 0 l ${arrowSize} ${-half} l 0 ${2 * half} z`, fill: c.ink }));
-    }
-    if (hasY) {
-      gAxes.appendChild(el("line", { x1: 0, y1: y0, x2: 0, y2: y1, stroke: c.ink, "stroke-width": 1.5, ...hairline }));
-      gAxes.appendChild(el("path", { d: `M 0 ${y1} l ${-half} ${-arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
-      gAxes.appendChild(el("path", { d: `M 0 ${y0} l ${-half} ${arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
+    for (let wy = Math.ceil(wy0 / worldStep) * worldStep; wy <= wy1 + 1e-9; wy += worldStep) {
+      const uy = oy - wy * sc;
+      gMajor.appendChild(el("line", { x1: x0, y1: uy, x2: x1, y2: uy, stroke: c.line2, "stroke-width": 1, ...hairline }));
     }
 
-    // Tick labels, pinned to the stage edges rather than the origin so they
-    // survive zooming into a quadrant where the origin is off-screen: the x
-    // numbers run along the bottom edge of the viewBox, the y numbers along
-    // the left edge. Only rendered when majors are wide enough apart that
-    // ~4-char labels do not overlap, and never more than ~10 across the box.
-    const crowded = major < fs * 3.5;
-    const tooMany = vb.w / major > 10;
-    if (hasX && !crowded && !tooMany) {
-      for (let x = Math.ceil(x0 / major) * major; x <= x1 + 1e-9; x += major) {
-        if (Math.abs(x) < 1e-9) continue;
-        const t = el("text", {
-          x, y: y1, dy: fs * 1.1, "text-anchor": "middle",
-          "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
-        });
-        t.textContent = fmt(x);
-        gLabels.appendChild(t);
-      }
+    // Axes through the world origin, clamped to the viewBox, with arrowheads
+    // at the box edges so the direction of each axis reads even when the
+    // origin is off-screen. Display y grows downward, so "up" (positive world
+    // y) is toward the top of the box.
+    if (visY) {
+      gAxes.appendChild(el("line", { x1: x0, y1: oy, x2: x1, y2: oy, stroke: c.ink, "stroke-width": 1.5, ...hairline }));
+      gAxes.appendChild(el("path", { d: `M ${x1} ${oy} l ${-arrowSize} ${-half} l 0 ${2 * half} z`, fill: c.ink }));
+      gAxes.appendChild(el("path", { d: `M ${x0} ${oy} l ${arrowSize} ${-half} l 0 ${2 * half} z`, fill: c.ink }));
     }
-    if (hasY && !crowded && !tooMany) {
-      for (let y = Math.ceil(y0 / major) * major; y <= y1 + 1e-9; y += major) {
-        if (Math.abs(y) < 1e-9) continue;
-        const t = el("text", {
-          x: x0, y, dx: fs * 0.3, dy: fs * 0.35, "text-anchor": "start",
-          "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
-        });
-        t.textContent = fmt(y);
-        gLabels.appendChild(t);
-      }
+    if (visX) {
+      gAxes.appendChild(el("line", { x1: ox, y1: y0, x2: ox, y2: y1, stroke: c.ink, "stroke-width": 1.5, ...hairline }));
+      gAxes.appendChild(el("path", { d: `M ${ox} ${y0} l ${-half} ${-arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
+      gAxes.appendChild(el("path", { d: `M ${ox} ${y1} l ${-half} ${arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
+    }
+
+    // Tick labels, decoupled from axis/origin visibility: the x numbers are
+    // pinned just inside the bottom edge of the viewBox (drawn under the
+    // x-axis when that is on-screen), the y numbers along the left edge, so
+    // they survive zooming into a region where the axes have scrolled out of
+    // view. There is no crowding cap: niceStep already keeps ~6 majors on
+    // screen, so a deep zoom keeps showing numbers instead of hiding them.
+    // Label offsets are negative (toward the inside of the box) to keep the
+    // bottom row from being pushed under the clip path.
+    let labelY = y1 - fs * 0.3; // bottom-edge default (axis off-screen)
+    if (visY && oy + fs <= y1 - fs * 0.3) labelY = oy + fs; // just under the x-axis
+    for (let wx = Math.ceil(wx0 / worldStep) * worldStep; wx <= wx1 + 1e-9; wx += worldStep) {
+      if (Math.abs(wx) < 1e-9) continue; // the origin gets its own "0"
+      const t = el("text", {
+        x: ox + wx * sc, y: labelY, "text-anchor": "middle",
+        "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
+      });
+      t.textContent = fmt(wx);
+      gLabels.appendChild(t);
+    }
+    let labelX, anchor;
+    if (visX) { labelX = ox - fs * 0.35; anchor = "end"; } // left of the y-axis
+    else { labelX = x0 + fs * 0.3; anchor = "start"; } // pinned to the left edge
+    for (let wy = Math.ceil(wy0 / worldStep) * worldStep; wy <= wy1 + 1e-9; wy += worldStep) {
+      if (Math.abs(wy) < 1e-9) continue;
+      const t = el("text", {
+        x: labelX, y: oy - wy * sc, dy: fs * 0.35, "text-anchor": anchor,
+        "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
+      });
+      t.textContent = fmt(wy);
+      gLabels.appendChild(t);
     }
     // The origin's own "0" marks the crossing itself, so it moves with the
     // plane and only appears when the origin is actually on-screen.
-    if (hasX && hasY) {
+    if (visX && visY) {
       const t = el("text", {
-        x: 0, y: 0, dx: fs * 0.4, dy: fs * 0.35, "text-anchor": "start",
+        x: ox, y: oy, dx: fs * 0.4, dy: fs * 0.35, "text-anchor": "start",
         "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
       });
       t.textContent = "0";

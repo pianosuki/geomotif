@@ -205,6 +205,15 @@ window.EXPLORE = window.EXPLORE || {};
   E.viewBox = null;
   E.naturalVB = null;
 
+  // World -> display mapping, refreshed from every render/animation-frame
+  // result. The display renderer anchors the world origin (0, 0, y-up) at the
+  // centre of the stage canvas and scales by a fixed per-motif factor, so the
+  // grid overlay and the cursor readout read `scale` to translate between the
+  // live viewBox (display units, y-down) and world coordinates. `scale` is
+  // null until the first successful render.
+  E.scale = null;
+  E.origin = { x: 260, y: 260 };
+
   E.renderTimer = null;
   E.fragTimer = null;
   E.pan = null;

@@ -317,15 +317,26 @@
   E.initViewToggles = initViewToggles;
 
   // --- cursor coordinate readout + zoom indicator -------------------------
-  // The readout maps the pointer's screen position into the live viewBox units
-  // and shows `x: 12.3  y: -4.5` pinned to the bottom-left of the stage. It is
-  // filled on pointermove and cleared when the pointer leaves (or when no
-  // viewBox is live). Pure client-side math via svgRect() + E.viewBox.
+  // The readout maps the pointer's screen position into the live viewBox
+  // units, then back through the world->display mapping (display x = ox +
+  // w*scale, display y = oy - w*scale) so it shows real *world* coordinates
+  // with y increasing upward -- the same numbers the grid labels and the
+  // motif's own units use. It is filled on pointermove and cleared when the
+  // pointer leaves (or when no viewBox is live). Pure client-side math via
+  // svgRect() + E.viewBox.
   function fmtCoord(v) {
     if (Math.abs(v) < 1e-9) return "0";
     const s = Math.abs(v) < 1 ? v.toFixed(2) : v.toFixed(1);
     return s.replace(/\.0+$/, "").replace(/(\.\d*?)0+$/, "$1");
   }
+  function worldCoords(cx, cy) {
+    const sc = E.scale;
+    if (sc == null || !(sc > 0)) return { x: cx, y: cy };
+    const ox = E.origin && E.origin.x != null ? E.origin.x : 260;
+    const oy = E.origin && E.origin.y != null ? E.origin.y : 260;
+    return { x: (cx - ox) / sc, y: (oy - cy) / sc };
+  }
+  E.worldCoords = worldCoords;
   function updateReadout(e) {
     if (!E.viewBox) { coordReadoutEl.textContent = ""; return; }
     const r = svgRect();
@@ -334,7 +345,8 @@
     const py = (e.clientY - r.top) / r.height;
     const cx = E.viewBox.x + px * E.viewBox.w;
     const cy = E.viewBox.y + py * E.viewBox.h;
-    coordReadoutEl.textContent = `x: ${fmtCoord(cx)}  y: ${fmtCoord(cy)}`;
+    const w = worldCoords(cx, cy);
+    coordReadoutEl.textContent = `x: ${fmtCoord(w.x)}  y: ${fmtCoord(w.y)}`;
   }
   stageEl.addEventListener("pointermove", updateReadout);
   stageEl.addEventListener("pointerleave", () => { coordReadoutEl.textContent = ""; });

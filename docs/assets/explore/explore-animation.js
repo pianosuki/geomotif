@@ -522,19 +522,20 @@
     if (cached) {
       E.animCache.delete(key);
       E.animCache.set(key, cached);
-      E.bundle = { key, core: cached, count: cached.length + an.hold, ready: cached.length, total: cached.length, busy: false };
+      E.bundle = { key, core: cached, count: cached.length + an.hold, ready: cached.length, total: cached.length, busy: false, scale: E.scale };
       showAnimProgress(1);
       drawFrame(0);
       if (wasPlaying) startPlayback(info, an);
       return;
     }
-    E.bundle = { key, core: null, count: 0, ready: 0, total: 0, busy: true };
+    E.bundle = { key, core: null, count: 0, ready: 0, total: 0, busy: true, scale: null };
     showAnimProgress(0);
     (async () => {
       await E.ensurePyodide();
       const out = JSON.parse(E.pyBuildKeyframes(
         info.name, JSON.stringify(st || {}), JSON.stringify(animRecipe(an).tracks),
-        an.frames, an.fps, 0, an.easing, JSON.stringify(an.overlays)
+        an.frames, an.fps, 0, an.easing, JSON.stringify(an.overlays),
+        JSON.stringify(info.example || {})
       ));
       if (out.error) {
         E.bundle = null;
@@ -562,6 +563,13 @@
       let made = 0;
       while (i < E.bundle.total && made < PRE_FRAMES_PER_TICK) {
         const out = JSON.parse(E.pyRenderFrame(i));
+        // Every frame carries the same world->display scale (the mapping is
+        // per-motif); keep it current so the grid / readout / zoom indicator
+        // track scrubbing and playback.
+        if (out.scale != null) {
+          E.scale = out.scale;
+          E.bundle.scale = out.scale;
+        }
         E.bundle.core[i] = out.error ? null : out.svg;
         i++; made++;
       }
@@ -651,6 +659,10 @@
     if (!E.bundle || !E.bundle.core) return;
     const svg = E.bundle.core[Math.min(idx, E.bundle.core.length - 1)];
     if (!svg) return;
+    // The bundle records the world->display scale it was rendered with (see
+    // preRenderChunks); carry it onto the namespace so the grid overlay, the
+    // readout and the zoom indicator stay right across playback and scrubbing.
+    if (E.bundle.scale != null) E.scale = E.bundle.scale;
     E.motifSvgs().forEach((s) => s.remove());
     stageEl.insertAdjacentHTML("beforeend", E.stripXmlDecl(svg));
     placeholderEl.classList.remove("busy", "error");
