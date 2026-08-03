@@ -259,7 +259,10 @@
 
   function paintMeta(info) {
     const parts = [`<h2 class="motif-title"><code>${E.esc(info.name)}</code></h2>`];
-    parts.push(`<p class="motif-summary">${E.esc(info.summary || "")}</p>`);
+    // The summary is a docstring paragraph, so it carries the same ``code`` /
+    // **bold** / *italic* markup the long description does. Escaping alone left
+    // the literal backticks on screen; run it through the inline formatter.
+    parts.push(`<p class="motif-summary">${E.inlineDoc(info.summary || "")}</p>`);
     const tags = [];
     if (info.family) tags.push(`<span class="badge">${E.esc(info.family)}</span>`);
     if (info.requires) tags.push(`<span class="badge">needs ${E.esc(info.requires)}</span>`);
@@ -367,6 +370,9 @@
     s = s.replace(/(^|\W)\*([^*\n]+)\*/g, "$1<em>$2</em>");
     return s;
   }
+
+  // Exported so the summary line (paintMeta) formats like the description body.
+  E.inlineDoc = inlineDoc;
 
   // --- debounced render + fragment sync ---------------------------------------
   // The hash is updated on the same ~30 ms cadence as the render so a slider
