@@ -1120,6 +1120,33 @@ pre.command {
 .timeline.kf-no-curve .kf-curve-svg { display: none; }
 .timeline.kf-no-fill .kf-curve-fill { display: none; }
 
+/* Timeline ruler: a dim 1px hairline inside the lane at each labelled time
+   (0, 0.25, 0.5, 0.75, 1) plus a scale of labels directly under the lane --
+   0.0 flush left, 1.0 flush right, the quarters centred. A positional
+   reference for landing keyframes at a time. Hides via the keyframe settings'
+   "show timeline ruler" toggle (a .kf-no-ticks class on the timeline). */
+.lane-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--line-2) 60%, transparent);
+  pointer-events: none;
+}
+.lane-ruler {
+  position: relative;
+  height: 0.85rem;
+  margin-top: 0.1rem;
+  font: 0.55rem/1 var(--mono);
+  color: var(--faint);
+  user-select: none;
+  pointer-events: none;
+}
+.lane-ruler-label { position: absolute; top: 0; }
+.timeline.kf-no-ticks .lane-tick,
+.timeline.kf-no-ticks .lane-ruler { display: none; }
+
 /* The edit row under a numeric track's lane: a precise value input for the
    selected keyframe and a visible delete (x) button. Hidden until a dot on
    that track is selected (the row carries .edit via its parent .track), and

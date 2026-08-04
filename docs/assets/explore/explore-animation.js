@@ -77,8 +77,8 @@
   }
 
   // Keyframe-lane visual preferences -- whether to draw the easing curve
-  // between keyframes, fill under it, and (issue added below) the timeline
-  // ruler. Each defaults on and persists in localStorage. They are expressed
+  // between keyframes, fill under it, and the timeline ruler. Each defaults on
+  // and persists in localStorage. They are expressed
   // as classes on the timeline element (.kf-no-curve / .kf-no-fill / later
   // .kf-no-ticks) so toggling gating needs no repaint of the lane dots -- the
   // markers are always built and merely hidden in CSS. The settings popover
@@ -93,11 +93,13 @@
   E.kfPrefs = {
     curve: readKfBool("geomotif.kf.curve", true),
     fill: readKfBool("geomotif.kf.fill", true),
+    ticks: readKfBool("geomotif.kf.ticks", true),
   };
   function applyKfPrefs() {
     if (!timelineEl) return;
     timelineEl.classList.toggle("kf-no-curve", !E.kfPrefs.curve);
     timelineEl.classList.toggle("kf-no-fill", !E.kfPrefs.fill);
+    timelineEl.classList.toggle("kf-no-ticks", !E.kfPrefs.ticks);
   }
   E.applyKfPrefs = applyKfPrefs;
   E.setKfPref = (key, val) => {
@@ -585,6 +587,33 @@
     if (numeric) lane.classList.add("numeric");
     row.appendChild(lane);
 
+    // A timeline ruler: dim hairline ticks aligned inside the lane plus a
+    // scale of labels directly under it (0.0 at the left, 1.0 at the right,
+    // quarter inbetweens). Purely a visual reference for landing dots at a
+    // time; ties to the keyframe settings' "show timeline ruler" toggle via a
+    // class on the timeline (hidden in CSS, no repaint needed). The hairlines
+    // are static, built here and left alone by paintLaneDots (which only
+    // re-adds its own curve svg + dots).
+    for (const t of RULER_TICKS) {
+      const tickEl = document.createElement("span");
+      tickEl.className = "lane-tick";
+      tickEl.style.left = (t * 100) + "%";
+      lane.appendChild(tickEl);
+    }
+    const ruler = document.createElement("div");
+    ruler.className = "lane-ruler";
+    ruler.setAttribute("aria-hidden", "true");
+    RULER_TICKS.forEach((t, i) => {
+      const lab = document.createElement("span");
+      lab.className = "lane-ruler-label";
+      lab.textContent = RULER_LABELS[i];
+      if (i === 0) lab.style.left = "0";
+      else if (i === RULER_TICKS.length - 1) lab.style.right = "0";
+      else { lab.style.left = (t * 100) + "%"; lab.style.transform = "translateX(-50%)"; }
+      ruler.appendChild(lab);
+    });
+    row.appendChild(ruler);
+
     // The edit row appears under the lane when a keyframe on this track is
     // selected: a precise time input (clamped to 0..1) on every track, a
     // precise value input on numeric tracks, and always a visible delete (x)
@@ -664,6 +693,12 @@
   }
 
   const LANE_SVG_NS = "http://www.w3.org/2000/svg";
+
+  // The timeline ruler's tick positions (fractions of the lane) and labels:
+  // 0.0 at the left, 1.0 at the right, with quarter inbetweens. Used by
+  // buildTrackRow to lay the hairlines inside each lane and the scale below.
+  const RULER_TICKS = [0, 0.25, 0.5, 0.75, 1];
+  const RULER_LABELS = ["0.0", "0.25", "0.5", "0.75", "1.0"];
 
   // Draw the easing curve between keyframes in a numeric lane: an SVG overlay
   // whose polyline sits at the value each time eases to, so a user can see at a
