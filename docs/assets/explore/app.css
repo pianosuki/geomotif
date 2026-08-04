@@ -1120,9 +1120,9 @@ pre.command {
 .timeline.kf-no-curve .kf-curve-svg { display: none; }
 .timeline.kf-no-fill .kf-curve-fill { display: none; }
 
-/* Timeline ruler: a dim 1px hairline inside the lane at each labelled time
+/* Timeline ruler: a dim 1px hairline inside the lane at each labeled time
    (0, 0.25, 0.5, 0.75, 1) plus a scale of labels directly under the lane --
-   0.0 flush left, 1.0 flush right, the quarters centred. A positional
+   0.0 flush left, 1.0 flush right, the quarters centered. A positional
    reference for landing keyframes at a time. Hides via the keyframe settings'
    "show timeline ruler" toggle (a .kf-no-ticks class on the timeline). */
 .lane-tick {
