@@ -791,12 +791,12 @@
     const pts = [];
     for (let i = 0; i <= N; i++) {
       const u = i / N;
-      // The top-level playback easing is a final layer above the per-segment
-      // (programmed) easing: warp the raw lane time u with an.easing, then
-      // sample the track's per-segment interpolation at the warped time. So the
-      // curve reflects both -- what is programmed per keyframe and the global
-      // layer the user previews with -- matching playback and the export.
-      const v = Number(E.trackValueAt(kfs, easeProgress(an.easing, u), tr));
+      // The lane curve visualises only the *programmed* keyframe easing (the
+      // per-segment interpolation). The top-level playback easing is a separate
+      // final layer applied on top at playback/export time only, so it must not
+      // bend the curve the user edits -- otherwise changing Playback -> easing
+      // would keep redrawing every lane and clutter the keyframe program.
+      const v = Number(E.trackValueAt(kfs, u, tr));
       const f = Math.min(1, Math.max(0, (v - lo) / (hi - lo)));
       pts.push([(u * 100).toFixed(2), ((1 - f) * 100).toFixed(2)]);
     }
@@ -867,17 +867,6 @@
     syncEditRow(p, an);
   }
   E.paintLaneDots = paintLaneDots;
-
-  // Repaint the easing curve of every lane. Used when a user changes the global
-  // (top-level playback) easing, which is a final layer above every track -- the
-  // curve reflects both the per-segment program and that global layer, so the
-  // change must redraw without resetting keyframe selection.
-  function repaintAllLanes(an) {
-    trackRefs.forEach((ref) => {
-      if (ref && ref.lane && ref.p) paintLaneDots(ref.lane, ref.p, an);
-    });
-  }
-  E.repaintAllLanes = repaintAllLanes;
 
   // Drag a keyframe dot. Clicking selects it (ring + editor row). Dragging
   // moves the *dominant* axis only: left/right changes the time, and on
@@ -1570,10 +1559,9 @@
   animEaseEl.addEventListener("change", () => {
     if (!E.anim) return;
     E.anim.easing = animEaseEl.value;
-    // The playback easing is a final layer on top of the keyframe program, so
-    // changing it must re-draw the lanes' curves (they show the combined
-    // effect) without touching any keyframe -- it is separate and layered.
-    repaintAllLanes(E.anim);
+    // The playback easing is a separate final layer applied on top of the whole
+    // keyframe program, so it never triggers any redraw of the keyframe lanes
+    // (their curves and dots visualise only the programmed per-segment easing).
     restartPlayback(E.byName[E.current], E.state, E.anim);
   });
 
