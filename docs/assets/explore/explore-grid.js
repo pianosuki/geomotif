@@ -208,7 +208,10 @@
     else if (oy < y0) labelY = y0 + fs * 0.3; // axis panned off the top -> top edge
     else labelY = y1 - fs * 0.3; // axis panned off the bottom -> bottom edge
     for (let wx = Math.ceil(wx0 / worldStep) * worldStep; wx <= wx1 + 1e-9; wx += worldStep) {
-      if (Math.abs(wx) < 1e-9) continue; // the origin gets its own "0"
+      // The visible origin gets its own "0"; but when the x-axis is panned
+      // off-screen the x-row pins to the edge, so "0" must ride along with the
+      // other numbers instead of vanishing.
+      if (Math.abs(wx) < 1e-9 && visY) continue;
       const t = el("text", {
         x: ox + wx * sc, y: labelY, "text-anchor": "middle",
         "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
@@ -221,7 +224,7 @@
     else if (ox < x0) { labelX = x0 + fs * 0.3; anchor = "start"; } // axis left of view -> left edge
     else { labelX = x1 - fs * 0.35; anchor = "end"; } // axis right of view -> right edge
     for (let wy = Math.ceil(wy0 / worldStep) * worldStep; wy <= wy1 + 1e-9; wy += worldStep) {
-      if (Math.abs(wy) < 1e-9) continue;
+      if (Math.abs(wy) < 1e-9 && visX) continue;
       const t = el("text", {
         x: labelX, y: oy - wy * sc, dy: fs * 0.35, "text-anchor": anchor,
         "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
@@ -230,12 +233,15 @@
       gLabels.appendChild(t);
     }
     // The origin's own "0" marks the crossing itself, so it moves with the
-    // plane and only appears when the origin is actually on-screen. It sits to
-    // the left of the y-axis and below the x-axis, tucking into the quadrant
-    // its row shares with the x numbers (below) and the y numbers (left).
+    // plane and only appears when the origin is actually on-screen. It tucks
+    // into the quadrant its row shares with the x numbers (below): the glyph's
+    // baseline sits on the x-row's line (y = oy + fs), so the whole digit is
+    // clear of the x-axis stroke instead of being crossed by it, and it is
+    // anchored end at a short offset left of the y-axis so that stroke cannot
+    // cover it either.
     if (visX && visY) {
       const t = el("text", {
-        x: ox, y: oy, dx: -fs * 0.42, dy: fs * 0.35, "text-anchor": "end",
+        x: ox, y: oy + fs, dx: -fs * 0.42, "text-anchor": "end",
         "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
       });
       t.textContent = "0";

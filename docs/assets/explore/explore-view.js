@@ -81,15 +81,28 @@
   // canvas centre, but the viewBox is the placed design's own bounds, so it is
   // read from the element rather than assumed. When the renderer reports the
   // drawn picture's display bounds (E.dispBounds -- see explore-bootstrap.js),
-  // those win and are padded slightly: they describe the *motif* at its
-  // current size, so fit-to-view frames it (and recenters it) after a render
-  // even when a parameter visibly rescales the picture, instead of always
-  // restoring the full 520x520 canvas.
+  // those win: they describe the *motif* at its current size, so fit-to-view
+  // frames it (and recenters it) after a render even when a parameter visibly
+  // rescales the picture, instead of always restoring the full 520x520 canvas.
+  //
+  // The natural box is kept SQUARE. The stage's two SVGs (the motif and the
+  // grid overlay) share the viewBox, and a non-square one letterboxes both
+  // under the default preserveAspectRatio -- which crops the coordinate plane
+  // to the motif's own rectangle and leaves the empty bands of a wide-and-short
+  // or tall-and-narrow picture with no grid at all. A square box centred on
+  // the drawn picture frames it fully at fit-to-view while the gridlines, axes
+  // and labels still cover the whole stage, whatever the motif's aspect ratio.
   function captureNatural() {
     const b = E.dispBounds;
     if (b && b.w > 0 && b.h > 0) {
       const pad = 8;
-      E.naturalVB = { x: b.x - pad, y: b.y - pad, w: b.w + 2 * pad, h: b.h + 2 * pad };
+      const w = b.w + 2 * pad, h = b.h + 2 * pad;
+      const side = Math.max(w, h);
+      E.naturalVB = {
+        x: b.x + b.w / 2 - side / 2,
+        y: b.y + b.h / 2 - side / 2,
+        w: side, h: side,
+      };
       return;
     }
     const svg = motifSvg();
