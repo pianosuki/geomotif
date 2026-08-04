@@ -547,6 +547,21 @@
   // Remove the selected keyframe (via the track's delete button or the
   // Delete/Backspace key on a focused dot). Keep at least one keyframe per
   // track; rebuilding the timeline clears the selection and redraws dots.
+  // Clear the current keyframe selection (the dot ring and this track's lit-up
+  // outline) without touching any keyframes. Called when the user clicks away
+  // -- otherwise the outline would stay lit until the timeline is rebuilt or a
+  // keyframe is deleted.
+  function clearSelection() {
+    if (!E.selectedKf) return;
+    E.selectedKf = null;
+    const an = E.anim;
+    for (const ref of trackRefs.values()) {
+      syncSelClass(ref.p, an);
+      syncEditRow(ref.p, an);
+    }
+  }
+  E.clearSelection = clearSelection;
+
   function removeSelected(p, an) {
     if (!E.selectedKf || E.selectedKf.track !== p.name) return;
     const kfs = an.tracks[p.name] && an.tracks[p.name].keyframes;
@@ -1452,6 +1467,17 @@
       if (kfSetPopoverEl.classList.contains("open") && !kfSetPopoverEl.contains(e.target)) {
         setOpen(false);
       }
+    });
+    // Clicking away from the selected keyframe deselects it (clearSelection),
+    // so a track's lit outline doesn't linger. Selection survives clicks that
+    // stay inside that track's own row -- its dots, editor inputs, delete
+    // button or easing/add controls -- since those all belong to the selected
+    // keyframe; anything else (another track, the page background) drops it.
+    document.addEventListener("pointerdown", (e) => {
+      if (!E.selectedKf) return;
+      const inDot = e.target.closest && e.target.closest(".kf");
+      const inSelRow = e.target.closest && e.target.closest(".track.edit");
+      if (!inDot && !inSelRow) clearSelection();
     });
     for (const key of ["curve", "fill", "ticks"]) {
       const row = E.$("kf-" + key);
