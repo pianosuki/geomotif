@@ -1094,6 +1094,32 @@ pre.command {
 }
 .track.edit .lane { border-color: var(--accent); }
 
+/* The easing curve drawn between keyframes in a numeric lane: an SVG overlay
+   stretched across the lane whose stroke sits at the value each time eases to
+   and whose area under the curve is filled to the lane's bottom by default.
+   vector-effect keeps the stroke a constant screen width despite the
+   preserveAspectRatio="none" stretch. The .kf-no-curve / .kf-no-fill classes
+   on the timeline come from the keyframe settings; the svg is always built and
+   merely hidden here so toggling needs no repaint of the dots. */
+.kf-curve-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.kf-curve-fill { fill: var(--accent-soft); }
+.kf-curve-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+.timeline.kf-no-curve .kf-curve-svg { display: none; }
+.timeline.kf-no-fill .kf-curve-fill { display: none; }
+
 /* The edit row under a numeric track's lane: a precise value input for the
    selected keyframe and a visible delete (x) button. Hidden until a dot on
    that track is selected (the row carries .edit via its parent .track), and

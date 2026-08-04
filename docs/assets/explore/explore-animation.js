@@ -76,6 +76,37 @@
     applyAxisLockButton();
   }
 
+  // Keyframe-lane visual preferences -- whether to draw the easing curve
+  // between keyframes, fill under it, and (issue added below) the timeline
+  // ruler. Each defaults on and persists in localStorage. They are expressed
+  // as classes on the timeline element (.kf-no-curve / .kf-no-fill / later
+  // .kf-no-ticks) so toggling gating needs no repaint of the lane dots -- the
+  // markers are always built and merely hidden in CSS. The settings popover
+  // (the keyframe "gear") writes these; applyKfPrefs is called at boot and on
+  // change.
+  function readKfBool(key, dflt) {
+    try {
+      const v = localStorage.getItem(key);
+      return v == null ? dflt : (v !== "0" && v !== "false");
+    } catch (err) { return dflt; }
+  }
+  E.kfPrefs = {
+    curve: readKfBool("geomotif.kf.curve", true),
+    fill: readKfBool("geomotif.kf.fill", true),
+  };
+  function applyKfPrefs() {
+    if (!timelineEl) return;
+    timelineEl.classList.toggle("kf-no-curve", !E.kfPrefs.curve);
+    timelineEl.classList.toggle("kf-no-fill", !E.kfPrefs.fill);
+  }
+  E.applyKfPrefs = applyKfPrefs;
+  E.setKfPref = (key, val) => {
+    E.kfPrefs[key] = val;
+    try { localStorage.setItem("geomotif.kf." + key, val ? "1" : "0"); } catch (err) { /* private */ }
+    applyKfPrefs();
+  };
+  applyKfPrefs();
+
   // Live references to the lane / value input / delete button / edit row / row
   // for each track, repopulated on every paintTimeline, so dot selection and
   // drag handlers can update the editor UI without re-querying the DOM.
@@ -632,15 +663,63 @@
     return row;
   }
 
+  const LANE_SVG_NS = "http://www.w3.org/2000/svg";
+
+  // Draw the easing curve between keyframes in a numeric lane: an SVG overlay
+  // whose polyline sits at the value each time eases to, so a user can see at a
+  // glance how the animation will move between two keyframes (steep = fast,
+  // flat = slow). The curve is area-filled to the bottom of the lane by
+  // default. A single keyframe -- wherever it sits -- simply holds its value,
+  // so the "curve" is a level line across the whole lane, showing the value
+  // stays put from the start (or to the end). Numeric tracks only: a bool /
+  // Literal track's value has no linear axis, so it gets no curve (the step
+  // marker already tells that story). The lane is position:relative, so the
+  // overlay svg stretches to it via preserveAspectRatio="none"; vector-effect
+  // keeps the stroke a constant screen width. The .kf-no-curve / .kf-no-fill
+  // classes on the timeline (keyframe settings) hide it in CSS, so toggling
+  // needs no repaint of the dots.
+  function paintLaneCurve(lane, p, an, tr, numeric, lo, hi) {
+    if (IS_TOUCH || !numeric || !tr || !tr.keyframes || !tr.keyframes.length || hi <= lo) return;
+    const kfs = tr.keyframes;
+    const easeName = tr.easing || an.easing;
+    const N = 96;
+    const pts = [];
+    for (let i = 0; i <= N; i++) {
+      const t = i / N;
+      const v = Number(E.trackValueAt(kfs, t, easeName));
+      const f = Math.min(1, Math.max(0, (v - lo) / (hi - lo)));
+      pts.push([(t * 100).toFixed(2), ((1 - f) * 100).toFixed(2)]);
+    }
+    const curve = "M " + pts.map((q) => q[0] + " " + q[1]).join(" L ");
+    const fill = "M 0 100 L " + pts.map((q) => q[0] + " " + q[1]).join(" L ") + " L 100 100 Z";
+    const svg = document.createElementNS(LANE_SVG_NS, "svg");
+    svg.setAttribute("class", "kf-curve-svg");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    const fillP = document.createElementNS(LANE_SVG_NS, "path");
+    fillP.setAttribute("class", "kf-curve-fill");
+    fillP.setAttribute("d", fill);
+    const lineP = document.createElementNS(LANE_SVG_NS, "path");
+    lineP.setAttribute("class", "kf-curve-line");
+    lineP.setAttribute("d", curve);
+    svg.appendChild(fillP);
+    svg.appendChild(lineP);
+    lane.appendChild(svg);
+  }
+
   function paintLaneDots(lane, p, an) {
-    // Keep the lane element; clear and re-add dots so a redraw after a drop /
-    // drag / delete / value edit is one DOM write.
+    // Keep the lane element; clear and re-add overlays + dots so a redraw after
+    // a drop / drag / delete / value edit is one DOM write. The easing curve is
+    // painted before the dots so they stay on top of it.
     lane.querySelectorAll(".kf").forEach((d) => d.remove());
+    lane.querySelectorAll(".kf-curve-svg").forEach((s) => s.remove());
     const tr = an.tracks[p.name];
-    if (!tr) return;
     const numeric = isNumericKey(p);
     const loHi = numeric ? valueRange(p) : [0, 1];
     const lo = loHi[0], hi = loHi[1];
+    paintLaneCurve(lane, p, an, tr, numeric, lo, hi);
+    if (!tr) return;
     for (let i = 0; i < tr.keyframes.length; i++) {
       const [t, v] = tr.keyframes[i];
       const dot = document.createElement("span");
