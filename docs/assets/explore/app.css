@@ -212,6 +212,10 @@ header {
 }
 .search::placeholder { color: var(--faint); }
 .search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* The motif search lives in the left rail (it filters the motif list beside
+   it), not the header, so it stretches the full rail width and keeps a small
+   gap above the family filter chips. */
+.rail .search { width: 100%; margin: 0.4rem 0 0.75rem; }
 .status {
   font: 0.78rem/1 var(--mono);
   color: var(--muted);
@@ -972,7 +976,6 @@ pre.command {
 .lane {
   position: relative;
   height: 18px;
-  margin-left: 5rem;
   border-radius: 99px;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -1014,7 +1017,7 @@ pre.command {
   display: none;
   align-items: center;
   gap: 0.4rem;
-  margin: 0.25rem 0 0 5rem;
+  margin: 0.25rem 0 0;
   font: 0.68rem/1 var(--mono);
   color: var(--faint);
 }
@@ -1205,7 +1208,7 @@ pre.command {
    current time. It reads as a primary action (accent fill) so a new user
    finds it before the per-track "+". The t= span is live, so the button
    always tells the user what they will get. */
-.kf-set-all-row { margin: 0.2rem 0 0.45rem; }
+.kf-set-all-row { margin: 0.2rem 0 0.45rem; display: flex; align-items: center; gap: 0.4rem; }
 .kf-set-all {
   width: 100%;
   padding: 0.5rem 0.7rem;
@@ -1219,6 +1222,25 @@ pre.command {
 }
 .kf-set-all:hover { background: color-mix(in srgb, var(--accent-soft) 70%, var(--accent) 12%); }
 .kf-set-all:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+/* A small, non-intrusive toggle for keyframe-drag axis locking: on (locked to
+   one axis) by default; off lets a drag move value and time together. It sits
+   on the same row as the "set keyframes" button, right-aligned. */
+.kf-lock {
+  flex: none;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.66rem/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.kf-lock[aria-pressed="true"] { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
+.kf-lock:hover { color: var(--ink); border-color: var(--line-2); }
+.kf-lock:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
 .kf-set-all #kf-set-all-t { font-family: var(--mono); font-weight: 500; }
 
 /* Per-track "+" button: drops a single keyframe at the scrubber's time. Sits
