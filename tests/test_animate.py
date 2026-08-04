@@ -5,6 +5,7 @@ import pytest
 
 from geomotif import Bounds, Design, Path, Style, layer, styled, to_gif
 from geomotif.animate import (
+    _is_discrete,
     compose,
     draw_on,
     draw_on_overlay,
@@ -689,7 +690,32 @@ def test_keyframes_steps_a_bool_parameter_at_the_next_keyframe():
     track = {"clip": [(0.0, True), (0.5, False), (1.0, True)]}
     motif = SquareTiling(region=Bounds(0.0, 0.0, 100.0, 100.0))
     frames = keyframes(motif, track, frames=11)
-    # The value holds, then snaps the moment the scrubber crosses 0.5 and 1.0.
+    # Interior values hold from their own time until the next keyframe; the
+    # last value takes over from the midpoint of the final segment (0.75), so
+    # it is actually visible rather than flashing only on the final frame.
+    assert [frame.meta["clip"] for frame in frames] == [
+        True,
+        True,
+        True,
+        True,
+        True,
+        False,
+        False,
+        False,
+        True,
+        True,
+        True,
+    ]
+
+
+def test_keyframes_a_start_end_discrete_pair_shows_both_values():
+    # With only keyframes at the start and the end, the old "most recent at or
+    # before t wins" rule held the start value for the whole run and flashed the
+    # end value only on the last frame. The last value now takes over at the
+    # midpoint, so both states are visible and the end state holds.
+    track = {"clip": [(0.0, True), (1.0, False)]}
+    motif = SquareTiling(region=Bounds(0.0, 0.0, 100.0, 100.0))
+    frames = keyframes(motif, track, frames=11)
     assert [frame.meta["clip"] for frame in frames] == [
         True,
         True,
@@ -701,8 +727,22 @@ def test_keyframes_steps_a_bool_parameter_at_the_next_keyframe():
         False,
         False,
         False,
-        True,
+        False,
     ]
+
+
+def test_keyframes_blends_a_float_keyframe_into_an_integer_one():
+    # A dragged value is a float (e.g. 98.51) while the other keyframe is often
+    # a plain integer (400). These must interpolate smoothly, not be treated as
+    # "mismatched types" and stepped -- which held the first value for the whole
+    # run and snapped to the last at the very end.
+    assert _is_discrete(98.51, 400) is False
+    assert _is_discrete(100, 400) is False
+    frames = keyframes(Rose(), {"size": [(0.0, 50.0), (1.0, 200.0)]}, frames=16, easing="linear")
+    widths = [round(f.bounds.width, 1) for f in frames]
+    # Several distinct intermediate sizes -- not a binary first-then-last step.
+    assert len({round(w, 0) for w in widths}) >= 6
+    assert widths[0] < widths[-1]
 
 
 def test_keyframes_dedupes_adjacent_integer_frames_to_one_design():
@@ -784,6 +824,30 @@ def test_compose_chains_draw_on_and_spin_overlays_onto_the_frames():
     both = compose([draw_on_overlay(), spin_overlay(turns=0.5)], base)
     assert len(both) == len(base)
     assert both[4].paths[0].points[0] != base[4].paths[0].points[0]
+
+
+def test_spin_overlay_completes_a_whole_turn_on_the_final_frame():
+    # The overlay spins frame i by turns * i / (n - 1), so the last frame lands
+    # exactly on `turns` revolutions. When `turns` is a whole number that
+    # returns the frame (rotated about its own center) to where it started;
+    # fractional turns end partway around instead.
+    def rounded(pts):
+        return [(round(x, 4), round(y, 4)) for x, y in pts]
+
+    def same(a, b):
+        return rounded(a) == rounded(b)
+
+    base = keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=8)
+    one = compose([spin_overlay(turns=1.0)], base)
+    assert same(one[-1].paths[0].points, base[-1].paths[0].points)
+    two = compose([spin_overlay(turns=2.0)], base)
+    assert same(two[-1].paths[0].points, base[-1].paths[0].points)
+    # ... a half turn ends a half turn off the start, fractions stay fractional.
+    half = compose([spin_overlay(turns=0.25)], base)
+    assert not same(half[-1].paths[0].points, base[-1].paths[0].points)
+    # A fractional turn ending on a half-circle is still a distinct pose.
+    frac = compose([spin_overlay(turns=1.5)], base)
+    assert not same(frac[-1].paths[0].points, base[-1].paths[0].points)
 
 
 def test_a_keyframes_run_writes_as_a_gif(tmp_path):

@@ -492,16 +492,20 @@ def spin_overlay(
 ) -> Callable[[tuple[Design, ...]], tuple[Design, ...]]:
     """Return a motion that turns each frame in step with the timeline.
 
-    Frame ``i`` of ``n`` is rotated by ``turns * i / n`` revolutions. ``about``
-    defaults to each frame's own center, which is what keeps it on the canvas;
-    give a point to rotate about a fixed one instead.
+    Frame ``i`` of ``n`` is rotated by ``turns * i / (n - 1)`` revolutions, so
+    the *final* frame has completed exactly ``turns`` revolutions (fractions
+    stay fractional: the last frame is a full ``turns`` turn on from the
+    first, which is back at the starting orientation whenever ``turns`` is a
+    whole number, and partway around otherwise). ``about`` defaults to each
+    frame's own center, which is what keeps it on the canvas; give a point to
+    rotate about a fixed one instead.
     """
 
     def apply(frames: tuple[Design, ...]) -> tuple[Design, ...]:
         n = len(frames)
-        if n == 0:
+        if n <= 1:
             return frames
-        step = math.tau * turns / n
+        step = math.tau * turns / (n - 1)
 
         def center(frame: Design) -> Point:
             return frame.bounds.center if len(frame) else (0.0, 0.0)
@@ -572,9 +576,12 @@ def _value_at(t: float, kfs: list[tuple[float, object]], easing: SpacingCurve) -
     """Return the value a track holds at normalized time ``t``.
 
     Before the first keyframe the first value holds; at or after the last, the
-    last. Discrete parameters (``bool``, ``str``, mismatched types) step at the
-    next keyframe -- the most recent keyframe at or before ``t`` wins, so the
-    value snaps the moment the scrubber crosses a boundary; numeric ones ease
+    last. Discrete parameters (``bool``, ``str``, mismatched types) step rather
+    than ease: each interior value holds from its own time until the next
+    keyframe, and the *last* value takes over from the midpoint of the final
+    segment -- so a start/end pair like ``[(0, a), (1, b)]`` shows ``a`` for
+    the first half and ``b`` for the second, instead of holding ``a`` for the
+    whole run and flashing ``b`` only on the last frame. Numeric ones ease
     component-wise, with integers rounded.
     """
     if t <= kfs[0][0]:
@@ -582,8 +589,14 @@ def _value_at(t: float, kfs: list[tuple[float, object]], easing: SpacingCurve) -
     if t >= kfs[-1][0]:
         return kfs[-1][1]
     if _is_discrete(kfs[0][1], kfs[-1][1]):
+        # The last value would otherwise only ever be seen at the instant
+        # t == its own time (usually 1.0), i.e. on the final frame alone. Pull
+        # its onset back to the midpoint of the last segment so it gets a span.
+        last_onset = (kfs[-2][0] + kfs[-1][0]) / 2 if len(kfs) >= 2 else kfs[-1][0]
+        if t >= last_onset:
+            return kfs[-1][1]
         held = kfs[0][1]
-        for tk, vk in kfs:
+        for tk, vk in kfs[:-1]:
             if tk <= t:
                 held = vk
             else:
@@ -600,14 +613,19 @@ def _is_discrete(v0: object, v1: object) -> bool:
     """Return whether two keyframe values should step rather than interpolate.
 
     ``bool`` and ``str`` step (so a ``Literal`` parameter snaps between its
-    choices); so do mismatched types, since there is no honest blend between
-    them. Everything else -- numbers, points, bounds, value dataclasses,
-    nested motifs -- interpolates.
+    choices); so do mismatched *kinds* -- a :class:`Point` next to a
+    ``Bounds``, or a design next to a bare number -- since there is no honest
+    blend between them. Plain numbers interpolate even when their exact types
+    differ: a dragged float keyframe (e.g. ``98.51``) easing toward an integer
+    keyframe (``400``) must blend smoothly, not step. Everything else that is
+    the same type -- value dataclasses, nested motifs -- interpolates.
     """
     if isinstance(v0, bool) or isinstance(v1, bool):
         return True
     if isinstance(v0, str) or isinstance(v1, str):
         return True
+    if isinstance(v0, (int, float)) and isinstance(v1, (int, float)):
+        return False
     return type(v0) is not type(v1)
 
 
