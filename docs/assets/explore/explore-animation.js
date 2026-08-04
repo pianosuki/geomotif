@@ -50,6 +50,32 @@
   // per-track value input / delete affordance, and Delete/Backspace removal.
   E.selectedKf = null;
 
+  // Keyframe drag axis-locking: on by default, a drag moves the *dominant*
+  // axis only (vertical = value, horizontal = time); the small "lock" toggle in
+  // the timeline turns it off for free two-axis dragging. Persisted in
+  // localStorage like the view toggles so the choice sticks between sessions.
+  const AXISLOCK_KEY = "geomotif.axislock";
+  try { E.axisLock = localStorage.getItem(AXISLOCK_KEY) !== "off"; }
+  catch (err) { E.axisLock = true; }
+  function applyAxisLockButton() {
+    const btn = E.$("kf-lock");
+    if (!btn) return;
+    btn.setAttribute("aria-pressed", String(E.axisLock));
+    btn.title = E.axisLock
+      ? "keyframe drags lock to one axis (value vs time) — click for free two-axis drags"
+      : "keyframe drags move value and time together — click to lock to one axis";
+  }
+  E.toggleAxisLock = (on) => {
+    E.axisLock = !!on;
+    try { localStorage.setItem(AXISLOCK_KEY, on ? "on" : "off"); } catch (err) { /* private */ }
+    applyAxisLockButton();
+  };
+  {
+    const btn = E.$("kf-lock");
+    if (btn) btn.addEventListener("click", () => E.toggleAxisLock(!E.axisLock));
+    applyAxisLockButton();
+  }
+
   // Live references to the lane / value input / delete button / edit row / row
   // for each track, repopulated on every paintTimeline, so dot selection and
   // drag handlers can update the editor UI without re-querying the DOM.
@@ -57,12 +83,17 @@
 
   // The animatable parameters of a motif: anything a slider/dropdown/toggle can
   // move, i.e. the settable numeric/bool/Literal params the catalog reports.
+  // String-valued choices (a categorical "which shape" picker like Heart's
+  // `form`) are excluded: stepping between wholly different forms mid-run is
+  // jarring and there is no honest "between", so only things that move
+  // continuously -- ints, floats, bools and numeric Literals -- get a track.
   function animatableParams(info) {
     const out = [];
     for (const p of info.params) {
       if (RESERVED.has(p.name)) continue;
       if (!E.isSettable(p)) continue;
       const ann = p.annotation;
+      if (p.choices && p.choices.length && p.choices.every((c) => typeof c === "string")) continue;
       if (ann === "int" || ann === "float" || ann === "bool" ||
           (p.choices && p.choices.length) || ann.startsWith("Literal")) {
         out.push(p);
@@ -604,10 +635,12 @@
   E.paintLaneDots = paintLaneDots;
 
   // Drag a keyframe dot. Clicking selects it (ring + editor row). Dragging
-  // horizontally changes its time; on numeric tracks dragging vertically
-  // changes its value, so the dot moves both ways in the lane. The dragged
-  // dot is repositioned live and the keyframe pair is mutated in place;
-  // on release the list is time-sorted, re-indexed and repainted.
+  // moves the *dominant* axis only: left/right changes the time, and on
+  // numeric tracks up/down changes the value, so the dot moves one way in the
+  // lane. The drag is axis-locked after a few pixels of travel -- a mostly
+  // vertical gesture changes the value without nudging the time (and vice
+  // versa). The dragged attribute mutates the keyframe pair in place; on
+  // release the list is time-sorted, re-indexed and repainted.
   function startDotDrag(e, dot, p, an, lane) {
     e.preventDefault();
     dot.focus();
@@ -618,18 +651,47 @@
     const numeric = isNumericKey(p);
     const loHi = numeric ? valueRange(p) : [0, 1];
     const rect = lane.getBoundingClientRect();
+    const startX = e.clientX, startY = e.clientY;
+    let axis = null; // "x" (time) or "y" (value); locked at the drag threshold
+    const AXIS_THRESH = 6; // px of travel before the gesture commits to an axis
     const move = (ev) => {
-      const t = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
-      kf[0] = t;
-      dot.style.left = (t * 100) + "%";
+      // Free two-axis drag (axis lock off): the dot moves both ways in the
+      // lane -- horizontal changes the time, vertical the value.
+      if (!E.axisLock) {
+        const t = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+        kf[0] = t;
+        dot.style.left = (t * 100) + "%";
+        if (numeric && loHi[1] > loHi[0]) {
+          const frac = Math.min(1, Math.max(0, 1 - (ev.clientY - rect.top) / rect.height));
+          const v = loHi[0] + (loHi[1] - loHi[0]) * frac;
+          kf[1] = Number(v.toFixed(4));
+          dot.style.top = ((1 - frac) * 100) + "%";
+          syncValueInput(p, kf[1]);
+        }
+        dot.title = `${p.name} @ t=${t.toFixed(2)} = ${E.formatVal(kf[1])}`;
+        return;
+      }
+      // Axis-locked drag: commit to the dominant axis after a few pixels.
+      const dx = ev.clientX - startX, dy = ev.clientY - startY;
+      if (!axis) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) <= AXIS_THRESH) return;
+        axis = Math.abs(dx) >= Math.abs(dy) ? "x" : "y";
+      }
+      if (axis === "x") {
+        const t = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
+        kf[0] = t;
+        dot.style.left = (t * 100) + "%";
+        dot.title = `${p.name} @ t=${t.toFixed(2)} = ${E.formatVal(kf[1])}`;
+        return;
+      }
       if (numeric && loHi[1] > loHi[0]) {
         const frac = Math.min(1, Math.max(0, 1 - (ev.clientY - rect.top) / rect.height));
         const v = loHi[0] + (loHi[1] - loHi[0]) * frac;
         kf[1] = Number(v.toFixed(4));
         dot.style.top = ((1 - frac) * 100) + "%";
         syncValueInput(p, kf[1]);
+        dot.title = `${p.name} @ t=${kf[0].toFixed(2)} = ${E.formatVal(kf[1])}`;
       }
-      dot.title = `${p.name} @ t=${t.toFixed(2)} = ${E.formatVal(kf[1])}`;
     };
     const up = () => {
       document.removeEventListener("pointermove", move);
