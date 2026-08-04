@@ -119,9 +119,15 @@
   padding: 0 0.85rem;
   box-sizing: border-box;
 }
-.md-header__explore:hover {
+/* On hover the pill fills with the accent. Material's own
+ * `.md-header__button:hover` also repaints the *text* accent-coloured, and
+ * it wins the tie on color -- equal specificity, later in the cascade -- so
+ * without this re-declaration the label would be accent-on-accent and read
+ * as a blank blue pill. Qualifying both classes beats that rule and keeps
+ * the label readable against the filled pill. */
+.md-header__button.md-header__explore:hover {
   background: var(--md-accent-fg-color, #4f46e5);
-  color: var(--md-default-bg-color, #ffffff);
+  color: var(--md-default-bg, #ffffff);
 }
 /* In dark mode the indigo accent lightens; the hover inversion still reads. */
 [data-md-color-scheme="slate"] .md-header__explore {
