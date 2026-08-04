@@ -276,7 +276,6 @@
     if (tags.length) parts.push(`<div class="motif-tags">${tags.join("")}</div>`);
     if (info.doc) parts.push(`<div class="motif-doc">${renderDoc(info.doc, info.summary)}</div>`);
     metaEl.innerHTML = parts.join("");
-    E.$("control-title").innerHTML = `<code>${E.esc(info.name)}</code>`;
   }
   E.paintMeta = paintMeta;
 

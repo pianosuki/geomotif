@@ -170,7 +170,6 @@
          back) without cloning -- appendChild preserves every slider handler. -->
     <aside class="controls" id="design-panel" role="tabpanel" aria-labelledby="mode-design">
       <div class="label">Parameters</div>
-      <h2 id="control-title">—</h2>
       <div class="controls-slot" id="controls-slot">
         <div class="controls-list" id="controls"></div>
       </div>
@@ -201,8 +200,13 @@
          #timeline, and the animation export row (GIF + spec JSON) sits at the
          bottom. The still SVG / PNG / spec exports stay in the Design panel. -->
     <aside class="animator" id="animator" role="tabpanel" aria-labelledby="mode-animate" hidden>
+      <div class="label">Parameters</div>
       <div class="anim-controls-slot" id="anim-controls-slot"></div>
       <section class="timeline" id="timeline" aria-label="animation timeline">
+        <!-- A labeled section heading separates the parameters above from the
+             keyframe lanes below, so the animator reads as two distinct
+             sections instead of one continuous list. -->
+        <div class="anim-section-head"><span class="label">Keyframes</span></div>
         <!-- A prominent "Set keyframes for all params at t=..." button at the
              top of the tracks section. Clicking drops a keyframe for every
              animatable parameter at the scrubber's current time, holding each

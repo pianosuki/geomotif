@@ -567,10 +567,8 @@ header {
 }
 /* `hidden` must win over any later `display` rule so the inactive panel really
    leaves the grid flow (otherwise both asides would share the column). */
-.animator[hidden] { display: none; }
-.controls h2 { margin-bottom: 0.15rem; }
-.controls h2 code { font-size: 1rem; font-weight: 600; }
-.placeholder-note {
+ .animator[hidden] { display: none; }
+ .placeholder-note {
   color: var(--muted);
   font-size: 0.83rem;
   line-height: 1.55;
