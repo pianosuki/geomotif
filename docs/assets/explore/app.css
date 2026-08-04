@@ -984,13 +984,11 @@ pre.command {
 .track-name {
   font: 0.72rem/1 var(--mono);
   color: var(--ink);
-  flex: none;
-  min-width: 5rem;
-}
-.track-ann {
-  font: 0.66rem/1 var(--mono);
-  color: var(--faint);
   flex: 1;
+  min-width: 5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .track-easing {
   font: 0.66rem/1 var(--mono);

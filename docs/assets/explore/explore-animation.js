@@ -496,11 +496,7 @@
     const name = document.createElement("span");
     name.className = "track-name";
     name.textContent = p.name;
-    const ann = document.createElement("span");
-    ann.className = "track-ann";
-    ann.textContent = p.annotation.startsWith("Literal") ? "choices" : p.annotation;
     head.appendChild(name);
-    head.appendChild(ann);
     // Step marker on discrete tracks so the hold-then-snap behavior reads.
     if (isDiscrete(p)) {
       const step = document.createElement("span");
