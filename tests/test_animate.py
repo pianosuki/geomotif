@@ -673,17 +673,73 @@ def test_keyframes_starts_and_ends_on_the_keyframe_values():
 def test_keyframes_easing_changes_the_midpoint():
     linear = keyframes(Rose(), {"size": [(0.0, 10.0), (1.0, 100.0)]}, frames=11, easing="linear")
     cubic = keyframes(Rose(), {"size": [(0.0, 10.0), (1.0, 100.0)]}, frames=11, easing="cubic")
-    # Halfway through, linear sits at the arithmetic middle; cubic-in lags
-    # behind it (slow start), so the two cannot agree.
+    # The top-level easing is a final layer: with one segment spanning the run,
+    # linear is the identity (size stays at the arithmetic middle) while cubic
+    # warps the timeline so the value lags behind it (slow start).
     assert linear[5].meta["size"] == pytest.approx(55.0)
     assert cast("float", cubic[5].meta["size"]) < cast("float", linear[5].meta["size"])
 
 
-def test_keyframes_per_track_easing_overrides_the_global_one():
+def test_keyframes_track_easing_eases_the_segment():
+    # A per-track easing is the *programmed* segment easing, independent of the
+    # top-level layer. With a single segment over the run, track cubic + global
+    # linear reproduces the classic cubic-in midpoint (not the arithmetic one).
     track = {"keyframes": [(0.0, 10.0), (1.0, 100.0)], "easing": "cubic"}
-    mixed = keyframes(Rose(), {"size": track}, frames=11, easing="linear")
+    eased = keyframes(Rose(), {"size": track}, frames=11, easing="linear")
+    assert eased[5].meta["size"] == pytest.approx(21.25)
+    # The track default only kicks in for segments left as "auto" (imports its
+    # value into the explicit easing list).
+    default = keyframes(
+        Rose(),
+        {"size": {"keyframes": [(0.0, 10.0), (1.0, 100.0)], "segments": ["cubic"]}},
+        frames=11,
+        easing="linear",
+    )
+    assert default[5].meta["size"] == pytest.approx(21.25)
+
+
+def test_keyframes_global_easing_layers_on_top_of_the_track():
+    # The top-level (playback) easing is a separate final layer: it warps the
+    # whole timeline before the programmed (per-segment) easing runs, so a
+    # global cubic vs linear changes the output even though the track easing is
+    # the same -- but it never rewrites that track easing.
+    track = {"keyframes": [(0.0, 10.0), (1.0, 100.0)], "easing": "cubic"}
+    linear = keyframes(Rose(), {"size": track}, frames=11, easing="linear")
     cubic = keyframes(Rose(), {"size": track}, frames=11, easing="cubic")
-    assert mixed[5].meta["size"] == cubic[5].meta["size"]
+    assert cast("float", cubic[5].meta["size"]) < cast("float", linear[5].meta["size"])
+
+
+def test_keyframes_per_segment_easing_is_independent():
+    # Issue 4: easing is programmed per segment (keyframe i -> i+1), so setting
+    # one segment must not touch its neighbours. Segment 0 eases cubic (value
+    # lags behind the midpoint of that sub-run), segment 1 stays linear.
+    track = {
+        "keyframes": [(0.0, 10.0), (0.5, 55.0), (1.0, 100.0)],
+        "segments": ["cubic", "linear"],
+    }
+    frames = keyframes(Rose(), {"size": track}, frames=11, easing="linear")
+    # t=0.2, inside segment 0 -> cubic-in of local 0.4 -> 12.88.
+    assert frames[2].meta["size"] == pytest.approx(12.88)
+    # t=0.5 sits exactly on the interior keyframe.
+    assert frames[5].meta["size"] == pytest.approx(55.0)
+    # t=0.8, inside segment 1 -> linear across 55..100 -> 82.0.
+    assert frames[8].meta["size"] == pytest.approx(82.0)
+
+
+def test_keyframes_segment_auto_inherits_the_track_default():
+    # A segment left as "auto" (None/empty) uses the track default, not the
+    # global layer. Segment 0 is cubic and segment 1 is auto, so segment 1
+    # falls back to the track's cubic -- still independent of the global's
+    # linear identity here.
+    track = {
+        "keyframes": [(0.0, 10.0), (0.5, 55.0), (1.0, 100.0)],
+        "easing": "cubic",
+        "segments": ["cubic", None],
+    }
+    frames = keyframes(Rose(), {"size": track}, frames=11, easing="linear")
+    assert frames[2].meta["size"] == pytest.approx(12.88)
+    # Segment 1, auto -> track cubic: at t=0.8 local=0.6, cubic(0.6)=0.216 -> 64.72.
+    assert frames[8].meta["size"] == pytest.approx(64.72)
 
 
 def test_keyframes_steps_a_bool_parameter_at_the_next_keyframe():

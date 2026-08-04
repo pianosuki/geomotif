@@ -135,11 +135,13 @@
   // The default timeline, per "Default state when entering animation mode": a
   // single track on the motif's primary numeric parameter (the first int/float
   // in ParamInfo order) sweeping from the slider's *current* value to an end
-  // value, with cubic easing at 48 frames / 20 fps / hold 12. The first
-  // keyframe holds the value the user is already looking at, so entering
-  // Animate does not shrink the picture under them; the sweep goes to the
-  // farthest end of the declared Range (or a 2x spread of the default when
-  // there is none) so the user sees motion immediately and edits from there.
+  // value, at 48 frames / 20 fps / hold 12. The first keyframe holds the value
+  // the user is already looking at, so entering Animate does not shrink the
+  // picture under them; the sweep goes to the farthest end of the declared
+  // Range (or a 2x spread of the default when there is none) so the user sees
+  // motion immediately and edits from there. The track's own easing is cubic
+  // so the fresh sweep eases attractively; the global (top-level) easing above
+  // stays linear so it never gets in the way of keyframing.
   function defaultAnim(info, st) {
     const nums = info.params.filter((p) =>
       !RESERVED.has(p.name) && (p.annotation === "int" || p.annotation === "float"));
@@ -164,14 +166,14 @@
         v1 = f === 0 ? 1 : (f > 0 ? f * SPREAD : f / SPREAD);
         if (v1 === v0) v1 = v0 + 1;
       }
-      tracks[p.name] = { keyframes: [[0.0, v0], [1.0, v1]], easing: null };
+      tracks[p.name] = { keyframes: [[0.0, v0], [1.0, v1]], easing: "cubic" };
     }
     return {
       tracks,
       frames: 48,
       fps: 20,
       hold: 12,
-      easing: "cubic",
+      easing: "linear",
       overlays: [],
     };
   }
@@ -185,8 +187,13 @@
   function animRecipe(an) {
     const tracks = {};
     for (const [name, tr] of Object.entries(an.tracks)) {
-      if (tr.easing) {
-        tracks[name] = { keyframes: tr.keyframes, easing: tr.easing };
+      const hasSegments = tr && Array.isArray(tr.segments) && tr.segments.length;
+      const hasEasing = !!(tr && tr.easing);
+      if (hasEasing || hasSegments) {
+        const out = { keyframes: tr.keyframes };
+        if (tr.easing) out.easing = tr.easing;
+        if (hasSegments) out.segments = tr.segments.slice();
+        tracks[name] = out;
       } else {
         tracks[name] = tr.keyframes;
       }
@@ -225,12 +232,17 @@
     const tracks = {};
     if (recipe && recipe.tracks && typeof recipe.tracks === "object") {
       for (const [name, tr] of Object.entries(recipe.tracks)) {
-        let kfs, easing = null;
+        let kfs, easing = null, segments = null;
         if (Array.isArray(tr)) {
           kfs = tr;
         } else if (tr && Array.isArray(tr.keyframes)) {
           kfs = tr.keyframes;
           easing = typeof tr.easing === "string" && tr.easing ? tr.easing : null;
+          if (Array.isArray(tr.segments)) {
+            segments = tr.segments
+              .map((s) => (typeof s === "string" ? s : ""))
+              .slice(0, Math.max(0, kfs.length - 1));
+          }
         } else {
           continue;
         }
@@ -242,14 +254,18 @@
           norm.push([Math.min(1, Math.max(0, t)), E.clone(kf[1])]);
         }
         norm.sort((a, b) => a[0] - b[0]);
-        if (norm.length) tracks[name] = { keyframes: norm, easing };
+        if (norm.length) tracks[name] = {
+          keyframes: norm,
+          easing,
+          segments: segments && segments.length ? segments : null,
+        };
       }
     }
     const frames = clampInt(recipe && recipe.frames, ANIM_FRAMES_MIN, ANIM_FRAMES_MAX, 48);
     const fps = clampInt(recipe && recipe.fps, ANIM_FPS_MIN, ANIM_FPS_MAX, 20);
     const holdMax = Math.max(ANIM_HOLD_MIN, Math.floor(frames / 4));
     const hold = clampInt(recipe && recipe.hold, ANIM_HOLD_MIN, holdMax, 0);
-    const easing = recipe && EASINGS.includes(recipe.easing) ? recipe.easing : "cubic";
+    const easing = recipe && EASINGS.includes(recipe.easing) ? recipe.easing : "linear";
     const overlays = [];
     if (recipe && Array.isArray(recipe.overlay)) {
       for (const o of recipe.overlay) {
@@ -470,7 +486,38 @@
       ref.timeInp.value = sel && kf ? String(kf[0]) : "";
     }
     ref.delBtn.disabled = !sel || !tr || tr.keyframes.length <= 1;
+    // The easing dropdown follows the selection: when a keyframe is selected it
+    // shows that keyframe's outgoing-segment easing (issue 4 -- easing is edited
+    // per segment, from one keyframe to the next, never the whole track at
+    // once); otherwise it shows the track default.
+    if (ref.setEase) ref.setEase();
   }
+
+  // A track's per-segment easing array always has one entry per segment
+  // (keyframes.length - 1), an empty string meaning "use the track default".
+  // Resize it to match the current keyframe count so an index into it never
+  // lands out of bounds after a drop or delete.
+  function syncSegments(tr) {
+    const n = Math.max(0, tr.keyframes.length - 1);
+    if (!Array.isArray(tr.segments)) tr.segments = new Array(n).fill("");
+    else {
+      while (tr.segments.length < n) tr.segments.push("");
+      if (tr.segments.length > n) tr.segments.length = n;
+    }
+  }
+  E.syncSegments = syncSegments;
+
+  // The named easing a segment actually interpolates with: its per-segment
+  // override if set, else the track default, else linear. This is the
+  // *programmed* easing between two keyframes -- independent of the global
+  // (top-level) playback easing, which the caller layers on separately.
+  function segmentEaseName(tr, i) {
+    if (!tr) return "";
+    if (Array.isArray(tr.segments) && tr.segments[i]) return tr.segments[i];
+    if (tr.easing) return tr.easing;
+    return "";
+  }
+  E.segmentEaseName = segmentEaseName;
 
   // Mirror a drag-updated value into the track's number input (only used while
   // dragging a numeric dot).
@@ -548,12 +595,41 @@
       ease.appendChild(o);
     }
     const tr = an.tracks[p.name];
-    if (tr && tr.easing) ease.value = tr.easing;
+    // The easing control edits one easing at a time (issue 4): when a keyframe
+    // is selected it governs the segment from that keyframe to the next; when
+    // nothing is selected (or the selected keyframe is the last / there is no
+    // segment) it governs the track's default, which only the segments left on
+    // "auto" inherit. "auto" means "use the track default" (itself linear when
+    // unset) -- never the global playback easing, which stays a separate
+    // top-level layer above every track.
+    const setEase = () => {
+      const kfs = tr && Array.isArray(tr.keyframes) ? tr.keyframes : [];
+      const idx = (E.selectedKf && E.selectedKf.track === p.name)
+        ? E.selectedKf.idx : null;
+      if (idx != null && idx < kfs.length - 1 && Array.isArray(tr.segments) && tr.segments[idx]) {
+        ease.value = tr.segments[idx];
+      } else if (idx != null && idx < kfs.length - 1) {
+        ease.value = ""; // segment left on auto -> track default
+      } else {
+        ease.value = (tr && tr.easing) || "";
+      }
+    };
     ease.addEventListener("change", () => {
       if (!an.tracks[p.name]) an.tracks[p.name] = { keyframes: [[0, st[p.name]]], easing: null };
-      an.tracks[p.name].easing = ease.value || null;
+      const track = an.tracks[p.name];
+      const kfs = track.keyframes;
+      const idx = (E.selectedKf && E.selectedKf.track === p.name)
+        ? E.selectedKf.idx : null;
+      if (idx != null && idx < kfs.length - 1) {
+        syncSegments(track);
+        track.segments[idx] = ease.value;
+      } else {
+        track.easing = ease.value || null;
+      }
+      paintLaneDots(lane, p, an);
       E.restartPlayback(info, st, an);
     });
+    setEase();
     head.appendChild(ease);
     // A per-track "add keyframe at the scrubber" button. Sits beside the
     // easing dropdown so the row reads `[name] [step] [+] [easing]` then the
@@ -682,7 +758,7 @@
     editRow.appendChild(delBtn);
     row.appendChild(editRow);
 
-    trackRefs.set(p.name, { lane, valueInp, timeInp, delBtn, editRow, row });
+    trackRefs.set(p.name, { lane, valueInp, timeInp, delBtn, editRow, row, setEase, p });
     paintLaneDots(lane, p, an);
     return row;
   }
@@ -711,14 +787,18 @@
   function paintLaneCurve(lane, p, an, tr, numeric, lo, hi) {
     if (IS_TOUCH || !numeric || !tr || !tr.keyframes || !tr.keyframes.length || hi <= lo) return;
     const kfs = tr.keyframes;
-    const easeName = tr.easing || an.easing;
     const N = 96;
     const pts = [];
     for (let i = 0; i <= N; i++) {
-      const t = i / N;
-      const v = Number(E.trackValueAt(kfs, t, easeName));
+      const u = i / N;
+      // The top-level playback easing is a final layer above the per-segment
+      // (programmed) easing: warp the raw lane time u with an.easing, then
+      // sample the track's per-segment interpolation at the warped time. So the
+      // curve reflects both -- what is programmed per keyframe and the global
+      // layer the user previews with -- matching playback and the export.
+      const v = Number(E.trackValueAt(kfs, easeProgress(an.easing, u), tr));
       const f = Math.min(1, Math.max(0, (v - lo) / (hi - lo)));
-      pts.push([(t * 100).toFixed(2), ((1 - f) * 100).toFixed(2)]);
+      pts.push([(u * 100).toFixed(2), ((1 - f) * 100).toFixed(2)]);
     }
     const curve = "M " + pts.map((q) => q[0] + " " + q[1]).join(" L ");
     const fill = "M 0 100 L " + pts.map((q) => q[0] + " " + q[1]).join(" L ") + " L 100 100 Z";
@@ -787,6 +867,17 @@
     syncEditRow(p, an);
   }
   E.paintLaneDots = paintLaneDots;
+
+  // Repaint the easing curve of every lane. Used when a user changes the global
+  // (top-level playback) easing, which is a final layer above every track -- the
+  // curve reflects both the per-segment program and that global layer, so the
+  // change must redraw without resetting keyframe selection.
+  function repaintAllLanes(an) {
+    trackRefs.forEach((ref) => {
+      if (ref && ref.lane && ref.p) paintLaneDots(ref.lane, ref.p, an);
+    });
+  }
+  E.repaintAllLanes = repaintAllLanes;
 
   // Drag a keyframe dot. Clicking selects it (ring + editor row). Dragging
   // moves the *dominant* axis only: left/right changes the time, and on
@@ -912,12 +1003,15 @@
     return a;
   }
 
-  // The value a track holds at normalized time `t`, mirroring the Python
-  // keyframes primitive's _value_at so a no-adjustment drop lies exactly on
-  // the current curve. Discrete tracks step, with the final segment's onset
-  // pulled back to its midpoint; numeric tracks ease with the track's (or the
-  // global) named curve.
-  function trackValueAt(kfs, t, easeName) {
+  // The value a track holds at time `t`, mirroring the Python keyframes
+  // primitive's _value_at so a no-adjustment drop lies exactly on the current
+  // curve. `t` here is the *post-global-layer* time: the caller already applied
+  // the top-level playback easing by warping the raw time before calling this
+  // (see paintLaneCurve / pullKeyframeValue), mirroring how Python's outer
+  // `keyframes` warps the frame time first and then eases within each segment.
+  // Discrete tracks step, with the final segment's onset pulled back to its
+  // midpoint; numeric tracks ease with each segment's programmed easing.
+  function trackValueAt(kfs, t, track) {
     const last = kfs.length - 1;
     if (t <= kfs[0][0]) return E.clone(kfs[0][1]);
     if (t >= kfs[last][0]) return E.clone(kfs[last][1]);
@@ -935,6 +1029,7 @@
       const t0 = kfs[i - 1][0], t1 = kfs[i][0];
       if (t0 <= t && t <= t1) {
         const local = t1 > t0 ? (t - t0) / (t1 - t0) : 0;
+        const easeName = segmentEaseName(track, i - 1);
         return E.clone(lerpValue(kfs[i - 1][1], kfs[i][1], easeProgress(easeName, local)));
       }
     }
@@ -953,7 +1048,7 @@
   function pullKeyframeValue(p, st, an, t) {
     const tr = an.tracks[p.name];
     const interp = (tr && tr.keyframes && tr.keyframes.length)
-      ? trackValueAt(tr.keyframes, t, (tr.easing || an.easing))
+      ? trackValueAt(tr.keyframes, easeProgress(an.easing, t), tr)
       : null;
     if (interp == null) return E.clone(st[p.name]);
     if (E.adjusted && E.adjusted.has(p.name)) return E.clone(st[p.name]);
@@ -985,6 +1080,7 @@
       kfs.sort((a, b) => a[0] - b[0]);
     }
     if (E.adjusted && E.adjusted.delete) E.adjusted.delete(p.name);
+    syncSegments(an.tracks[p.name]);
   }
   E.dropKeyframe = dropKeyframe;
 
@@ -992,6 +1088,7 @@
     const kfs = an.tracks[p.name].keyframes;
     if (kfs.length <= 1) return; // keep at least one
     kfs.splice(idx, 1);
+    syncSegments(an.tracks[p.name]);
   }
   E.deleteKeyframe = deleteKeyframe;
 
@@ -1336,9 +1433,27 @@
   // timeline classes immediately and sticks for the next session. Clicking
   // anywhere outside the popover (or on the gear itself) closes it.
   if (kfGearEl && kfSetPopoverEl) {
+    // The popover drops below the Keyframes heading (position:absolute under
+    // .kf-head). When the heading sits low in the scrollable animator the
+    // popover would extend past the viewport's bottom edge and be clipped
+    // away -- reading as "the gear does nothing". On open, measure the popover
+    // and flip it above the heading when it would not fit below, mirroring the
+    // info-tooltip's flip. The .kf-head is position:relative, so switching
+    // top/bottom moves the popover around its own anchor either way.
     const setOpen = (open) => {
       kfSetPopoverEl.classList.toggle("open", open);
       kfGearEl.setAttribute("aria-expanded", String(open));
+      if (open) {
+        kfSetPopoverEl.style.top = "auto";
+        kfSetPopoverEl.style.bottom = "auto";
+        const rect = kfSetPopoverEl.getBoundingClientRect();
+        const fitsBelow = rect.bottom < (window.innerHeight || 0) - 8;
+        if (fitsBelow) {
+          kfSetPopoverEl.style.top = "calc(100% + 4px)";
+        } else {
+          kfSetPopoverEl.style.bottom = "calc(100% + 4px)";
+        }
+      }
     };
     kfGearEl.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -1455,6 +1570,10 @@
   animEaseEl.addEventListener("change", () => {
     if (!E.anim) return;
     E.anim.easing = animEaseEl.value;
+    // The playback easing is a final layer on top of the keyframe program, so
+    // changing it must re-draw the lanes' curves (they show the combined
+    // effect) without touching any keyframe -- it is separate and layered.
+    repaintAllLanes(E.anim);
     restartPlayback(E.byName[E.current], E.state, E.anim);
   });
 

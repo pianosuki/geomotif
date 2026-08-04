@@ -323,9 +323,13 @@ def keyframes(
         each frame with that frame's interpolated parameters.
     tracks : mapping of str to track
         One entry per parameter to animate. A track is either a sequence of
-        ``(time, value)`` pairs (using the global ``easing``) or a mapping
-        ``{"keyframes": [(t, value), ...], "easing": "..."}`` that overrides
-        it. ``time`` is a fraction of the whole run in ``[0, 1]``.
+        ``(time, value)`` pairs or a mapping ``{"keyframes": [(t, value), ...],
+        "easing": "..."}``. The mapping may also carry ``"segments"``: a list
+        of per-segment easing names, one per gap between consecutive
+        keyframes, each ``None``/empty meaning "use the track default". The
+        easing for a segment is its own override, else the track ``easing``,
+        else the neutral linear curve. ``time`` is a fraction of the whole run
+        in ``[0, 1]``.
     frames : int
         How many frames to return, before ``hold``. Must be >= 1.
     fps : float
@@ -336,9 +340,13 @@ def keyframes(
         Extra copies of the finished frame to append, so a looping animation
         pauses on the result instead of restarting the instant it arrives.
     easing : str
-        Global interpolation curve, one of ``linear``, ``quadratic``,
-        ``cubic``, ``sinusoidal``, ``exponential``, ``circular``. A
-        ``name:mode`` suffix (``"cubic:out"``) selects an ease-out variant.
+        Top-level (playback) interpolation curve applied as a *final layer on
+        top of* every track's keyframe program: the frame time is warped by
+        this curve before each track's per-keyframe easing runs. One of
+        ``linear`` (the default -- the identity, so it never interferes with
+        keyframing), ``quadratic``, ``cubic``, ``sinusoidal``, ``exponential``,
+        ``circular``. A ``name:mode`` suffix (``"cubic:out"``) selects an
+        ease-out variant.
 
     Returns
     -------
@@ -371,7 +379,7 @@ def keyframes(
         raise ValueError(f"hold must be >= 0, got {hold}")
 
     base_curve = _easing_curve(easing)
-    normalized = {name: _normalize_track(track, base_curve) for name, track in tracks.items()}
+    normalized = {name: _normalize_track(track) for name, track in tracks.items()}
     # Typed as ``object`` for the same reason as ``_swept``: mypy cannot
     # intersect the motif protocol with the dataclass one, and written
     # against a motif type the narrowing below reads as unreachable.
@@ -395,7 +403,10 @@ def keyframes(
     prev_design: Design | None = None
     for i in range(frames):
         t = i / (frames - 1) if frames > 1 else 0.0
-        params = {name: _value_at(t, kfs, curve) for name, (kfs, curve) in normalized.items()}
+        params = {
+            name: _value_at(t, kfs, curves, base_curve)
+            for name, (kfs, curves) in normalized.items()
+        }
         if prev_params is not None and params == prev_params and prev_design is not None:
             # Two adjacent frames that round to the same integers (or step to
             # the same discrete value) share one built Design, so a 60-frame
@@ -542,23 +553,30 @@ def _easing_curve(name: str) -> SpacingCurve:
 
 
 def _normalize_track(
-    track: object, default_curve: SpacingCurve
-) -> tuple[list[tuple[float, object]], SpacingCurve]:
-    """Return a track as ``(sorted keyframes, easing curve)``.
+    track: object,
+) -> tuple[list[tuple[float, object]], list[SpacingCurve]]:
+    """Return a track as ``(sorted keyframes, per-segment easing curves)``.
 
-    A track is either a sequence of ``(time, value)`` pairs (using the global
-    easing) or a mapping ``{"keyframes": [...], "easing": "..."}`` overriding
-    it. Times are coerced to float and must lie in ``[0, 1]``.
+    A track is either a sequence of ``(time, value)`` pairs (all segments use
+    the neutral linear curve) or a mapping ``{"keyframes": [...], "easing":
+    "..."}``. ``easing`` is the track's default and may be a single name (every
+    segment) or a list of names, one per segment (the shape the explorer writes
+    once a keyframe gets its own easing). ``segments`` is an optional list of
+    per-segment names that override the track default, each ``None``/empty
+    meaning "use the track default". Times are coerced to float and must lie in
+    ``[0, 1]``. This is the *programmed* easing only -- the top-level playback
+    easing is applied as a separate final layer in :func:`keyframes`.
     """
     if isinstance(track, Mapping):
         raw = track.get("keyframes", track.get("frames"))
         if raw is None:
             raise ValueError("a track mapping needs a 'keyframes' entry")
-        easing_name = track.get("easing")
-        curve = _easing_curve(str(easing_name)) if easing_name is not None else default_curve
+        track_easing = track.get("easing")
+        segments_raw = track.get("segments")
     else:
         raw = track
-        curve = default_curve
+        track_easing = None
+        segments_raw = None
     try:
         kfs = [(float(t), v) for t, v in raw]
     except (TypeError, ValueError) as exc:
@@ -569,21 +587,50 @@ def _normalize_track(
     for t, _ in kfs:
         if not 0.0 <= t <= 1.0:
             raise ValueError(f"keyframe time {t} is out of [0, 1]")
-    return kfs, curve
+    # A list `easing` is treated as the per-segment list (some recipes wrote the
+    # segment names there); a string is the track default.
+    if isinstance(track_easing, list):
+        segments_raw = list(track_easing)
+        track_easing = None
+    n = len(kfs) - 1
+    curves: list[SpacingCurve] = []
+    for i in range(n):
+        name = None
+        if (
+            segments_raw is not None
+            and i < len(segments_raw)
+            and isinstance(segments_raw[i], str)
+            and segments_raw[i]
+        ):
+            name = segments_raw[i]
+        elif isinstance(track_easing, str) and track_easing:
+            name = track_easing
+        curves.append(_easing_curve(name) if name else LinearSpacing())
+    return kfs, curves
 
 
-def _value_at(t: float, kfs: list[tuple[float, object]], easing: SpacingCurve) -> object:
-    """Return the value a track holds at normalized time ``t``.
+def _value_at(
+    t: float,
+    kfs: list[tuple[float, object]],
+    curves: list[SpacingCurve],
+    global_curve: SpacingCurve,
+) -> object:
+    """Return the value a track holds at raw time ``t``.
+
+    The top-level playback easing is a *final layer* on top of every track's
+    keyframe program: ``t`` is first warped by ``global_curve`` (the identity
+    when linear, the default), and only then is the per-segment program
+    evaluated. This is what makes the global and per-keyframe easings separate
+    yet layered -- editing one never rewrites the other.
 
     Before the first keyframe the first value holds; at or after the last, the
     last. Discrete parameters (``bool``, ``str``, mismatched types) step rather
     than ease: each interior value holds from its own time until the next
     keyframe, and the *last* value takes over from the midpoint of the final
-    segment -- so a start/end pair like ``[(0, a), (1, b)]`` shows ``a`` for
-    the first half and ``b`` for the second, instead of holding ``a`` for the
-    whole run and flashing ``b`` only on the last frame. Numeric ones ease
-    component-wise, with integers rounded.
+    segment. Numeric ones ease component-wise with each segment's own curve,
+    integers rounded.
     """
+    t = global_curve(t)
     if t <= kfs[0][0]:
         return kfs[0][1]
     if t >= kfs[-1][0]:
@@ -602,10 +649,11 @@ def _value_at(t: float, kfs: list[tuple[float, object]], easing: SpacingCurve) -
             else:
                 break
         return held
-    for (t0, v0), (t1, v1) in itertools.pairwise(kfs):
+    for i, ((t0, v0), (t1, v1)) in enumerate(itertools.pairwise(kfs)):
         if t0 <= t <= t1:
             local = (t - t0) / (t1 - t0) if t1 > t0 else 0.0
-            return _lerp(v0, v1, easing(local))
+            curve = curves[i] if i < len(curves) else LinearSpacing()
+            return _lerp(v0, v1, curve(local))
     return kfs[-1][1]
 
 

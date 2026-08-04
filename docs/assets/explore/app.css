@@ -984,6 +984,13 @@ pre.command {
    lives inside the panel, so the card chrome (border / shadow / max-width /
    margin) is dropped here and the inner blocks keep their own separators. */
 .animator { display: flex; flex-direction: column; gap: 0.6rem; }
+/* The #controls list is reparented into the animator from the Design panel,
+   where its own margin (0.6rem 0 1rem) spaces it from the surrounding blocks.
+   In the animator that margin would stack on top of the flex gap and the
+   section-head separators, doubling the breathing room around the parameter
+   panels compared to Design mode. Zero it here so the animator's uniform flex
+   gap alone spaces the reparented sliders, matching the Design panel's rhythm. */
+.animator .controls-list { margin: 0; }
 
 /* The timeline now lives inside the animator; drop the free-floating card
    chrome (border / shadow / max-width / margin) but keep the inner blocks'

@@ -212,12 +212,12 @@
           <button class="kf-gear" id="kf-gear" type="button" title="keyframe settings" aria-label="keyframe settings" aria-haspopup="true" aria-expanded="false">
             <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="2.2"/><path d="M8 2v2M8 12v2M2 8h2M12 8h2M3.8 3.8l1.4 1.4M10.8 10.8l1.4 1.4M12.2 3.8l-1.4 1.4M5.2 10.8l-1.4 1.4"/></svg>
           </button>
-        </div>
-        <div class="kf-set-popover" id="kf-set-popover" role="group" aria-label="keyframe settings">
-          <label class="kf-set-row"><input type="checkbox" id="kf-lock"> lock keyframe drags to one axis</label>
-          <label class="kf-set-row"><input type="checkbox" id="kf-curve" checked> show easing curve</label>
-          <label class="kf-set-row"><input type="checkbox" id="kf-fill" checked> fill under the curve</label>
-          <label class="kf-set-row"><input type="checkbox" id="kf-ticks" checked> show timeline ruler</label>
+          <div class="kf-set-popover" id="kf-set-popover" role="group" aria-label="keyframe settings">
+            <label class="kf-set-row"><input type="checkbox" id="kf-lock"> lock keyframe drags to one axis</label>
+            <label class="kf-set-row"><input type="checkbox" id="kf-curve" checked> show easing curve</label>
+            <label class="kf-set-row"><input type="checkbox" id="kf-fill" checked> fill under the curve</label>
+            <label class="kf-set-row"><input type="checkbox" id="kf-ticks" checked> show timeline ruler</label>
+          </div>
         </div>
         <div class="tracks" id="tracks"></div>
         <!-- The transport + overlays blocks stay in place but are now
@@ -235,7 +235,7 @@
           <label class="tp-field">easing
             <select id="tp-easing" class="tp-select">
               <option>linear</option><option>quadratic</option>
-              <option selected>cubic</option><option>sinusoidal</option>
+              <option>cubic</option><option>sinusoidal</option>
               <option>exponential</option><option>circular</option>
             </select>
           </label>
