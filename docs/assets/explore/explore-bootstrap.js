@@ -52,6 +52,13 @@ window.EXPLORE = window.EXPLORE || {};
 
   E.ZOOM_STEP = Math.sqrt(2); // one button click ≈ one stop
 
+  // The display canvas is a fixed 520x520 square in all motifs' display-space
+  // mapping (see the Python bridge's _display_svg), and every rendered SVG's
+  // own viewBox is "0 0 520 520". The zoom indicator measures the live
+  // viewBox against this constant -- the natural width of the world plane --
+  // so it never drifts when a motif rescales with its parameters.
+  E.CANVAS_WIDTH = 520;
+
   E.THEME_KEY = "geomotif.theme";
   E.GRID_KEY = "geomotif.grid";
   E.AXES_KEY = "geomotif.axes";
@@ -130,6 +137,7 @@ window.EXPLORE = window.EXPLORE || {};
   E.timelineEl = E.$("timeline");
   E.animProgressEl = E.$("anim-progress");
   E.animProgressFill = E.animProgressEl.querySelector("i");
+  E.exportingEl = E.$("exporting");
   E.transportEl = E.$("transport");
   E.playPauseEl = E.$("tp-play");
   E.loopEl = E.$("tp-loop");

@@ -25,11 +25,17 @@
 
 (function (E) {
   const {
-    controlsEl, tracksEl, commandEl,
+    controlsEl, commandEl,
     RESERVED, SETTABLE, SPREAD,
   } = E;
 
+  // Whether the whole controls panel is currently disabled (the scipy-only
+  // unavailable-motif case). Recorded by paintControls so a reset button's
+  // repaint rebuilds the list with the same disabled state.
+  let controlsDisabled = false;
+
   function paintControls(info, st, disabled) {
+    controlsDisabled = disabled;
     controlsEl.innerHTML = "";
     const settable = [];
     const held = [];
@@ -61,14 +67,31 @@
     row.className = "control" + (disabled ? " disabled" : "");
     const label = document.createElement("div");
     label.className = "control-label";
+    const id = document.createElement("span");
+    id.className = "control-id";
     const name = document.createElement("span");
     name.className = "control-name";
     name.textContent = p.name;
     const ann = document.createElement("span");
     ann.className = "control-ann";
     ann.textContent = p.annotation;
-    label.appendChild(name);
-    label.appendChild(ann);
+    id.appendChild(name);
+    id.appendChild(ann);
+    label.appendChild(id);
+    // A small per-parameter reset, so any control can be snapped back to the
+    // value it started at (the motif's example or declared default) in one
+    // click instead of fussing the input back by hand.
+    const reset = document.createElement("button");
+    reset.type = "button";
+    reset.className = "reset-param";
+    reset.title = `reset ${p.name} to its default`;
+    reset.textContent = "reset";
+    reset.addEventListener("click", () => {
+      st[p.name] = E.clone(initialValue(info, p));
+      paintControls(info, st, disabled);
+      onChange();
+    });
+    label.appendChild(reset);
     row.appendChild(label);
 
     const body = document.createElement("div");
@@ -78,23 +101,52 @@
     const onChange = () => {
       paintCommand(info, st);
       if (E.animOn && E.anim) {
-        // In animation mode a slider move pins a keyframe at the scrubber's
-        // time for this param, so what the slider shows is what plays. Dropping
-        // the value into the timeline re-renders the frame bundle.
-        const t = E.bundle && E.bundle.core ? (E.bundle.core.length > 1 ? E.playState.idx / (E.bundle.core.length - 1) : 0) : 0;
-        const tp = Math.min(1, Math.max(0, t));
-        if (E.animatableParams(info).some((q) => q.name === p.name)) {
-          E.dropKeyframe(p, st, E.anim, tp);
-          const lane = tracksEl.querySelector(`.lane[data-param="${p.name}"]`);
-          if (lane) E.paintLaneDots(lane, p, E.anim);
-          E.restartPlayback(info, st, E.anim);
-          return;
+        // In animation mode a slider move is a *local* adjustment: it updates
+        // the preview picture but never edits the timeline -- no keyframe is
+        // created or moved here. The param is flagged so the next
+        // add-keyframe action (per-track "+" or Set-keyframes-for-all) pulls
+        // this adjusted value; a param the user never touched falls back to
+        // the value the track already interpolates to at the scrubber's time.
+        // Playback is paused so the still preview of the design at the new
+        // value is what the user sees.
+        const keyframable = canKeyframe(p);
+        if (keyframable && E.markParamAdjusted) E.markParamAdjusted(p.name);
+        if (E.stopPlayback) E.stopPlayback();
+        if (!keyframable && E.scheduleAnimRebuild) {
+          // A parameter that has no keyframing path (its value can only live
+          // in the motif's base state -- `int | None` like `resolution`, a
+          // Point/center, a string) is a real edit, not a preview: rebuild the
+          // animation bundle so playback and scrubbing honor the new static
+          // value instead of silently ignoring it.
+          E.scheduleAnimRebuild(info, st, E.anim);
         }
+        E.scheduleRender(info, st);
+        return;
       }
       E.scheduleRender(info, st);
     };
     addControlBody(body, p, st, disabled, onChange);
     return row;
+  }
+
+  // The value a control resets to: the motif's curated example value when it
+  // names this parameter, else the declared default -- exactly the split
+  // initState uses to build the initial control state.
+  function initialValue(info, p) {
+    return (p.name in info.example) ? E.clone(info.example[p.name]) : E.clone(p.default);
+  }
+
+  // Whether a parameter can ever own a timeline track (mirrors
+  // animatableParams in explore-animation.js): only continuous numeric / bool /
+  // Literal annotations. Everything else -- `int | None` like resolution, Point,
+  // Bounds, str -- lives purely in the motif's base state, so changing it in
+  // animation mode rebuilds the frames instead of previewing a dead-end value.
+  function canKeyframe(p) {
+    if (p.choices && p.choices.length && p.choices.every((c) => typeof c === "string")) return false;
+    const ann = p.annotation;
+    if (ann === "int" || ann === "float" || ann === "bool") return true;
+    if (p.choices && p.choices.length) return true;
+    return ann.startsWith("Literal");
   }
 
   function addControlBody(body, p, st, disabled, onChange) {

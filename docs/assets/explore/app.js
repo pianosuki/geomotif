@@ -88,7 +88,9 @@
 
   expPngEl.addEventListener("click", async () => {
     if (!E.lastMotif) return;
-    expPngEl.disabled = true;
+    // Show the "exporting…" indicator and let it paint before the synchronous
+    // Pyodide call blocks the main thread (see startExport in explore-view.js).
+    await E.startExport(expPngEl);
     try {
       await E.ensurePyodide();
       let data;
@@ -109,7 +111,7 @@
     } catch (e) {
       E.flash(expPngEl, false, "saved", "failed");
     } finally {
-      expPngEl.disabled = false;
+      E.endExport(expPngEl);
     }
   });
 

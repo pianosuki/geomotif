@@ -602,6 +602,36 @@ header {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The name + annotation sit together on the label's left; the reset button
+   anchors the right so a full parameter row reads `name type ........ reset`. */
+.control-id {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+.control-id .control-name { flex: 0 1 auto; }
+.control-id .control-ann { flex: none; }
+/* Per-parameter reset: a quiet small button that snaps the control back to the
+   value it started at (the example or declared default). Muted until hover so
+   it never competes with the parameter itself. */
+.reset-param {
+  flex: none;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.6rem/1 var(--mono);
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.reset-param:hover { color: var(--ink); border-color: var(--accent); }
+.reset-param:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.reset-param:active { transform: translateY(1px); }
+.control.disabled .reset-param { opacity: 0.5; cursor: not-allowed; }
 .control-body { display: flex; flex-direction: column; gap: 0.35rem; }
 /* Only a wholly unavailable motif (the scipy-only case) greys out the whole
    row. An individually-disabled input -- e.g. an optional numeric's value box
@@ -1033,6 +1063,19 @@ pre.command {
   font: 0.72rem/1.2 var(--mono);
 }
 .kf-value-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* The selected keyframe's time input: the same precise-field treatment the
+   value input gets, sized for a 0..1 fraction. Clamps are on the element
+   (min/max) and re-enforced in JS on every edit. */
+.kf-time-input {
+  width: 4.2rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.72rem/1.2 var(--mono);
+}
+.kf-time-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 .kf-del {
   padding: 0.2rem 0.55rem;
   border: 1px solid var(--line);
@@ -1183,6 +1226,52 @@ pre.command {
   background: var(--accent);
   transition: width 0.15s ease;
 }
+
+/* Export-in-progress overlay: a small centered pill shown while a slow export
+   (PNG / GIF) is running in Pyodide. The whole page is main-thread-blocked
+   during those calls, so the pill tells the user work is happening instead of
+   leaving a frozen page that reads as hung. The spinner is a compositor-driven
+   transform animation, which keeps turning even while the synchronous Python
+   call occupies the main thread. */
+.exporting {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font: 500 0.78rem/1 var(--sans);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.exporting.on {
+  opacity: 1;
+  display: flex;
+}
+.exporting-spin {
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: exporting-spin 0.7s linear infinite;
+}
+@keyframes exporting-spin { to { transform: rotate(360deg); } }
+
+/* The export buttons themselves say "exporting…" while a job runs, so the
+   row stays the source of truth even though the whole page is busy. */
+.copy.export.busy { cursor: wait; }
 
 /* Step marker on discrete (bool / Literal / str) tracks: the value holds then
    snaps at the next keyframe rather than easing, so a small stair glyph makes

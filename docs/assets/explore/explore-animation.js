@@ -242,7 +242,9 @@
     if (!o || typeof o !== "object") return null;
     if (o.type === "draw_on") {
       const trail = o.trail == null ? null : Number(o.trail);
-      return { type: "draw_on", trail: Number.isFinite(trail) ? trail : null };
+      // A trail needs a positive length; 0/negative is not a meaningful value
+      // and would reveal blank frames, so treat it as "none" (see parseTrail).
+      return { type: "draw_on", trail: (Number.isFinite(trail) && trail > 0) ? trail : null };
     }
     if (o.type === "spin") {
       const turns = Number(o.turns);
@@ -261,6 +263,9 @@
     if (!info || !info.available) return;
     E.animOn = true;
     E.anim = opts.recipe ? recipeToAnim(opts.recipe) : defaultAnim(info, E.state);
+    // A fresh timeline starts with no slider adjustments: any parameter moved
+    // during this editor session is what an add-keyframe action will honor.
+    E.adjusted = new Set();
     timelineEl.classList.add("on");
     stageEl.classList.add("anim");
     // The stage scrubber is hidden in Design mode; show it now so the master
@@ -268,8 +273,11 @@
     if (stageScrubWrapEl) stageScrubWrapEl.hidden = false;
     // Read-only on touch: scrub + play work, keyframe editing is hidden.
     timelineEl.classList.toggle("touch", IS_TOUCH);
-    // The slider panel stays live: moving a slider now pins a keyframe at the
-    // scrubber's time instead of re-rendering a still.
+    // The slider panel stays live: moving a slider adjusts a *local preview*
+    // of the design (see the control onChange in explore-controls.js) but
+    // deliberately does not touch any keyframe -- the timeline only changes
+    // when the user clicks an add-keyframe action, which then pulls the
+    // adjusted value or the track's value at that time.
     paintTimeline(info, E.state);
     paintTransport(E.anim);
     syncScrubber();
@@ -429,6 +437,10 @@
       ref.valueInp.disabled = !sel;
       ref.valueInp.value = sel && kf ? String(kf[1]) : "";
     }
+    if (ref.timeInp) {
+      ref.timeInp.disabled = !sel;
+      ref.timeInp.value = sel && kf ? String(kf[0]) : "";
+    }
     ref.delBtn.disabled = !sel || !tr || tr.keyframes.length <= 1;
   }
 
@@ -438,6 +450,15 @@
     const ref = trackRefs.get(p.name);
     if (ref && ref.valueInp && E.selectedKf && E.selectedKf.track === p.name) {
       ref.valueInp.value = String(v);
+    }
+  }
+
+  // Mirror a drag-updated time into the track's time input (only used while
+  // dragging a dot horizontally).
+  function syncTimeInput(p, t) {
+    const ref = trackRefs.get(p.name);
+    if (ref && ref.timeInp && E.selectedKf && E.selectedKf.track === p.name) {
+      ref.timeInp.value = String(t);
     }
   }
 
@@ -538,11 +559,39 @@
     row.appendChild(lane);
 
     // The edit row appears under the lane when a keyframe on this track is
-    // selected: a precise value input for numeric tracks, and always a visible
-    // delete (x) button (Delete/Backspace on a focused dot still works too).
-    // Touch keeps the timeline read-only, so the whole row is hidden there.
+    // selected: a precise time input (clamped to 0..1) on every track, a
+    // precise value input on numeric tracks, and always a visible delete (x)
+    // button (Delete/Backspace on a focused dot still works too). Touch keeps
+    // the timeline read-only, so the whole row is hidden there.
     const editRow = document.createElement("div");
     editRow.className = "kf-edit-row";
+    const timeLab = document.createElement("span");
+    timeLab.className = "kf-edit-label";
+    timeLab.textContent = "t";
+    const timeInp = document.createElement("input");
+    timeInp.type = "number";
+    timeInp.className = "kf-time-input";
+    timeInp.step = "0.001";
+    timeInp.min = "0";
+    timeInp.max = "1";
+    timeInp.disabled = true;
+    timeInp.title = "type the selected keyframe's time (0..1)";
+    timeInp.addEventListener("input", () => {
+      if (!E.selectedKf || E.selectedKf.track !== p.name) return;
+      const kfs = an.tracks[p.name] && an.tracks[p.name].keyframes;
+      if (!kfs || !kfs[E.selectedKf.idx]) return;
+      const kf = kfs[E.selectedKf.idx];
+      // Clamp to the timeline so negative or super-unity times are impossible.
+      kf[0] = Math.min(1, Math.max(0, parseNum(timeInp.value, kf[0])));
+      // A typed time can reorder the list; fix the sort and re-point the
+      // selection so the ring lands back on the same keyframe.
+      kfs.sort((a, b) => a[0] - b[0]);
+      E.selectedKf.idx = Math.max(0, kfs.indexOf(kf));
+      paintLaneDots(lane, p, an);
+      E.restartPlayback(info, st, an);
+    });
+    editRow.appendChild(timeLab);
+    editRow.appendChild(timeInp);
     const valueInp = numeric ? document.createElement("input") : null;
     if (valueInp) {
       const lab = document.createElement("span");
@@ -582,7 +631,7 @@
     editRow.appendChild(delBtn);
     row.appendChild(editRow);
 
-    trackRefs.set(p.name, { lane, valueInp, delBtn, editRow, row });
+    trackRefs.set(p.name, { lane, valueInp, timeInp, delBtn, editRow, row });
     paintLaneDots(lane, p, an);
     return row;
   }
@@ -661,6 +710,7 @@
         const t = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
         kf[0] = t;
         dot.style.left = (t * 100) + "%";
+        syncTimeInput(p, t);
         if (numeric && loHi[1] > loHi[0]) {
           const frac = Math.min(1, Math.max(0, 1 - (ev.clientY - rect.top) / rect.height));
           const v = loHi[0] + (loHi[1] - loHi[0]) * frac;
@@ -681,6 +731,7 @@
         const t = Math.min(1, Math.max(0, (ev.clientX - rect.left) / rect.width));
         kf[0] = t;
         dot.style.left = (t * 100) + "%";
+        syncTimeInput(p, t);
         dot.title = `${p.name} @ t=${t.toFixed(2)} = ${E.formatVal(kf[1])}`;
         return;
       }
@@ -707,21 +758,128 @@
     document.addEventListener("pointerup", up);
   }
 
-  // Drop a keyframe for `p` at time `t` holding the slider's current value. If a
-  // keyframe already sits within a small threshold of `t` it is updated in
-  // place, so a repeated drop at the same time moves the value rather than
-  // stacking dots.
+  // An "add keyframe" action (per-track "+", or the Set-keyframes-for-all
+  // button) commits a value for the new keyframe. The named easing curves
+  // below mirror geomotif.core.spacing and the bridging _value_at, so a drop
+  // made without touching the slider drops a value that lies exactly on the
+  // current curve instead of bending it.
+
+  // The named easing curves, each mapping [0,1] -> [0,1] monotonically, with
+  // the same "name:mode" suffix support Python's _easing_curve has.
+  function easeProgress(name, t) {
+    const head = String(name || "linear"), sep = head.indexOf(":");
+    const base = sep >= 0 ? head.slice(0, sep) : head;
+    const mode = sep >= 0 ? head.slice(sep + 1) : "in";
+    const easeIn = (u) => {
+      if (base === "quadratic") return u * u;
+      if (base === "cubic") return u * u * u;
+      if (base === "sinusoidal") return 1 - Math.cos(u * Math.PI / 2);
+      if (base === "exponential") {
+        const k = 10, floor = Math.pow(2, -k);
+        return (Math.pow(2, k * (u - 1)) - floor) / (1 - floor);
+      }
+      if (base === "circular") return 1 - Math.sqrt(1 - u * u);
+      return u;
+    };
+    if (mode === "out") return 1 - easeIn(1 - t);
+    if (mode === "in_out") return t < 0.5 ? easeIn(2 * t) / 2 : 1 - easeIn(2 * (1 - t)) / 2;
+    return easeIn(t);
+  }
+
+  // Mirror of the Python _is_discrete: plain numbers (bool excluded) always
+  // interpolate; bools and strings step; anything else of a different kind
+  // steps too.
+  function isDiscreteVal(a, b) {
+    if (typeof a === "boolean" || typeof b === "boolean") return true;
+    if (typeof a === "string" || typeof b === "string") return true;
+    if (typeof a === "number" && typeof b === "number") return false;
+    return typeof a !== typeof b;
+  }
+
+  // Mirror of the Python _lerp: numeric blend (integers round), arrays
+  // component-wise; anything else holds its start value.
+  function lerpValue(a, b, u) {
+    if (typeof a === "number" && typeof b === "number") {
+      const r = a + (b - a) * u;
+      return Number.isInteger(a) && Number.isInteger(b) ? Math.round(r) : r;
+    }
+    if (Array.isArray(a) && Array.isArray(b)) return a.map((x, i) => lerpValue(x, b[i], u));
+    return a;
+  }
+
+  // The value a track holds at normalized time `t`, mirroring the Python
+  // keyframes primitive's _value_at so a no-adjustment drop lies exactly on
+  // the current curve. Discrete tracks step, with the final segment's onset
+  // pulled back to its midpoint; numeric tracks ease with the track's (or the
+  // global) named curve.
+  function trackValueAt(kfs, t, easeName) {
+    const last = kfs.length - 1;
+    if (t <= kfs[0][0]) return E.clone(kfs[0][1]);
+    if (t >= kfs[last][0]) return E.clone(kfs[last][1]);
+    if (isDiscreteVal(kfs[0][1], kfs[last][1])) {
+      const lastOnset = last >= 1 ? (kfs[last - 1][0] + kfs[last][0]) / 2 : kfs[last][0];
+      if (t >= lastOnset) return E.clone(kfs[last][1]);
+      let held = kfs[0][1];
+      for (const [tk, vk] of kfs) {
+        if (tk <= t) held = vk;
+        else break;
+      }
+      return E.clone(held);
+    }
+    for (let i = 1; i <= last; i++) {
+      const t0 = kfs[i - 1][0], t1 = kfs[i][0];
+      if (t0 <= t && t <= t1) {
+        const local = t1 > t0 ? (t - t0) / (t1 - t0) : 0;
+        return E.clone(lerpValue(kfs[i - 1][1], kfs[i][1], easeProgress(easeName, local)));
+      }
+    }
+    return E.clone(kfs[last][1]);
+  }
+  // Exposed for the smoke harness so an add-keyframe value can be verified
+  // against the track's own interpolation.
+  E.trackValueAt = trackValueAt;
+
+  // The value a drop should commit at time `t`: the slider's current value
+  // when the user has adjusted this parameter during the current timeline
+  // edit, otherwise the value the track already interpolates to at `t` (so an
+  // unadjusted drop never bends the curve). A param with no track yet has no
+  // interpolation -- the slider's value is the only honest choice and, the
+  // slider being the source of truth there, it is also the "adjusted" one.
+  function pullKeyframeValue(p, st, an, t) {
+    const tr = an.tracks[p.name];
+    const interp = (tr && tr.keyframes && tr.keyframes.length)
+      ? trackValueAt(tr.keyframes, t, (tr.easing || an.easing))
+      : null;
+    if (interp == null) return E.clone(st[p.name]);
+    if (E.adjusted && E.adjusted.has(p.name)) return E.clone(st[p.name]);
+    return interp;
+  }
+
+  // Parameter adjustments made in animation mode -- a slider the user moved
+  // since the current timeline was built -- are remembered so an add-keyframe
+  // action commits the adjusted value rather than the track's own value at
+  // that time. Every drop consumes the flag, so a second drop without another
+  // slider move falls back to the interpolation. Reset on a fresh timeline.
+  E.adjusted = new Set();
+  E.markParamAdjusted = (name) => { if (E.adjusted) E.adjusted.add(name); };
+
+  // Drop a keyframe for `p` at time `t`. If a keyframe already sits within a
+  // small threshold of `t` it is updated in place, so a repeated drop at the
+  // same time moves the value rather than stacking dots. The committed value
+  // is the slider's adjusted value (when the user moved this parameter) or
+  // the track's own value at `t`; see pullKeyframeValue.
   function dropKeyframe(p, st, an, t) {
     if (!an.tracks[p.name]) an.tracks[p.name] = { keyframes: [], easing: null };
     const kfs = an.tracks[p.name].keyframes;
     const THRESH = 0.01;
     const near = kfs.findIndex((kv) => Math.abs(kv[0] - t) < THRESH);
-    const val = E.clone(st[p.name]);
+    const val = pullKeyframeValue(p, st, an, t);
     if (near >= 0) kfs[near][1] = val;
     else {
       kfs.push([t, val]);
       kfs.sort((a, b) => a[0] - b[0]);
     }
+    if (E.adjusted && E.adjusted.delete) E.adjusted.delete(p.name);
   }
   E.dropKeyframe = dropKeyframe;
 
@@ -1028,6 +1186,25 @@
   }
   E.restartPlayback = restartPlayback;
 
+  // Debounced rebuild of the animation bundle after a *static* state edit made
+  // in Animate mode -- a parameter with no keyframing path (resolution, Point
+  // center, ...) can only take effect through the motif's base state, so it
+  // rebuilds the frames rather than previewing a dead-end value. The debounce
+  // reuses the render cadence so a number input's keystrokes coalesce into one
+  // build; the guard ensures only the live animation (and only the newest edit)
+  // triggers the rebuild.
+  let animRebuildTimer = null;
+  function scheduleAnimRebuild(info, st, an) {
+    if (animRebuildTimer) clearTimeout(animRebuildTimer);
+    animRebuildTimer = setTimeout(() => {
+      animRebuildTimer = null;
+      if (!E.animOn || E.anim !== an) return;
+      if (!info || !info.available || E.byName[info.name] !== info) return;
+      restartPlayback(info, st, an);
+    }, E.RENDER_DEBOUNCE_MS || 30);
+  }
+  E.scheduleAnimRebuild = scheduleAnimRebuild;
+
   function showAnimError(msg) {
     E.motifSvgs().forEach((s) => s.remove());
     placeholderEl.classList.remove("busy");
@@ -1093,7 +1270,9 @@
   // primitive, same writer, same default export styling).
   expGifEl.addEventListener("click", async () => {
     if (!E.animOn || !E.current) return;
-    expGifEl.disabled = true;
+    // Show the "exporting…" indicator and let it paint before the synchronous
+    // Pyodide call blocks the main thread (see startExport in explore-view.js).
+    await E.startExport(expGifEl);
     try {
       await E.ensurePyodide();
       const info = E.byName[E.current];
@@ -1119,7 +1298,7 @@
     } catch (e) {
       E.flash(expGifEl, false, "saved", "failed");
     } finally {
-      expGifEl.disabled = false;
+      E.endExport(expGifEl);
     }
   });
 
@@ -1214,12 +1393,24 @@
   function overlayEntry(type) {
     return E.anim.overlays.find((o) => o.type === type);
   }
+  // Parse the trail field for the draw-on overlay. Empty means "none" (no
+  // comet) and a non-positive number is treated the same way: a trail needs a
+  // length, so 0 is not a meaningful value -- lowering the arrow buttons to 0
+  // returns the motion to a plain pen reveal instead of silently cancelling it
+  // into blank frames.
+  function parseTrail() {
+    const s = ovTrailEl.value.trim();
+    if (s === "") return null;
+    const n = Number(s);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
   ovDrawEl.addEventListener("change", () => {
     if (!E.anim) return;
     if (ovDrawEl.checked) {
       if (!overlayEntry("draw_on")) E.anim.overlays.push({ type: "draw_on", trail: null });
       const e = overlayEntry("draw_on");
-      e.trail = ovTrailEl.value === "" ? null : Number(ovTrailEl.value);
+      e.trail = parseTrail();
+      if (e.trail === null && ovTrailEl.value.trim() !== "") ovTrailEl.value = "";
     } else {
       E.anim.overlays = E.anim.overlays.filter((o) => o.type !== "draw_on");
     }
@@ -1230,7 +1421,10 @@
     if (!E.anim) return;
     const e = overlayEntry("draw_on");
     if (!e) return;
-    e.trail = ovTrailEl.value === "" ? null : Number(ovTrailEl.value);
+    e.trail = parseTrail();
+    // Drop the explicit 0 back to the "none" placeholder so the field reads
+    // what it means.
+    if (e.trail === null && ovTrailEl.value.trim() !== "") ovTrailEl.value = "";
     restartPlayback(E.byName[E.current], E.state, E.anim);
   });
   ovSpinEl.addEventListener("change", () => {

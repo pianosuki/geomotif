@@ -375,15 +375,23 @@
   stageEl.addEventListener("pointermove", updateReadout);
   stageEl.addEventListener("pointerleave", () => { coordReadoutEl.textContent = ""; });
 
-  // The zoom indicator is the factor of the motif's natural box currently in
-  // view (natural.w / view.w): 1.0x at fit, >1 when zoomed in, <1 when zoomed
-  // out. Updated on every applyViewBox; cleared when there is no viewBox.
+  // The zoom indicator reads the current viewBox against the *world plane*,
+  // not against the motif's drawn bounds. The plane is mapped onto a fixed
+  // 520x520 display canvas at a per-motif scale (E.scale), so the natural
+  // width of the world view is always the canvas's 520 display units and the
+  // current zoom factor is that constant over viewBox.w (the per-motif scale
+  // cancels). Keying the readout on the framed picture's bounds instead would
+  // let a radius/scale slider rescale the motif and quietly change the number
+  // even though the world the user is looking at -- and their zoom into it --
+  // never moved; this reference is fixed, so the indicator only ever reflects
+  // the user's own zoom/pan of the x/y plane. Updated on every applyViewBox;
+  // cleared when there is no viewBox.
   function updateZoomInd() {
-    if (!E.viewBox || !E.naturalVB || !(E.naturalVB.w > 0)) {
+    if (!E.viewBox || !(E.viewBox.w > 0)) {
       zoomIndEl.textContent = "";
       return;
     }
-    const z = E.naturalVB.w / E.viewBox.w;
+    const z = E.CANVAS_WIDTH / E.viewBox.w;
     zoomIndEl.textContent = (z >= 100 ? z.toFixed(0) : z >= 10 ? z.toFixed(1) : z.toFixed(2)) + "x";
   }
   E.updateZoomInd = updateZoomInd;
@@ -393,6 +401,41 @@
   E.fmtCoord = fmtCoord;
 
   // --- export helpers ----------------------------------------------------------
+  // Busy state for a slow export (PNG / GIF). These run as one big synchronous
+  // Pyodide call, so the main thread will not paint anything while they work;
+  // the indicator is painted *before* the call starts (after a couple of rAF
+  // frames) so the button reads "exporting…" and the stage overlay shows a
+  // spinner instead of the page just freezing. The overlay's spinner is a
+  // compositor animation, so it keeps turning even while the thread is blocked.
+  function setExporting(on) {
+    const el = E.exportingEl;
+    if (!el) return;
+    el.classList.toggle("on", on);
+    el.setAttribute("aria-hidden", String(!on));
+  }
+  E.setExporting = setExporting;
+
+  // Paint the exporting state, then wait two frames so the browser has actually
+  // rendered it before the synchronous export occupies the main thread.
+  async function startExport(btn) {
+    btn.dataset.label = btn.dataset.label || btn.textContent;
+    btn.classList.add("busy");
+    btn.disabled = true;
+    btn.textContent = "exporting…";
+    btn.setAttribute("aria-busy", "true");
+    setExporting(true);
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  }
+  E.startExport = startExport;
+
+  function endExport(btn) {
+    btn.classList.remove("busy");
+    btn.disabled = false;
+    btn.removeAttribute("aria-busy");
+    setExporting(false);
+  }
+  E.endExport = endExport;
+
   function flash(btn, ok, okText, failText) {
     const orig = btn.dataset.label || btn.textContent;
     btn.textContent = ok ? okText : failText;

@@ -130,6 +130,17 @@
             <span class="hint">or press <code>/</code> to search</span>
           </div>
           <div class="anim-progress" id="anim-progress" aria-hidden="true"><i></i></div>
+          <!-- Export-in-progress overlay: a small centered pill that appears
+               while a slow export (PNG / GIF) is running in Pyodide. The whole
+               page is main-thread-blocked during those calls, so this tells the
+               user work is happening instead of leaving a frozen page that looks
+               hung. The spinner is a compositor-driven transform, which keeps
+               turning even while the synchronous Python call occupies the main
+               thread. -->
+          <div class="exporting" id="exporting" role="status" aria-live="polite" aria-hidden="true">
+            <span class="exporting-spin" aria-hidden="true"></span>
+            <span class="exporting-text">exporting…</span>
+          </div>
         </div>
       </div>
       <!-- Stage scrubber: the single master clock, pinned directly under the

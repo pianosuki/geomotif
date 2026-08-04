@@ -187,8 +187,13 @@
     }
     if (visX) {
       gAxes.appendChild(el("line", { x1: ox, y1: y0, x2: ox, y2: y1, stroke: c.ink, "stroke-width": 1.5, ...hairline }));
-      gAxes.appendChild(el("path", { d: `M ${ox} ${y0} l ${-half} ${-arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
-      gAxes.appendChild(el("path", { d: `M ${ox} ${y1} l ${-half} ${arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
+      // The y-axis arrowheads mirror the x-axis ones: the two tips sit on the
+      // box edges (y0, y1) and the flat base of each runs *inside* the box
+      // toward the centre, so the top one points up and the bottom one down
+      // (positive world y increases toward the top of the box) -- and neither
+      // is pushed outside the clip path.
+      gAxes.appendChild(el("path", { d: `M ${ox} ${y0} l ${-half} ${arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
+      gAxes.appendChild(el("path", { d: `M ${ox} ${y1} l ${-half} ${-arrowSize} l ${2 * half} 0 z`, fill: c.ink }));
     }
 
     // Tick labels, decoupled from axis/origin visibility: the x numbers are
@@ -210,10 +215,14 @@
     for (let wx = Math.ceil(wx0 / worldStep) * worldStep; wx <= wx1 + 1e-9; wx += worldStep) {
       // The visible origin gets its own "0"; but when the x-axis is panned
       // off-screen the x-row pins to the edge, so "0" must ride along with the
-      // other numbers instead of vanishing.
+      // other numbers instead of vanishing. It is nudged to the left of the
+      // y-axis when that is still on-screen, so the axis stroke cannot cross
+      // the digit as it does when the zero sits dead on x = ox.
       if (Math.abs(wx) < 1e-9 && visY) continue;
+      const zeroRide = Math.abs(wx) < 1e-9;
       const t = el("text", {
-        x: ox + wx * sc, y: labelY, "text-anchor": "middle",
+        x: zeroRide && visX ? ox - fs * 0.42 : ox + wx * sc,
+        y: labelY, "text-anchor": zeroRide && visX ? "end" : "middle",
         "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
       });
       t.textContent = fmt(wx);
@@ -225,8 +234,17 @@
     else { labelX = x1 - fs * 0.35; anchor = "end"; } // axis right of view -> right edge
     for (let wy = Math.ceil(wy0 / worldStep) * worldStep; wy <= wy1 + 1e-9; wy += worldStep) {
       if (Math.abs(wy) < 1e-9 && visX) continue;
+      // When the y-axis is panned off-screen and its zero rides the pinned
+      // edge row, an on-screen x-axis runs its stroke straight through y = oy
+      // -- so that "0" drops a full line below the x-axis instead of being
+      // crossed by it (mirroring the on-screen origin label's clear-of-the-
+      // axis placement).
+      const zeroRide = Math.abs(wy) < 1e-9;
       const t = el("text", {
-        x: labelX, y: oy - wy * sc, dy: fs * 0.35, "text-anchor": anchor,
+        x: labelX,
+        y: zeroRide && visY ? oy + fs : oy - wy * sc,
+        dy: zeroRide && visY ? 0 : fs * 0.35,
+        "text-anchor": anchor,
         "font-size": fs, fill: c.muted, "font-family": "var(--mono)",
       });
       t.textContent = fmt(wy);
