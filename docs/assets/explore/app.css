@@ -624,6 +624,52 @@ header {
 }
 .control-id .control-name { flex: 0 1 auto; }
 .control-id .control-ann { flex: none; }
+/* A small info ("i") chip after a parameter's name whose hover / focus shows
+   the docstring description of that parameter in a tooltip. The controls list
+   is shared between Design and Animate, so the chip covers both views. */
+.control-info {
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  color: var(--faint);
+  font: 600 0.56rem/1 var(--sans);
+  cursor: help;
+  user-select: none;
+  transition: all 0.12s ease;
+}
+.control-info:hover, .control-info:focus-visible {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  outline: none;
+}
+/* The parameter info tooltip itself is a single `position: fixed` element on
+   <body>, out of the controls panel's overflow clipping chain, so it can never
+   be cut off under the panel's edge. explore-controls.js anchors it to the
+   focused chip's viewport rectangle and re-anchors on scroll / resize. */
+.kf-info-tip {
+  position: fixed;
+  z-index: 60;
+  display: none;
+  max-width: 17rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font: 0.72rem/1.45 var(--sans);
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+}
 /* Per-parameter reset: a quiet small button that snaps the control back to the
    value it started at (the example or declared default). Muted until hover so
    it never competes with the parameter itself. */

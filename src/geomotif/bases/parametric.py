@@ -80,7 +80,14 @@ class MultiCurveMotif(Motif, ABC):
 
     #: Segments per strand -- a strand gets one more point than that, so both
     #: ends are included. ``None`` (default) scales density with the winding.
-    resolution: int | None = field(default=None, kw_only=True)
+    resolution: int | None = field(
+        default=None,
+        kw_only=True,
+        metadata={
+            "help": "Segments per strand -- a strand gets one more point than that, "
+            "so both ends are included. None (default) scales density with the winding."
+        },
+    )
 
     @abstractmethod
     def curves(self) -> Iterable[Curve]:

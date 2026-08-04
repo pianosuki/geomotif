@@ -37,14 +37,16 @@
   function paintControls(info, st, disabled) {
     controlsDisabled = disabled;
     controlsEl.innerHTML = "";
-    const settable = [];
+    // The docstring description of each parameter, for the info ("i") tooltip
+    // on the control's name. Computed once per paint, not per control.
+    const pdesc = E.paramDescriptions ? E.paramDescriptions(info) : null;    const settable = [];
     const held = [];
     for (const p of info.params) {
       if (RESERVED.has(p.name)) continue;
       if (isSettable(p)) settable.push(p);
       else held.push(p);
     }
-    for (const p of settable) controlsEl.appendChild(buildControl(info, p, st, disabled));
+    for (const p of settable) controlsEl.appendChild(buildControl(info, p, st, disabled, pdesc));
     if (held.length) {
       const note = document.createElement("p");
       note.className = "held-note";
@@ -62,7 +64,7 @@
   }
   E.paintControls = paintControls;
 
-  function buildControl(info, p, st, disabled) {
+  function buildControl(info, p, st, disabled, pdesc) {
     const row = document.createElement("div");
     row.className = "control" + (disabled ? " disabled" : "");
     const label = document.createElement("div");
@@ -76,6 +78,29 @@
     ann.className = "control-ann";
     ann.textContent = p.annotation;
     id.appendChild(name);
+    // A small info ("i") chip after the name with the parameter's docstring
+    // description in a hover tooltip. The parameter controls are shared between
+    // Design and Animate (the same #controls list is reparented), so one icon
+    // covers both views. Params the docstring does not describe get no chip.
+    // A catalog-provided description (the field's help text) wins; otherwise
+    // fall back to the docstring's Parameters section, if the motif names this
+    // parameter there. Both are cleaned to plain single-line text.
+    let descr = p.description ? String(p.description).replace(/`/g, "").replace(/\s+/g, " ").trim() : "";
+    if (!descr && pdesc) descr = pdesc[p.name] || "";
+    if (descr) {
+      const infoChip = document.createElement("span");
+      infoChip.className = "control-info";
+      infoChip.tabIndex = 0;
+      infoChip.setAttribute("role", "note");
+      infoChip.setAttribute("aria-label", `${p.name}: ${descr}`);
+      infoChip._tipText = descr;
+      const glyph = document.createElement("span");
+      glyph.className = "control-info-glyph";
+      glyph.textContent = "i";
+      infoChip.appendChild(glyph);
+      wireInfoTip(infoChip);
+      id.appendChild(infoChip);
+    }
     id.appendChild(ann);
     label.appendChild(id);
     // A small per-parameter reset, so any control can be snapped back to the
@@ -478,6 +503,70 @@
   function setNoneDisabled(container, disabled) {
     container.querySelectorAll("input").forEach((i) => { i.disabled = disabled; });
   }
+
+  // --- parameter info tooltip ------------------------------------------------
+  // The "i" chip's description tooltip. Because the controls panel is its own
+  // scroll container (overflow-y: auto forces overflow-x: auto too), any
+  // tooltip positioned inside a control row gets clipped at the panel's edges
+  // -- the last row's tooltip is hidden under the panel's bottom border, and a
+  // wide one is cut off on the right. So the tooltip is drawn as a single
+  // `position: fixed` element appended to <body>, out of every overflow
+  // clipping chain, and glued to the focused chip's viewport rectangle. It
+  // re-anchors on scroll and resize so it follows the chip while the panel
+  // scrolls. One shared node serves every chip.
+  let infoTipEl = null;
+  let infoTipChip = null;
+  function infoTipNode() {
+    if (!infoTipEl) {
+      infoTipEl = document.createElement("div");
+      infoTipEl.className = "kf-info-tip";
+      infoTipEl.setAttribute("role", "tooltip");
+      if (document.body && document.body.appendChild) document.body.appendChild(infoTipEl);
+    }
+    return infoTipEl;
+  }
+  function placeInfoTip(chip) {
+    const tip = infoTipNode();
+    const r = chip.getBoundingClientRect();
+    const tr = tip.getBoundingClientRect();
+    const vw = window.innerWidth || document.documentElement.clientWidth || 0;
+    const vh = window.innerHeight || document.documentElement.clientHeight || 0;
+    let left = r.left + r.width / 2 - tr.width / 2;
+    left = Math.max(6, Math.min(left, vw - tr.width - 6));
+    let top = r.bottom + 7;
+    if (top + tr.height + 6 > vh) top = Math.max(6, r.top - tr.height - 7);
+    tip.style.left = left + "px";
+    tip.style.top = top + "px";
+  }
+  function showInfoTip(chip) {
+    const tip = infoTipNode();
+    tip.textContent = chip._tipText;
+    tip.style.display = "block";
+    infoTipChip = chip;
+    // The first placement uses a half-sized box while the text settles; guard
+    // against that by laying out once before anchoring.
+    tip.style.display = "none";
+    try { tip.getBoundingClientRect(); } catch (e) { /* noop */ }
+    tip.style.display = "block";
+    placeInfoTip(chip);
+  }
+  function hideInfoTip() {
+    infoTipChip = null;
+    if (infoTipEl) infoTipEl.style.display = "none";
+  }
+  function wireInfoTip(chip) {
+    chip.addEventListener("mouseenter", () => showInfoTip(chip));
+    chip.addEventListener("mouseleave", hideInfoTip);
+    chip.addEventListener("focus", () => showInfoTip(chip));
+    chip.addEventListener("blur", hideInfoTip);
+  }
+  // Re-anchor the open tooltip as the panel scrolls (capture catches the inner
+  // scroll container) or the viewport resizes.
+  if (typeof window !== "undefined" && window.addEventListener) {
+    window.addEventListener("scroll", () => { if (infoTipChip) placeInfoTip(infoTipChip); }, true);
+    window.addEventListener("resize", () => { if (infoTipChip) placeInfoTip(infoTipChip); });
+  }
+
 
   // --- live command line ------------------------------------------------------
   // Mirrors _flag_for in cli.py: reserved params are skipped, non-flag annotations

@@ -279,6 +279,23 @@
   }
   E.paintMeta = paintMeta;
 
+  // Split a motif's description into paragraph (blank-line) blocks, dropping
+  // the leading first paragraph when it duplicates the summary line.
+  function docBlocks(doc, summary) {
+    let text = String(doc || "").trim();
+    if (!text) return [];
+    const first = text.split(/\n\s*\n/)[0].trim();
+    if (summary && first && first === String(summary).trim()) {
+      text = text.slice(text.indexOf(first) + first.length).trim();
+    }
+    return text.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
+  }
+  // A block that opens a numpydoc section: a short title line immediately
+  // followed by a solid underline of dashes / equals / tildes / carets.
+  function isSectionBlock(block) {
+    return /^[A-Za-z][A-Za-z ]*\n[-=~^]{3,}/.test(block);
+  }
+
   // Render the long-form description as readable paragraphs, not a mono blob.
   // The catalog's `summary` is the docstring's first paragraph, which paintMeta
   // already shows as its own .motif-summary line -- so the leading duplicate is
@@ -290,18 +307,7 @@
   // first and a tiny inline formatter applies to `code` / ``code``, **bold**
   // and *italic*.
   function renderDoc(doc, summary) {
-    let text = String(doc || "").trim();
-    if (!text) return "";
-    // Drop the first paragraph when it duplicates the summary line.
-    const first = text.split(/\n\s*\n/)[0].trim();
-    if (summary && first && first === String(summary).trim()) {
-      text = text.slice(text.indexOf(first) + first.length).trim();
-    }
-    const blocks = text.split(/\n\s*\n/).map((b) => b.trim()).filter(Boolean);
-    // A block that opens a section: a short title line, then an underline of
-    // the same dashed/underscored character, with the section body (which may
-    // be indented after the underline, or in the following blocks) after it.
-    const isSectionBlock = (block) => /^[A-Za-z][A-Za-z ]*\n[-=~^]{3,}/.test(block);
+    const blocks = docBlocks(doc, summary);
     const out = [];
     const isParams = (t) => /^Parameters?$/i.test(t);
     let i = 0;
@@ -337,10 +343,8 @@
   // One numpydoc parameter list, possibly many entries in a single block: each
   // parameter opens at column 0 with `name : type` and its description
   // continues on the following indented lines; the next parameter starts at
-  // column 0 again. Each entry is rendered as a tidy row -- name, then the
-  // type tag and the description -- so a card of many parameters stays
-  // scannable instead of collapsing into one run-on paragraph.
-  function renderParam(block) {
+  // column 0 again.
+  function paramItems(block) {
     const items = [];
     let cur = null;
     for (const raw of block.split("\n")) {
@@ -361,7 +365,13 @@
       }
     }
     if (cur) items.push(cur);
-    return items.map((it) =>
+    return items;
+  }
+
+  // The rendered entry for one parameter in the long description's tidy list --
+  // name, then the type tag and the description (see renderDoc).
+  function renderParam(block) {
+    return paramItems(block).map((it) =>
       `<div class="param-row"><code class="param-name">${E.esc(it.name)}</code>` +
       (it.type ? `<span class="param-type">${inlineDoc(it.type)}</span>` : "") +
       (it.desc.length ? `<span class="param-desc">${inlineDoc(it.desc.join(" "))}</span>` : "") +
@@ -369,6 +379,31 @@
     ).join("");
   }
   E.renderParam = renderParam;
+
+  // The plain-text description the docstring gives each parameter (the same
+  // numpydoc Parameters section renderDoc renders as rows), keyed by parameter
+  // name. The parameter controls use this for their "i" info tooltip: a param
+  // the docstring does not mention has no entry, so it gets no icon.
+  function paramDescriptions(info) {
+    const out = Object.create(null);
+    const blocks = docBlocks(info && info.doc, info && info.summary);
+    const collect = (block) => {
+      for (const it of paramItems(block)) {
+        if (it.name && it.desc.length) {
+          out[it.name] = it.desc.join(" ").replace(/`/g, "").replace(/\s+/g, " ").trim();
+        }
+      }
+    };
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      const m = block.match(/^([A-Za-z][A-Za-z ]*)\n[-=~^]{3,}(?:\n([\s\S]*))?$/);
+      if (!m || !isSectionBlock(block) || !/^Parameters?$/i.test(m[1].trim())) continue;
+      if (m[2] && m[2].trim()) collect(m[2]);
+      for (let j = i + 1; j < blocks.length && !isSectionBlock(blocks[j]); j++) collect(blocks[j]);
+    }
+    return out;
+  }
+  E.paramDescriptions = paramDescriptions;
   function inlineDoc(text) {
     let s = E.esc(text);
     s = s.replace(/(``[^`]+``|`[^`]+`)/g, (m) => `<code>${m.replace(/`/g, "")}</code>`);
