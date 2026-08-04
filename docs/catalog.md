@@ -3,7 +3,7 @@
 # The catalog
 
 147 motifs in 19 families, as of geomotif
-1.2.2. Every one of them resamples by arc length, takes every
+1.3.0. Every one of them resamples by arc length, takes every
 spacing curve, and exports to SVG, DXF, GIF, CSV, TXT, JSON and a spec file.
 
 The pictures are in [the gallery](gallery/index.md); this page is the same

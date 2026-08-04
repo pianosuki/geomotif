@@ -4,11 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.3.0] — 2026-08-04
 
-The first piece of the 1.3.0 explore overhaul: parameter ranges move from
-guessed to declared. A motif can now say how far a slider should reach, and
-every consumer of `ParamInfo` reads the bound from the same place.
+The explore overhaul ships: a web explorer for every motif in the catalog,
+`keyframes` growing `geomotif.animate` into a general multi-parameter
+primitive that spec files and the CLI both speak, and parameter ranges
+moving from guessed to declared so every consumer reads the same bound.
 
 ### Added
 
@@ -825,6 +826,7 @@ this name or number; `geomotif` 1.0.0 is the first release of anything.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
 
+[1.3.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.3.0
 [1.2.2]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.2
 [1.2.1]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.1
 [1.2.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.0
