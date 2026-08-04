@@ -942,7 +942,12 @@
         total: cached.frames.length, busy: false, scale: E.scale,
       };
       E.bundle = bundle;
-      showAnimProgress(1);
+      // A cache hit is instantly ready -- there is no pre-render to show, so
+      // the progress bar must not linger (a superseded build that was still
+      // filling in owns hideAnimProgress on its own completion, but its tick
+      // loop bails the moment E.bundle stops being it). Explicitly take the
+      // bar down here, otherwise it sticks at full forever.
+      hideAnimProgress();
       drawFrame(0);
       if (E.playWanted) { E.playWanted = false; startPlayback(info, an); }
       return;
