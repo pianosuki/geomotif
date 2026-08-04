@@ -19,6 +19,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
 </p>
 
+<p align="center">
+  <a href="https://pianosuki.github.io/geomotif/explore/"><strong>Open the explore stage &rarr;</strong></a>
+</p>
+
 ```bash
 pip install geomotif
 ```
