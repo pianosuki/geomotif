@@ -480,6 +480,19 @@ header {
 }
 .motif-title code { font-size: 1.1rem; font-weight: 600; }
 .motif-summary { color: var(--ink); font-size: 0.95rem; margin: 0.2rem 0 0.6rem; }
+/* Parameter names inside the summary are ``code``-wrapped; give them a visible
+   pill so they read as named parameters rather than words in slightly smaller
+   type. Soft accent tint keeps the single-indigo design language. */
+.motif-summary code {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 4px;
+  padding: 0.06em 0.32em;
+  white-space: nowrap;
+}
 .motif-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.7rem; }
 .motif-doc p { color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin: 0 0 0.6rem; }
 .motif-doc p:last-child { margin-bottom: 0; }
