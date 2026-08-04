@@ -17,7 +17,7 @@
 (function (E) {
   const {
     timelineEl, stageEl, tracksEl, stageScrubEl, stageScrubWrapEl,
-    scrubTimeEl, kfSetAllEl, kfSetAllTEl, transportEl,
+    scrubTimeEl, kfGearEl, kfSetPopoverEl, transportEl,
     playPauseEl, loopEl, animFramesEl, animFpsEl, animHoldEl, animEaseEl,
     ovDrawEl, ovSpinEl, ovDrawOpts, ovSpinOpts, ovTrailEl, ovTurnsEl,
     expGifEl, animProgressEl, animProgressFill, placeholderEl, phMain,
@@ -51,29 +51,25 @@
   E.selectedKf = null;
 
   // Keyframe drag axis-locking: on by default, a drag moves the *dominant*
-  // axis only (vertical = value, horizontal = time); the small "lock" toggle in
-  // the timeline turns it off for free two-axis dragging. Persisted in
-  // localStorage like the view toggles so the choice sticks between sessions.
+  // axis only (vertical = value, horizontal = time); unticking the "lock
+  // keyframe drags to one axis" row in the keyframe settings turns it off for
+  // free two-axis dragging. Persisted in localStorage like the view toggles so
+  // the choice sticks between sessions.
   const AXISLOCK_KEY = "geomotif.axislock";
   try { E.axisLock = localStorage.getItem(AXISLOCK_KEY) !== "off"; }
   catch (err) { E.axisLock = true; }
-  function applyAxisLockButton() {
-    const btn = E.$("kf-lock");
-    if (!btn) return;
-    btn.setAttribute("aria-pressed", String(E.axisLock));
-    btn.title = E.axisLock
-      ? "keyframe drags lock to one axis (value vs time) — click for free two-axis drags"
-      : "keyframe drags move value and time together — click to lock to one axis";
-  }
   E.toggleAxisLock = (on) => {
     E.axisLock = !!on;
     try { localStorage.setItem(AXISLOCK_KEY, on ? "on" : "off"); } catch (err) { /* private */ }
-    applyAxisLockButton();
+    const cb = E.$("kf-lock");
+    if (cb) cb.checked = !!on;
   };
   {
-    const btn = E.$("kf-lock");
-    if (btn) btn.addEventListener("click", () => E.toggleAxisLock(!E.axisLock));
-    applyAxisLockButton();
+    const cb = E.$("kf-lock");
+    if (cb) {
+      cb.checked = E.axisLock;
+      cb.addEventListener("change", () => E.toggleAxisLock(cb.checked));
+    }
   }
 
   // Keyframe-lane visual preferences -- whether to draw the easing curve
@@ -379,10 +375,9 @@
     // Empty-state hint card. When the animator opens with no keyframes on
     // any track (e.g. a motif whose default recipe has no sweep -- only bool /
     // Literal params, or a freshly-cleared timeline), a centered hint tells
-    // the user the scrub -> slider -> "Set keyframes for all params" loop. It disappears the
+    // the user the scrub -> slider -> per-track "+" loop. It disappears the
     // moment any track has >=1 keyframe, at which point the real track rows
-    // paint. The kf-set-all button above #tracks stays visible either way so
-    // the user can act on the hint.
+    // paint and the per-track "+" buttons take over.
     const anyKf = params.some((p) => {
       const tr = E.anim.tracks[p.name];
       return tr && tr.keyframes && tr.keyframes.length;
@@ -390,7 +385,7 @@
     if (!anyKf) {
       const card = document.createElement("div");
       card.className = "anim-empty-card";
-      card.textContent = "Move the scrubber to a time \u2192 adjust the sliders \u2192 click \u201cSet keyframes for all params\u201d, then press play to preview.";
+      card.textContent = "Move the scrubber to a time \u2192 adjust the sliders \u2192 click a track\u2019s \u201c+\u201d to drop a keyframe there, then press play to preview.";
       tracksEl.appendChild(card);
       return;
     }
@@ -563,9 +558,9 @@
     // A per-track "add keyframe at the scrubber" button. Sits beside the
     // easing dropdown so the row reads `[name] [step] [+] [easing]` then the
     // lane below. Drops a single keyframe for this param at the scrubber's
-    // current time holding the slider's current value -- the same action as
-    // the top "Set keyframes for all params" button, but scoped to one track. Disabled on
-    // touch (read-only timeline).
+    // current time holding the slider's current value. Disabled on touch
+    // (read-only timeline). This is the timeline's only keyframe-creation
+    // affordance now (the "set keyframes for all params" button is gone).
     const add = document.createElement("button");
     add.className = "kf-add-one";
     add.type = "button";
@@ -1269,16 +1264,11 @@
   function paintScrubTime(t) {
     const txt = "t = " + Number(t).toFixed(3);
     if (scrubTimeEl) scrubTimeEl.textContent = txt;
-    // The "Set keyframes for all params at t=..." button's t= span follows the same clock
-    // so the button always shows the time a drop will land on. Mirrored on
-    // every syncScrubber + scrub-input call, so dragging either scrubber or
-    // playing back keeps the label honest.
-    if (kfSetAllTEl) kfSetAllTEl.textContent = Number(t).toFixed(3);
   }
 
   // The scrubber's current time as a clamped 0..1 number, read from the stage
-  // scrubber's live value. Used by the "Set keyframes for all params" + per-track "+" handlers
-  // so a drop lands at the time the user is looking at. Before a bundle is
+  // scrubber's live value. Used by the per-track "+" handler so a drop lands
+  // at the time the user is looking at. Before a bundle is
   // ready the scrubber sits at 0, which is the right default (the default
   // recipe's first keyframe is at t=0).
   function currentScrubT() {
@@ -1337,45 +1327,34 @@
   function hideAnimProgress() { animProgressEl.classList.remove("on"); }
   E.hideAnimProgress = hideAnimProgress;
 
-  // --- discoverable keyframe creation -------------------------------------
-  // The "Set keyframes for all params at t=..." button at the top of the
-  // tracks section drops a keyframe for every animatable parameter at the
-  // scrubber's current time, each holding its slider's current value. It is
-  // the obvious affordance -- the per-track "+" buttons remain, but this is
-  // the one a new user finds first. The t= span is live, so the button always
-  // tells the user what they will get.
-  if (kfSetAllEl) {
-    kfSetAllEl.addEventListener("click", () => {
-      if (!E.animOn || !E.current) return;
-      const info = E.byName[E.current];
-      if (!info || !info.available) return;
-      const an = E.anim;
-      const params = animatableParams(info);
-      if (!params.length) return;
-      const t = currentScrubT();
-      const wasEmpty = !params.some((p) => {
-        const tr = an.tracks[p.name];
-        return tr && tr.keyframes && tr.keyframes.length;
-      });
-      for (const p of params) dropKeyframe(p, E.state, an, t);
-      // Always repaint after the drop. When the timeline was empty the whole
-      // track list has to come in (the empty-state card is replaced by real
-      // rows); when it already had keyframes the affected lanes' dots must
-      // appear immediately rather than waiting for a slider to touch them.
-      if (wasEmpty) {
-        paintTimeline(info, E.state);
-      } else {
-        for (const p of params) {
-          const ref = trackRefs.get(p.name);
-          if (ref) paintLaneDots(ref.lane, p, an);
-          else {
-            const lane = tracksEl.querySelector(`.lane[data-param="${p.name}"]`);
-            if (lane) paintLaneDots(lane, p, an);
-          }
-        }
-      }
-      E.restartPlayback(info, E.state, an);
+  // --- keyframe settings ---------------------------------------------------
+  // The gear on the Keyframes heading opens a small popover of persisted
+  // keyframe preferences: axis-lock (the "lock keyframe drags to one axis"
+  // row), the easing-curve visibility, the under-curve fill, and the timeline
+  // ruler. The popover toggles mirror the settings stored by the preferences
+  // block above (E.kfPrefs / E.toggleAxisLock), so a change here updates the
+  // timeline classes immediately and sticks for the next session. Clicking
+  // anywhere outside the popover (or on the gear itself) closes it.
+  if (kfGearEl && kfSetPopoverEl) {
+    const setOpen = (open) => {
+      kfSetPopoverEl.classList.toggle("open", open);
+      kfGearEl.setAttribute("aria-expanded", String(open));
+    };
+    kfGearEl.addEventListener("click", (e) => {
+      e.stopPropagation();
+      setOpen(!kfSetPopoverEl.classList.contains("open"));
     });
+    document.addEventListener("click", (e) => {
+      if (kfSetPopoverEl.classList.contains("open") && !kfSetPopoverEl.contains(e.target)) {
+        setOpen(false);
+      }
+    });
+    for (const key of ["curve", "fill", "ticks"]) {
+      const row = E.$("kf-" + key);
+      if (!row) continue;
+      row.checked = !!E.kfPrefs[key];
+      row.addEventListener("change", () => E.setKfPref(key, row.checked));
+    }
   }
 
   // --- GIF export -------------------------------------------------------------

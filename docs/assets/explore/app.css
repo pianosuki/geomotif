@@ -1399,46 +1399,56 @@ pre.command {
   vertical-align: middle;
 }
 
-/* Discoverable keyframe creation. The "Set keyframes for all params at t=..."
-   button at the top of the tracks section is the obvious affordance -- one
-   click drops a keyframe for every animatable parameter at the scrubber's
-   current time. It reads as a primary action (accent fill) so a new user
-   finds it before the per-track "+". The t= span is live, so the button
-   always tells the user what they will get. */
-.kf-set-all-row { margin: 0.2rem 0 0.45rem; display: flex; align-items: center; gap: 0.4rem; }
-.kf-set-all {
-  width: 100%;
-  padding: 0.5rem 0.7rem;
-  border: 1px solid var(--accent);
-  border-radius: var(--r);
-  background: var(--accent-soft);
-  color: var(--accent-ink);
-  font: 600 0.78rem/1.2 var(--sans);
-  cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
-}
-.kf-set-all:hover { background: color-mix(in srgb, var(--accent-soft) 70%, var(--accent) 12%); }
-.kf-set-all:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
-/* A small, non-intrusive toggle for keyframe-drag axis locking: on (locked to
-   one axis) by default; off lets a drag move value and time together. It sits
-   on the same row as the "set keyframes" button, right-aligned. */
-.kf-lock {
+/* Keyframe settings: a small gear on the right of the "Keyframes" heading
+   opens a popover of persisted keyframe preferences -- axis-lock, easing-curve
+   visibility, curve fill, timeline ruler. The gear is a quiet icon button; the
+   popover drops down under it as a card of checkbox rows. */
+.kf-head { position: relative; display: flex; align-items: center; justify-content: space-between; }
+.kf-head .label { padding-bottom: 0.1rem; }
+.kf-gear {
   flex: none;
-  padding: 0.5rem 0.6rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: var(--r-sm);
   background: var(--panel);
-  color: var(--muted);
-  font: 500 0.66rem/1 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  color: var(--faint);
   cursor: pointer;
   transition: all 0.12s ease;
 }
-.kf-lock[aria-pressed="true"] { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
-.kf-lock:hover { color: var(--ink); border-color: var(--line-2); }
-.kf-lock:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
-.kf-set-all #kf-set-all-t { font-family: var(--mono); font-weight: 500; }
+.kf-gear:hover, .kf-gear[aria-expanded="true"] { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
+.kf-gear:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.kf-set-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  display: none;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 15rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.kf-set-popover.open { display: flex; }
+.kf-set-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.15rem 0.1rem;
+  font: 0.74rem/1.3 var(--sans);
+  color: var(--muted);
+  cursor: pointer;
+}
+.kf-set-row input { margin: 0; accent-color: var(--accent); cursor: pointer; }
+.kf-set-row:hover { color: var(--ink); }
 
 /* Per-track "+" button: drops a single keyframe at the scrubber's time. Sits
    beside the easing dropdown so the row reads `[name] [step] [+] [easing]`.
@@ -1489,7 +1499,6 @@ pre.command {
 .timeline.touch .kf { cursor: default; pointer-events: none; }
 .timeline.touch .track-easing { display: none; }
 .timeline.touch .kf-add-one { display: none; }
-.timeline.touch .kf-set-all-row { display: none; }
 .timeline.touch .kf-edit-row { display: none; }
 .touch-hint {
   margin: 0.2rem 0 0;
