@@ -19,6 +19,17 @@ hooks:
 # the generated pages exist by the time anything is checked.
 strict: true
 
+# The three "Open the explore stage" buttons link to explore/, the SPA
+# directory that `make explore-stage` copies into site/ only after this build
+# runs (mkdocs builds and wipes site/ first, so it never sees it). That link
+# is a "link ending in /" and would otherwise be flagged as unrecognized at
+# info level every build. Silence exactly that narrow class; the checks that
+# catch real broken links (not_found, absolute_links, nav) still run, so
+# strict stays meaningful.
+validation:
+  links:
+    unrecognized_links: ignore
+
 theme:
   name: material
   # A custom_dir so we can override the Material header partial with one
