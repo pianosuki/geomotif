@@ -4,6 +4,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.1] — 2026-08-04
+
+The 1.3.0 catalog built cleanly only on Python 3.13+ while still declaring
+3.12 support. CPython dedents class docstrings at compile time starting in
+3.13, so reading `__doc__` directly produced a different `catalog.json` on
+3.12 and the committed-artifact freshness test failed. The catalog now
+normalizes with `inspect.cleandoc`, so the committed artifacts are
+byte-identical on every supported interpreter.
+
+### Fixed
+
+- The committed `catalog.json` (and the drift-check test that guards it)
+  now passes on Python 3.12, where raw class docstrings keep their source
+  indentation instead of being dedented at compile time like on 3.13+.
+  `registry.describe` normalizes with `inspect.cleandoc`, so generated
+  docs are byte-identical across all supported versions.
+
 ## [1.3.0] — 2026-08-04
 
 The explore overhaul ships: a web explorer for every motif in the catalog,
@@ -826,6 +843,7 @@ this name or number; `geomotif` 1.0.0 is the first release of anything.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
 
+[1.3.1]: https://github.com/pianosuki/geomotif/releases/tag/v1.3.1
 [1.3.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.3.0
 [1.2.2]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.2
 [1.2.1]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.1
