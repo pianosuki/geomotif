@@ -281,7 +281,9 @@ def describe(name: str) -> MotifInfo:
     _load_motifs()
     cls = get(name)
     entry = _REGISTRY[name]
-    doc = (cls.__doc__ or "").strip()
+    # 3.13+ dedents docstrings at compile time; 3.12 keeps the raw indentation,
+    # so normalize explicitly to keep the committed artifacts byte-identical.
+    doc = inspect.cleandoc(cls.__doc__ or "").strip()
     summary = doc.split("\n\n", 1)[0].replace("\n", " ").strip()
 
     return MotifInfo(
