@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, ClassVar, override
 
 from ..bases import ParametricMotif, PolygonMotif
 from ..core.motif import Motif
+from ..core.range import Range
 from ..core.registry import register, spec
 from ..core.types import Design, Path
 from ._common import arc_points, ring_points
@@ -74,7 +75,7 @@ class Circle(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    radius: float = 100.0
+    radius: float = field(default=100.0, metadata=Range(1.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -101,10 +102,10 @@ class Ellipse(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    rx: float = 120.0
-    ry: float = 70.0
+    rx: float = field(default=120.0, metadata=Range(1.0, 400.0))
+    ry: float = field(default=70.0, metadata=Range(1.0, 400.0))
     center: Point = (0.0, 0.0)
-    rotation: float = 0.0
+    rotation: float = field(default=0.0, metadata=Range(0.0, math.tau))
 
     @override
     def position(self, u: float) -> Point:
@@ -131,9 +132,9 @@ class Arc(ParametricMotif):
         Point to draw around.
     """
 
-    radius: float = 100.0
-    start_angle: float = 0.0
-    sweep: float = math.pi
+    radius: float = field(default=100.0, metadata=Range(1.0, 400.0))
+    start_angle: float = field(default=0.0, metadata=Range(0.0, math.tau))
+    sweep: float = field(default=math.pi, metadata=Range(0.0, math.tau))
     center: Point = (0.0, 0.0)
 
     @override
@@ -164,9 +165,9 @@ class Sector(Motif):
         Point of the slice.
     """
 
-    radius: float = 100.0
-    start_angle: float = 0.0
-    sweep: float = math.pi / 3.0
+    radius: float = field(default=100.0, metadata=Range(1.0, 400.0))
+    start_angle: float = field(default=0.0, metadata=Range(0.0, math.tau))
+    sweep: float = field(default=math.pi / 3.0, metadata=Range(0.0, math.tau))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -216,8 +217,8 @@ class Rectangle(PolygonMotif):
         Midpoint of the rectangle.
     """
 
-    width: float = 160.0
-    height: float = 100.0
+    width: float = field(default=160.0, metadata=Range(1.0, 600.0))
+    height: float = field(default=100.0, metadata=Range(1.0, 600.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -243,9 +244,9 @@ class RoundedRectangle(Motif):
         Midpoint of the rectangle.
     """
 
-    width: float = 160.0
-    height: float = 100.0
-    corner_radius: float = 20.0
+    width: float = field(default=160.0, metadata=Range(1.0, 600.0))
+    height: float = field(default=100.0, metadata=Range(1.0, 600.0))
+    corner_radius: float = field(default=20.0, metadata=Range(0.0, 200.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -296,10 +297,10 @@ class RegularPolygon(PolygonMotif):
         Angle of the first corner, in radians. Defaults to straight up.
     """
 
-    sides: int = 6
-    radius: float = 100.0
+    sides: int = field(default=6, metadata=Range(3, 24, step=1))
+    radius: float = field(default=100.0, metadata=Range(1.0, 400.0))
     center: Point = (0.0, 0.0)
-    rotation: float = _UP
+    rotation: float = field(default=_UP, metadata=Range(0.0, math.tau))
 
     def __post_init__(self) -> None:
         if self.sides < 3:
@@ -337,11 +338,11 @@ class StarPolygon(PolygonMotif):
         Angle of the first corner, in radians. Defaults to straight up.
     """
 
-    points: int = 5
-    step: int = 2
-    radius: float = 100.0
+    points: int = field(default=5, metadata=Range(3, 24, step=1))
+    step: int = field(default=2, metadata=Range(1, 12, step=1))
+    radius: float = field(default=100.0, metadata=Range(1.0, 400.0))
     center: Point = (0.0, 0.0)
-    rotation: float = _UP
+    rotation: float = field(default=_UP, metadata=Range(0.0, math.tau))
 
     def __post_init__(self) -> None:
         if self.points < 5:
@@ -391,11 +392,11 @@ class Star(PolygonMotif):
         Angle of the first arm, in radians. Defaults to straight up.
     """
 
-    points: int = 5
-    inner_ratio: float = 0.382
-    radius: float = 100.0
+    points: int = field(default=5, metadata=Range(3, 24, step=1))
+    inner_ratio: float = field(default=0.382, metadata=Range(0.0, 1.0))
+    radius: float = field(default=100.0, metadata=Range(1.0, 400.0))
     center: Point = (0.0, 0.0)
-    rotation: float = _UP
+    rotation: float = field(default=_UP, metadata=Range(0.0, math.tau))
 
     def __post_init__(self) -> None:
         if self.points < 3:
@@ -452,9 +453,9 @@ class Superellipse(ParametricMotif):
     closed: ClassVar[bool] = True
 
     #: Piet Hein's value: the one that got built, in Sergels torg.
-    exponent: float = 2.5
-    rx: float = 100.0
-    ry: float = 100.0
+    exponent: float = field(default=2.5, metadata=Range(0.1, 10.0))
+    rx: float = field(default=100.0, metadata=Range(1.0, 400.0))
+    ry: float = field(default=100.0, metadata=Range(1.0, 400.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -490,7 +491,7 @@ class Squircle(ParametricMotif):
     #: The exponent that makes a squircle a squircle.
     EXPONENT: ClassVar[float] = 4.0
 
-    radius: float = 100.0
+    radius: float = field(default=100.0, metadata=Range(1.0, 400.0))
     center: Point = (0.0, 0.0)
 
     @override
@@ -521,10 +522,10 @@ class ReuleauxPolygon(Motif):
         Angle of the first corner, in radians. Defaults to straight up.
     """
 
-    sides: int = 3
-    width: float = 150.0
+    sides: int = field(default=3, metadata=Range(3, 12, step=1))
+    width: float = field(default=150.0, metadata=Range(1.0, 400.0))
     center: Point = (0.0, 0.0)
-    rotation: float = _UP
+    rotation: float = field(default=_UP, metadata=Range(0.0, math.tau))
 
     def __post_init__(self) -> None:
         if self.sides < 3 or self.sides % 2 == 0:
@@ -584,9 +585,9 @@ class Egg(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    length: float = 140.0
-    width: float = 100.0
-    taper: float = 0.25
+    length: float = field(default=140.0, metadata=Range(10.0, 400.0))
+    width: float = field(default=100.0, metadata=Range(10.0, 400.0))
+    taper: float = field(default=0.25, metadata=Range(0.0, 1.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -628,11 +629,11 @@ class PointGrid(Motif):
         Midpoint of the lattice.
     """
 
-    columns: int = 12
-    rows: int = 12
-    dx: float = 20.0
-    dy: float = 20.0
-    stagger: float = 0.0
+    columns: int = field(default=12, metadata=Range(1, 64, step=1))
+    rows: int = field(default=12, metadata=Range(1, 64, step=1))
+    dx: float = field(default=20.0, metadata=Range(0.1, 100.0))
+    dy: float = field(default=20.0, metadata=Range(0.1, 100.0))
+    stagger: float = field(default=0.0, metadata=Range(0.0, 1.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:

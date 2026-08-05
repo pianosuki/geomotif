@@ -8,6 +8,10 @@ hide:
 A library for generating and plotting geometric designs, and for controlling
 exactly where the points along them land.
 
+<div class="cta-row" markdown>
+[Open the explore stage &rarr;](explore/){ .md-button .md-button--primary }
+</div>
+
 <div class="strip" markdown>
 ![](assets/spiral.golden.svg){ .motif }
 ![](assets/rose.maurer.svg){ .motif }

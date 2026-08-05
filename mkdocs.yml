@@ -19,8 +19,24 @@ hooks:
 # the generated pages exist by the time anything is checked.
 strict: true
 
+# The three "Open the explore stage" buttons link to explore/, the SPA
+# directory that `make explore-stage` copies into site/ only after this build
+# runs (mkdocs builds and wipes site/ first, so it never sees it). That link
+# is a "link ending in /" and would otherwise be flagged as unrecognized at
+# info level every build. Silence exactly that narrow class; the checks that
+# catch real broken links (not_found, absolute_links, nav) still run, so
+# strict stays meaningful.
+validation:
+  links:
+    unrecognized_links: ignore
+
 theme:
   name: material
+  # A custom_dir so we can override the Material header partial with one
+  # inline "explore" pill beside the theme toggle (see
+  # docs/overrides/partials/header.html). mkdocs copies custom_dir contents
+  # into site/ at build time, so the override ships with the rest of the docs.
+  custom_dir: docs/overrides
   icon:
     logo: material/vector-polyline
     repo: fontawesome/brands/github
@@ -108,6 +124,11 @@ markdown_extensions:
 
 nav:
   - Home: index.md
+  # The web explorer is the quickest way into the catalog, so it sits beside
+  # Home rather than at the foot of the nav. The landing page (a real docs
+  # page with its own URL and search entry) holds the boundary between the
+  # written docs and the SPA, and its CTA carries the user the last click.
+  - Explore: explore.md
   - Guide:
       - guide/points.md
       - guide/designs.md

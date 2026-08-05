@@ -27,18 +27,21 @@ file it has just rewritten and rebuilding forever.
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import json
 import pkgutil
 import re
 import sys
+from collections.abc import Mapping
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal, get_args, get_origin
 
 import geomotif
 import geomotif.compose
 import geomotif.motifs
 from geomotif import to_spec, to_svg
 from geomotif.core import registry
+from geomotif.core.motif import SupportsBuild
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -128,6 +131,7 @@ def generate(docs: Path = DOCS) -> list[Path]:
         *_gallery(docs / "gallery"),
         *_catalog(docs / "catalog.md"),
         *_hero(docs / "assets"),
+        *_explore_catalog(docs / "assets" / "explore" / "catalog.json"),
     ]
 
 
@@ -489,6 +493,150 @@ def _hero(out: Path) -> Iterator[Path]:
     for name in HERO:
         yield from _image(out, registry.describe(name), HERO_SIZE, stroke=HERO_INK)
     yield from _prune(out, {f"{name}.svg" for name in HERO})
+
+
+# --- the explore catalog (catalog.json) -------------------------------------
+
+
+def _explore_catalog(out: Path) -> Iterator[Path]:
+    """Write the whole registry as ``catalog.json`` for the web explorer.
+
+    The shape mirrors what :func:`registry.describe` returns, with every value
+    type converted to JSON: each motif carries its family, summary, full doc,
+    whether it is available on this machine, its registered example and its
+    parameters -- name, annotation, default, required flag, help text, the
+    ``Range`` bounds (``min``/``max``/``step``) and the ``Literal`` choices a
+    dropdown would offer. The web explorer reads this once at load time and
+    builds its controls from it, so the page needs no server and no Python.
+
+    Committed (unlike the gallery, like ``catalog.md``) because the explorer
+    is a static page served from ``docs/assets/explore/``: a fresh build
+    regenerates it, and a drift check keeps it from falling behind the code.
+    """
+    families = registry.families()
+    blob = {
+        "geomotif": geomotif.__version__,
+        "families": [
+            {"name": family, "count": len(registry.names(family=family))} for family in families
+        ],
+        "motifs": [_motif_entry(registry.describe(name)) for name in registry.names()],
+    }
+    yield from _write(out, json.dumps(blob, indent=2) + "\n")
+
+
+def _motif_entry(info: MotifInfo) -> dict[str, object]:
+    """Return one motif's entry in ``catalog.json``."""
+    return {
+        "name": info.name,
+        "family": info.family,
+        "summary": info.summary,
+        "doc": info.doc,
+        "available": info.available,
+        "requires": info.requires,
+        "example": _encode_example(info.example),
+        "params": [_param_entry(p, info) for p in info.params],
+    }
+
+
+def _param_entry(param: ParamInfo, info: MotifInfo) -> dict[str, object]:
+    """Return one parameter's entry in ``catalog.json``, choices included."""
+    entry: dict[str, object] = {
+        "name": param.name,
+        "annotation": param.annotation,
+        "default": _encode_value(_default_for(param, info)),
+        "required": param.required,
+        "description": param.description,
+    }
+    if param.min is not None:
+        entry["min"] = param.min
+    if param.max is not None:
+        entry["max"] = param.max
+    if param.step is not None:
+        entry["step"] = param.step
+    choices = _literal_choices(param.annotation, info.cls)
+    if choices is not None:
+        entry["choices"] = list(choices)
+    return entry
+
+
+def _encode_example(example: Mapping[str, object]) -> dict[str, object]:
+    """Encode a motif's registered example as JSON types, dropping nothing.
+
+    An example value that is itself a motif (the composers) is written as a
+    ``{"motif": ..., "params": ...}`` object, the same shape ``io/spec.py``
+    uses, so the web explorer can hand it to ``registry.create`` without a
+    second notation. A value that is not JSON-serializable falls back to its
+    repr, which is honest enough for the explorer to show as "not settable".
+    """
+    return {key: _encode_value(value) for key, value in example.items()}
+
+
+def _encode_value(value: object) -> object:
+    """Convert one example value to JSON types, recursively where possible.
+
+    A function default reprs with its address (``<function _ripple at
+    0x7f...>``), which would make the committed catalog differ between two
+    runs of the same code and turn the drift check into a coin toss. What
+    matters about such a default is that it is a function, and that is what
+    the entry says -- mirroring the way the gallery's ``_default`` helper
+    renders a function default as ``a function`` rather than its address.
+    """
+    match value:
+        case None | bool() | int() | str():
+            return value
+        case float():
+            return value
+        case SupportsBuild() if registry.name_for(type(value)) is not None:
+            return _encode_motif(value)
+        case tuple() | list():
+            return [_encode_value(item) for item in value]
+        case Mapping():
+            return {str(k): _encode_value(v) for k, v in value.items()}
+        case _ if dataclasses.is_dataclass(value) and not isinstance(value, type):
+            fields = {f.name: getattr(value, f.name) for f in dataclasses.fields(value) if f.init}
+            return {
+                "$type": f"{type(value).__module__}.{type(value).__qualname__}",
+                **{k: _encode_value(v) for k, v in fields.items()},
+            }
+        case _ if callable(value):
+            # A motif parameterized by a Python function is defined by code, so
+            # its default has no stable repr -- name the type and move on.
+            return f"a {type(value).__name__}"
+        case _:
+            return repr(value)
+
+
+def _encode_motif(motif: SupportsBuild) -> dict[str, object]:
+    """Encode a nested motif example with the same shape as a whole spec."""
+    name = registry.name_for(type(motif))
+    params = {k: v for k, v in registry.spec(motif).items() if k != registry.NAME_KEY}
+    return {
+        registry.NAME_KEY: name,
+        "params": {k: _encode_value(v) for k, v in params.items()},
+    }
+
+
+def _default_for(param: ParamInfo, info: MotifInfo) -> object:
+    """Return the example's value for a parameter, else its declared default."""
+    return info.example.get(param.name, param.default)
+
+
+def _literal_choices(annotation: str, cls: type) -> tuple[str, ...] | None:
+    """Return the permitted strings, if the annotation is a Literal or an alias.
+
+    Mirrors :func:`geomotif.cli._literal_choices`: the annotation arrives as
+    text (PEP 563), so a bare ``Literal[...]`` is read out of the string and a
+    named alias is looked up in the module that declared the motif.
+    """
+    if annotation.startswith("Literal["):
+        return tuple(part.strip().strip("'\"") for part in annotation[8:-1].split(","))
+    alias = getattr(sys.modules.get(cls.__module__), annotation, None)
+    value = getattr(alias, "__value__", None)
+    if get_origin(value) is Literal:
+        args = get_args(value)
+        if all(isinstance(arg, str) for arg in args):
+            return args
+    return None
 
 
 # --- writing ----------------------------------------------------------------

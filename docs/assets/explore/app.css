@@ -1,0 +1,1522 @@
+/* geomotif explore — a studio frontend for a geometric-motif library.
+   Design language: a precise drafting surface. Warm paper in light mode, deep
+   neutral in dark, a single indigo accent, tracked uppercase section labels,
+   and a dot-grid stage that reads as "this is where you draw." */
+
+/* --- design tokens --------------------------------------------------------- */
+:root {
+  color-scheme: light dark;
+  --page: #f6f5f1;
+  --panel: #ffffff;
+  --panel-2: #fbfaf8;
+  --ink: #1c1c1e;
+  --muted: #6e6e73;
+  --faint: #a0a0a4;
+  --line: #e4e2dc;
+  --line-2: #d4d2cb;
+  --accent: #4f46e5;
+  --accent-ink: #3f37c9;
+  --accent-soft: rgba(79, 70, 229, 0.10);
+  --shadow: 0 1px 2px rgba(20, 20, 30, 0.04), 0 6px 20px rgba(20, 20, 30, 0.06);
+  --r-sm: 5px;
+  --r: 9px;
+  --r-lg: 14px;
+  --dot: rgba(20, 20, 30, 0.06);
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+  /* The sticky header's settled height; the workbench layout below it is
+     exactly the rest of the viewport. Kept as one token so the layout and
+     the header never drift apart. */
+  --header-h: 4.2rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --page: #0f0f12;
+    --panel: #18181f;
+    --panel-2: #1e1e26;
+    --ink: #ececf0;
+    --muted: #8b8b94;
+    --faint: #56565f;
+    --line: #272730;
+    --line-2: #36363f;
+    --accent: #818cf8;
+    --accent-ink: #a5acfc;
+    --accent-soft: rgba(129, 140, 248, 0.16);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.4);
+    --dot: rgba(255, 255, 255, 0.045);
+  }
+}
+/* A manual dark choice overrides a light OS; a manual light choice is just
+   "leave the light tokens alone", which the :not([data-theme="light"]) guard
+   on the media block above already honors. */
+:root[data-theme="dark"] {
+  --page: #0f0f12;
+  --panel: #18181f;
+  --panel-2: #1e1e26;
+  --ink: #ececf0;
+  --muted: #8b8b94;
+  --faint: #56565f;
+  --line: #272730;
+  --line-2: #36363f;
+  --accent: #818cf8;
+  --accent-ink: #a5acfc;
+  --accent-soft: rgba(129, 140, 248, 0.16);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 10px 28px rgba(0, 0, 0, 0.4);
+  --dot: rgba(255, 255, 255, 0.045);
+}
+
+/* --- base ------------------------------------------------------------------ */
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--ink);
+  font: 15px/1.55 var(--sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  /* The workbench keeps its own per-column scrollbars (see .layout); the
+     page itself never scrolls on wide viewports. The narrow-width media
+     queries below re-enable body scroll when the columns stack instead. */
+  overflow: hidden;
+}
+h1, h2 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+code, pre, .mono { font-family: var(--mono); font-size: 0.82em; }
+a { color: var(--accent); }
+
+/* section label — tracked uppercase, the designed feel of a precision tool */
+.label {
+  font: 600 0.68rem/1 var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  padding: 0 0.15rem 0.5rem;
+}
+
+/* themed thin scrollbars */
+* { scrollbar-width: thin; scrollbar-color: var(--line-2) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--line-2); border-radius: 99px; }
+*::-webkit-scrollbar-thumb:hover { background: var(--faint); }
+
+/* --- header ---------------------------------------------------------------- */
+header {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1.5rem;
+  background: color-mix(in srgb, var(--page) 86%, transparent);
+  backdrop-filter: saturate(1.4) blur(10px);
+  -webkit-backdrop-filter: saturate(1.4) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.wordmark { display: flex; align-items: center; gap: 0.55rem; margin-right: auto; text-decoration: none; color: inherit; }
+.wordmark svg { color: var(--accent); flex: none; }
+.wordmark b { font-weight: 600; font-size: 0.95rem; letter-spacing: -0.02em; }
+.wordmark .dim { color: var(--faint); font-weight: 400; }
+.wordmark:hover .dim { color: var(--muted); }
+/* Right-aligned quiet buttons in the SPA header — a "docs" anchor back to the
+   mkdocs home and the light/dark theme toggle. They sit where the theme
+   button used to live on the stage, matching the .search/.status rhythm. */
+.nav-link {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.78rem/1 var(--sans);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+}
+.nav-link:hover { color: var(--ink); border-color: var(--accent); }
+.nav-link:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* The primary return affordance: an indigo pill that mirrors the docs-side
+   "explore" pill in the Material header, so the two ends of the docs <-> explore
+   link read as a matched pair (same border, same uppercase, same pill radius).
+   It is the rightmost header element, after the theme toggle. */
+.nav-pill {
+  display: inline-flex;
+  align-items: center;
+  height: 2rem;
+  padding: 0 0.85rem;
+  border-radius: 99px;
+  border: 1px solid var(--accent);
+  color: var(--accent-ink);
+  background: transparent;
+  font: 600 0.72rem/1 var(--sans);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.nav-pill:hover { background: var(--accent); color: var(--page); }
+.nav-pill:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+/* The theme toggle reads as pressed when the page is in dark mode, the same
+   affordance the old stage-toolbar toggle used. The button shows a sun glyph in
+   light mode and a moon in dark mode, so the icon always names the mode that is
+   on and never contradicts the pressed state. */
+.nav-link#theme[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.nav-link#theme .ico { display: flex; }
+.nav-link#theme .moon { display: none; }
+:root[data-theme="dark"] .nav-link#theme .sun { display: none; }
+:root[data-theme="dark"] .nav-link#theme .moon { display: flex; }
+/* The Design / Animate segmented control sits between the wordmark and
+   the search field, the single entry point to animation mode now that the
+   stage-toolbar Play button is retired. A roving tabindex keeps keyboard
+   focus on the active tab; aria-selected is driven by explore-mode.js. */
+.mode-tabs {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel);
+  gap: 0;
+}
+.mode-tab {
+  padding: 0.32rem 0.85rem;
+  border: none;
+  border-radius: calc(var(--r) - 2px);
+  background: transparent;
+  color: var(--muted);
+  font: 500 0.78rem/1 var(--sans);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+.mode-tab:hover { color: var(--ink); }
+.mode-tab:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.mode-tab[aria-selected="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+.search {
+  width: clamp(10rem, 22vw, 20rem);
+  padding: 0.45rem 0.7rem 0.45rem 1.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='%238b8b94' stroke-width='1.6'><circle cx='7' cy='7' r='4.5'/><path d='M10.5 10.5 14 14'/></svg>") no-repeat 0.55rem 50% / 0.85rem;
+  color: inherit;
+  font: inherit;
+  font-size: 0.88rem;
+}
+.search::placeholder { color: var(--faint); }
+.search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* The motif search lives in the left rail (it filters the motif list beside
+   it), not the header, so it stretches the full rail width and keeps a small
+   gap above the family filter chips. */
+.rail .search { width: 100%; margin: 0.4rem 0 0.75rem; }
+.status {
+  font: 0.78rem/1 var(--mono);
+  color: var(--muted);
+  min-height: 1em;
+  white-space: nowrap;
+}
+.progress {
+  width: 7rem;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+  display: none;
+}
+.progress.on { display: inline-block; }
+.progress > i { display: block; height: 100%; width: 0; background: var(--accent); transition: width 0.25s ease; }
+/* Load-status toast: a small fixed pill at the bottom of the viewport that
+   auto-dismisses after ~2.5s (explore-view.js showToast). Boot-and-render
+   progress surfaces here instead of as a stranded string in the header's
+   #status slot. */
+.toast {
+  position: fixed;
+  bottom: 1rem;
+  left: 50%;
+  transform: translate(-50%, 0.5rem);
+  z-index: 50;
+  padding: 0.5rem 0.9rem;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--ink) 92%, transparent);
+  color: var(--page);
+  font: 500 0.78rem/1 var(--sans);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* --- layout ---------------------------------------------------------------- */
+/* A viewport-height workbench: the three columns (rail / stage / controls)
+   fill exactly the space below the sticky header and each scrolls on its
+   own, so there is no page-level scrollbar and the sides never show the
+   gap a centered max-width cap used to leave on wide monitors. Each panel
+   carries its own chrome so the rails read as distinct surfaces around the
+   central stage. On narrower viewports (below) the columns stack and the
+   page scrolls again. */
+.layout {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr) 21rem;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  height: calc(100vh - var(--header-h));
+  max-width: 100vw;
+  margin: 0 auto;
+}
+/* The grid children must be allowed to shrink to the row and scroll their
+   own overflow; min-width: 0 is the standard grid-shrink guard too. */
+.rail, .stage-area, .controls, .animator { min-height: 0; min-width: 0; }
+/* The side rails are independent scroll containers with their own panel
+   chrome, so the rail / controls / animator read as distinct surfaces from
+   the central stage rather than all three sharing the page background. */
+.rail, .controls, .animator {
+  overflow-y: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow);
+  padding: 0.9rem;
+}
+.stage-area { overflow-y: auto; overflow-x: hidden; }
+@media (max-width: 74rem) {
+  /* Too narrow for three side-by-side: the right rail drops below the
+     stage-and-list pair and the page scrolls instead of the columns. */
+  body { overflow-y: auto; }
+  .layout { grid-template-columns: 14rem minmax(0, 1fr); height: auto; }
+  .controls, .animator { grid-column: 1 / -1; }
+}
+@media (max-width: 50rem) {
+  .layout { grid-template-columns: 1fr; padding: 1rem; gap: 1rem; height: auto; }
+  .rail { max-height: none !important; }
+}
+
+/* --- rail (families + motif list) ------------------------------------------ */
+.rail { padding: 0.9rem; }
+.families {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-bottom: 1rem;
+}
+.families button {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: 99px;
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.72rem/1 var(--sans);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.families button:hover { color: var(--ink); border-color: var(--line-2); }
+.families button.on { background: var(--ink); color: var(--page); border-color: var(--ink); }
+
+.motifs { list-style: none; margin: 0; padding: 0; }
+.motifs li {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.4rem 0.55rem 0.4rem 0.65rem;
+  margin: 0.1rem 0;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  transition: background 0.1s ease, border-color 0.1s ease;
+}
+.motifs li:hover { background: var(--panel-2); }
+.motifs li.on { background: var(--accent-soft); border-left-color: var(--accent); }
+.motifs li.on code { color: var(--accent-ink); }
+.motifs li.unavailable { opacity: 0.55; }
+.motifs code { font-size: 0.78rem; color: var(--ink); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.badge {
+  font: 600 0.58rem/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.1rem 0.3rem;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--muted);
+}
+
+/* --- stage (the drawing surface) ------------------------------------------- */
+.stage-area { min-width: 0; }
+.stage-wrap { display: flex; justify-content: center; }
+/* The stage's 1px border + soft shadow are now a permanent frame (the old
+   border toggle retired), and the old decorative dot-grid background is gone -- a real
+   coordinate plane lives in the .grid-overlay SVG behind the motif. */
+.stage {
+  position: relative;
+  width: 100%;
+  max-width: min(100%, 100vh - 8rem);
+  aspect-ratio: 1 / 1;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel-2);
+  box-shadow: var(--shadow);
+  padding: 0.5rem;
+  overflow: hidden;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.stage:active { cursor: grabbing; }
+/* Both the grid overlay and the motif SVG fill the stage's content box
+   (inset 0.5rem == the padding) and stack by z-index: grid below, motif
+   above, toolbar / readout / progress on top. Positioning both SVGs keeps
+   them in the same coordinate space without a vertical stack. The selectors
+   are scoped to direct children (:scope > svg) so the floating toolbar's
+   inline icon glyphs and the placeholder's mark keep their own little boxes
+   instead of being stretched out to fill the stage. */
+.stage > svg {
+  position: absolute;
+  inset: 0.5rem;
+  display: block;
+  width: calc(100% - 1rem);
+  height: calc(100% - 1rem);
+}
+.grid-overlay { z-index: 1; pointer-events: none; overflow: visible; }
+.stage > svg:not(.grid-overlay) { z-index: 2; }
+/* The grid / axes / labels trio toggles the overlay's layers independently:
+   .no-grid hides only the minor/major background gridlines (the coordinate
+   grid, not the axes or their numbers), .no-axes the axis group, and
+   .no-labels the tick labels. All three are separate switches in the view
+   options. */
+.stage.no-grid .grid-overlay .grid-minor,
+.stage.no-grid .grid-overlay .grid-major { display: none; }
+.stage.no-axes .grid-overlay .grid-axes { display: none; }
+.stage.no-labels .grid-overlay .grid-labels { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .stage > svg:not(.grid-overlay) { filter: invert(1) hue-rotate(180deg); }
+}
+:root[data-theme="dark"] .stage > svg:not(.grid-overlay) { filter: invert(1) hue-rotate(180deg); }
+:root:not([data-theme="dark"]) .stage > svg:not(.grid-overlay) { /* light theme keeps vector colors */ }
+.placeholder.error .main { color: #b3261e; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .placeholder.error .main { color: #f4847c; }
+}
+:root[data-theme="dark"] .placeholder.error .main { color: #f4847c; }
+.placeholder {
+  position: absolute;
+  inset: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  text-align: center;
+  color: var(--faint);
+  padding: 2rem;
+  z-index: 3;
+  pointer-events: none;
+}
+.placeholder .glyph { color: var(--line-2); margin-bottom: 0.25rem; }
+.placeholder .main { font-size: 0.95rem; color: var(--muted); }
+.placeholder .hint { font-size: 0.78rem; }
+.placeholder.busy .hint, .placeholder.error .hint { display: none; }
+.placeholder.busy .glyph { animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
+
+/* Stage scrubber -- a duplicate of the animator panel's scrubber pinned
+   directly under the canvas, so the master clock is physically next to the
+   picture. Hidden in Design mode via the `hidden` attribute (toggled in
+   enterAnim / exitAnim); when shown it spans the same 720px max-width as the
+   stage and reads as a single row: the range input plus a `t = 0.000` mono
+   readout. The `.scrubber` class reuses the animator scrubber's thumb
+   styling, so the two look identical. */
+.stage-scrubber[hidden] { display: none; }
+.stage-scrubber {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  width: 100%;
+  max-width: min(100%, 100vh - 8rem);
+  margin: 0.6rem auto 1rem;
+  padding: 0 0.5rem;
+}
+.stage-scrubber .scrubber { flex: 1; }
+.stage-scrubber .scrub-time {
+  flex: none;
+  font: 0.72rem/1 var(--mono);
+  color: var(--muted);
+  min-width: 5rem;
+  text-align: right;
+  user-select: none;
+}
+
+/* In animation mode the master clock (the stage scrubber) must be visible the
+   moment Animate is entered, without the user scrolling the stage column. The
+   stage is square, so its width cap is its height: shrink it in anim mode by
+   roughly the scrubber row's height (header + layout padding + scrubber row),
+   and hide the long "about this motif" card that sits below the scrubber, so
+   stage + clock comfortably fit the viewport. The description returns when
+   the user flips back to Design. */
+.stage.anim {
+  max-width: min(100%, calc(100vh - var(--header-h) - 7rem));
+}
+.stage-area:has(.stage.anim) .meta { display: none; }
+.stage-area:has(.stage.anim) .stage-scrubber { margin-bottom: 1.25rem; }
+
+/* The "about this motif" card under the stage: a structured surface (title,
+   tagline, metadata pills, rendered description) that pairs visually with the
+   stage's frame above it, instead of the old mono pre-wrap log block. */
+.meta {
+  margin: 1.25rem auto 0;
+  max-width: min(100%, 100vh - 8rem);
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.motif-title code { font-size: 1.1rem; font-weight: 600; }
+.motif-summary { color: var(--ink); font-size: 0.95rem; margin: 0.2rem 0 0.6rem; }
+/* Parameter names inside the summary are ``code``-wrapped; give them a visible
+   pill so they read as named parameters rather than words in slightly smaller
+   type. Soft accent tint keeps the single-indigo design language. */
+.motif-summary code {
+  font-family: var(--mono);
+  font-size: 0.78em;
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 4px;
+  padding: 0.06em 0.32em;
+  white-space: nowrap;
+}
+.motif-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0 0 0.7rem; }
+.motif-doc p { color: var(--muted); font-size: 0.88rem; line-height: 1.6; margin: 0 0 0.6rem; }
+.motif-doc p:last-child { margin-bottom: 0; }
+.motif-doc code { font-family: var(--mono); font-size: 0.82em; }
+/* A non-Parameters section (Returns, Notes, ...) reads as a small heading. */
+.motif-doc h3 {
+  font: 600 0.68rem/1 var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  margin: 0.8rem 0 0.2rem;
+}
+/* The numpydoc Parameters section as a tidy definition list: one row per
+   parameter with the mono name and type tag on the first line and the
+   description on its own left-aligned line below (spanning the row width), so
+   a card of many parameters stays scannable without hanging long descriptions
+   under the type column. */
+.motif-params { margin: 0.85rem 0 0; }
+.params-title {
+  display: block;
+  font: 600 0.68rem/1 var(--sans);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+  margin: 0 0 0.25rem;
+}
+.param-row {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  column-gap: 0.7rem;
+  align-items: baseline;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--line);
+}
+.param-row:last-child { border-bottom: none; }
+.param-name {
+  grid-column: 1;
+  font: 0.78rem/1.4 var(--mono);
+  color: var(--ink);
+  white-space: nowrap;
+}
+.param-type {
+  grid-column: 2;
+  font: 0.68rem/1.4 var(--mono);
+  color: var(--faint);
+}
+/* The description drops to its own row, left-aligned with the name (the whole
+   card width), instead of being indented under the type tag in the column
+   where there used to be a wide empty gutter beside it. */
+.param-desc {
+  grid-column: 1 / -1;
+  font-size: 0.84rem;
+  color: var(--muted);
+  padding-top: 0.05rem;
+}
+
+/* --- controls panel -------------------------------------------------------- */
+/* The Design panel (.controls) and the Animator panel (.animator) are a
+   tabpair -- role="tabpanel" asides labeled by the header's mode tabs. Only
+   one is visible at a time; explore-mode.js toggles the animator's `hidden`
+   attribute (the Design aside is always visible; its contents are simply the
+   still controls + exports). Both occupy the same grid column (the right-
+   hand 21rem rail) so the layout does not jump when the mode flips. The
+   #controls slider list is reparented between them, so both panels share one
+   live set of slider handlers. */
+.controls, .animator {
+   /* The rail chrome (background / border / padding) comes from the shared
+      .rail, .controls, .animator rule in the layout section; the scroll
+      behavior lives there too, so the panel fills the column as an
+      independent scroll container. Keep only the panel-specific bits here. */
+  min-width: 0;
+}
+/* `hidden` must win over any later `display` rule so the inactive panel really
+   leaves the grid flow (otherwise both asides would share the column). */
+ .animator[hidden] { display: none; }
+ .placeholder-note {
+  color: var(--muted);
+  font-size: 0.83rem;
+  line-height: 1.55;
+  padding: 0.7rem 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  margin: 0.6rem 0 1rem;
+}
+
+/* --- dynamic parameter controls --------------------------------------------- */
+.controls-list { display: flex; flex-direction: column; gap: 0.7rem; margin: 0.6rem 0 1rem; }
+.control {
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+}
+.control-label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+  cursor: default;
+}
+.control-name {
+  font: 0.78rem/1 var(--mono);
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.control-ann {
+  font: 0.66rem/1 var(--mono);
+  color: var(--faint);
+  text-transform: none;
+  letter-spacing: 0;
+  flex: none;
+  max-width: 9rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The name + annotation sit together on the label's left; the reset button
+   anchors the right so a full parameter row reads `name type ........ reset`. */
+.control-id {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1;
+}
+.control-id .control-name { flex: 0 1 auto; }
+.control-id .control-ann { flex: none; }
+/* A small info ("i") chip after a parameter's name whose hover / focus shows
+   the docstring description of that parameter in a tooltip. The controls list
+   is shared between Design and Animate, so the chip covers both views. */
+.control-info {
+  flex: none;
+  width: 0.95rem;
+  height: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid var(--line-2);
+  background: var(--panel);
+  color: var(--faint);
+  font: 600 0.56rem/1 var(--sans);
+  cursor: help;
+  user-select: none;
+  transition: all 0.12s ease;
+}
+.control-info:hover, .control-info:focus-visible {
+  color: var(--accent-ink);
+  border-color: var(--accent);
+  outline: none;
+}
+/* The parameter info tooltip itself is a single `position: fixed` element on
+   <body>, out of the controls panel's overflow clipping chain, so it can never
+   be cut off under the panel's edge. explore-controls.js anchors it to the
+   focused chip's viewport rectangle and re-anchors on scroll / resize. */
+.kf-info-tip {
+  position: fixed;
+  z-index: 60;
+  display: none;
+  max-width: 17rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font: 0.72rem/1.45 var(--sans);
+  text-transform: none;
+  letter-spacing: 0;
+  white-space: normal;
+  text-align: left;
+  pointer-events: none;
+}
+/* Per-parameter reset: a quiet small button that snaps the control back to the
+   value it started at (the example or declared default). Muted until hover so
+   it never competes with the parameter itself. */
+.reset-param {
+  flex: none;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.6rem/1 var(--mono);
+  text-transform: lowercase;
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.reset-param:hover { color: var(--ink); border-color: var(--accent); }
+.reset-param:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.reset-param:active { transform: translateY(1px); }
+.control.disabled .reset-param { opacity: 0.5; cursor: not-allowed; }
+.control-body { display: flex; flex-direction: column; gap: 0.35rem; }
+/* Only a wholly unavailable motif (the scipy-only case) greys out the whole
+   row. An individually-disabled input -- e.g. an optional numeric's value box
+   sitting at its "None" default -- dims just that input, so the "set value"
+   checkbox above it stays fully clickable and the parameter can be switched
+   on. (A :has(input:disabled) grey-out used to block the whole row, which made
+   every optional parameter impossible to set.) */
+.control.disabled .control-body { opacity: 0.5; pointer-events: none; }
+.control input:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* range slider + live readout */
+.slider-row { display: flex; align-items: center; gap: 0.6rem; }
+.slider-row input[type="range"] { flex: 1; margin: 0; cursor: pointer; }
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px; height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent); cursor: pointer;
+}
+input[type="range"]:disabled { opacity: 0.5; cursor: not-allowed; }
+.slider-val {
+  font: 0.74rem/1 var(--mono);
+  color: var(--muted);
+  min-width: 4.5ch;
+  text-align: right;
+  padding: 0.18rem 0.3rem;
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  border: 1px solid var(--line);
+}
+
+/* toggle (bool) */
+.toggle { display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
+.toggle input { margin: 0; cursor: pointer; }
+.toggle .switch {
+  font: 500 0.74rem/1 var(--mono);
+  color: var(--muted);
+}
+
+/* dropdown */
+select.control-select {
+  width: 100%;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.8rem/1.2 var(--sans);
+  cursor: pointer;
+}
+select.control-select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* numeric / text inputs */
+input.control-input {
+  width: 100%;
+  padding: 0.32rem 0.45rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.78rem/1.2 var(--mono);
+}
+input.control-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* x/y pair (Point) and 4-tuple (Bounds) */
+.pair { display: grid; gap: 0.3rem; }
+.pair.two { grid-template-columns: 1fr 1fr; }
+.pair.four { grid-template-columns: 1fr 1fr; }
+.pair label {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: 0.68rem/1 var(--mono);
+  color: var(--faint);
+}
+.pair label > input { flex: 1; min-width: 0; }
+.pair label > .ax { flex: none; width: 3.5ch; text-align: right; }
+
+/* "none" toggle for Optional numerics / points */
+.none-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font: 0.7rem/1 var(--mono);
+  color: var(--faint);
+}
+.none-row input { margin: 0; }
+
+/* held (non-settable) note */
+.held-note {
+  margin: 0.2rem 0 0;
+  padding: 0.55rem 0.7rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  background: transparent;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.held-note .label { display: inline; padding: 0 0.25rem 0 0; color: var(--faint); }
+.held-note code { font-size: 0.72rem; color: var(--ink); }
+.held-list { display: inline; }
+.held-list code { margin-right: 0.25rem; }
+
+.command-block { margin-top: 0.25rem; }
+.command-label { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem; }
+.command-label .label { padding: 0; }
+pre.command {
+  margin: 0;
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--accent);
+  border-radius: var(--r);
+  background: var(--panel);
+  overflow-x: auto;
+  white-space: pre-wrap;
+  break-inside: avoid;
+  color: var(--ink);
+  box-shadow: var(--shadow);
+}
+.command-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+.copy {
+  padding: 0.4rem 0.85rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.76rem/1 var(--sans);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.copy:hover { color: var(--ink); border-color: var(--accent); }
+.copy.ok { color: var(--accent-ink); border-color: var(--accent); }
+
+/* --- stage view toolbar ---------------------------------------------------- */
+/* A small floating row of icon-glyph buttons pinned to the top-right of the
+    drawing surface: the zoom cluster (out / fit / in) and a gear-triggered
+    popover holding the grid / axes / labels view toggles. It sits inside
+    .stage so it stays aligned with the (centered, max-width) drawing box,
+    above the zoomed SVG. The Play entry to animation mode retired in favor
+    of the header's Design / Animate mode tabs; the wordy text labels gave
+    way to inline SVG icons and the gear popover so the three
+    view toggles collapse out of the way under 50rem. */
+.stage-toolbar {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.2rem;
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+}
+.tb {
+  min-width: 1.7rem;
+  height: 1.7rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  transition: all 0.1s ease;
+}
+.tb svg { display: block; pointer-events: none; }
+.tb:hover { color: var(--ink); background: var(--panel-2); }
+.tb:active { transform: translateY(1px); }
+.tb:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.tb.toggle[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+.tb-sep { width: 1px; align-self: stretch; margin: 0.15rem 0.2rem; background: var(--line); }
+
+/* View-toggles popover: the grid / axes / labels trio lives in
+    .tg-popover-body. On wide viewports .tg-popover unwraps (display: contents)
+    so the body's three toggles flow inline after the separator and the gear is
+    hidden -- the row reads `[−][fit][+] | [grid][axes][labels]`. Under 50rem
+    the gear shows and the body becomes an absolutely-positioned popover that
+    floats below the gear; explore-view.js toggles the `.open` class on
+    .tg-popover (and mirrors aria-expanded). The same three buttons serve both
+    layouts -- no reparent, so every toggle's click handler keeps working. */
+.tg-popover { display: contents; }
+.tg-gear { display: none; }
+.tg-popover-body { display: inline-flex; align-items: center; gap: 0.2rem; }
+@media (max-width: 50rem) {
+  .tg-popover {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+  .tg-gear { display: inline-flex; }
+  .tg-popover-body {
+    display: none;
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+    padding: 0.3rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--r);
+    box-shadow: var(--shadow);
+    z-index: 5;
+  }
+  .tg-popover-body .tb { min-width: 1.9rem; }
+  .tg-popover.open .tg-popover-body { display: flex; }
+  .tg-popover.open .tg-gear { color: var(--accent-ink); background: var(--accent-soft); border-color: var(--accent); }
+}
+
+/* --- cursor coordinate readout + zoom indicator ----------------------- */
+/* Pinned to the bottom-left / bottom-right of the stage, just inside the
+   frame. Both are pointer-events: none so they never catch a pan / zoom
+   drag, and they clear themselves when there is no viewBox (no motif loaded)
+   or the pointer has left the stage. The mono font matches the rest of the
+   drafting-surface readouts. */
+.coord-readout,
+.zoom-ind {
+  position: absolute;
+  bottom: 0.6rem;
+  z-index: 3;
+  padding: 0.18rem 0.45rem;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--panel) 82%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  border: 1px solid var(--line);
+  font: 0.68rem/1 var(--mono);
+  color: var(--muted);
+  pointer-events: none;
+  white-space: nowrap;
+  user-select: none;
+}
+.coord-readout { left: 0.6rem; }
+.zoom-ind { right: 0.6rem; }
+.coord-readout:empty,
+.zoom-ind:empty { display: none; }
+
+/* --- export row ------------------------------------------------------------ */
+/* The still SVG / PNG / spec exports live in the Design panel; the GIF +
+   spec-JSON animation exports live at the bottom of the Animator panel. Both
+   rows share the same rhythm (a tracked label + a wrap of buttons). */
+.export-row,
+.anim-export-row {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.7rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--line);
+}
+.export-row .label,
+.anim-export-row .label { padding: 0; }
+.export-buttons { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.copy.export { padding: 0.35rem 0.7rem; font-size: 0.72rem; }
+.copy.export:disabled { opacity: 0.5; cursor: not-allowed; }
+.copy.export.gif { font-weight: 600; }
+
+/* --- animation mode -------------------------------------------------------- */
+/* The Animator panel is a tabpanel aside on the right rail, mirroring
+   .controls. It holds the reparented #controls sliders, the timeline (tracks +
+   transport + overlays), and the animation export row. The master clock (play
+   / loop / scrub) is not here -- it lives on the stage scrubber under the
+   canvas. The timeline is no longer a free-floating card under the stage -- it
+   lives inside the panel, so the card chrome (border / shadow / max-width /
+   margin) is dropped here and the inner blocks keep their own separators. */
+.animator { display: flex; flex-direction: column; gap: 0.6rem; }
+/* The #controls list is reparented into the animator from the Design panel,
+   where its own margin (0.6rem 0 1rem) spaces it from the surrounding blocks.
+   In the animator that margin would stack on top of the flex gap and the
+   section-head separators, doubling the breathing room around the parameter
+   panels compared to Design mode. Zero it here so the animator's uniform flex
+   gap alone spaces the reparented sliders, matching the Design panel's rhythm. */
+.animator .controls-list { margin: 0; }
+
+/* The timeline now lives inside the animator; drop the free-floating card
+   chrome (border / shadow / max-width / margin) but keep the inner blocks'
+   own separators. `.on` still gates visibility so a not-yet-entered animator
+   (hidden) does not flash the timeline. */
+.timeline {
+  display: none;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  margin: 0;
+}
+.timeline.on { display: block; }
+
+/* The scrubber-row class is retired (the scrubber lives on the stage
+   scrubber row now); keep the rule harmless in case a stale reference
+   remains. */
+.scrubber-row { flex: 1; display: flex; align-items: center; }
+.scrubber {
+  flex: 1;
+  margin: 0;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--line);
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.scrubber::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 12px; height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: pointer;
+}
+.scrubber::-moz-range-thumb {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--accent); border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent); cursor: pointer;
+}
+
+/* Tracks: one row per animatable parameter. */
+.tracks { display: flex; flex-direction: column; gap: 0.35rem; margin: 0.3rem 0 0.6rem; }
+.track { display: flex; flex-direction: column; gap: 0.2rem; }
+.track-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.track-name {
+  font: 0.72rem/1 var(--mono);
+  color: var(--ink);
+  flex: 1;
+  min-width: 5rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.track-easing {
+  font: 0.66rem/1 var(--mono);
+  padding: 0.15rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  cursor: pointer;
+}
+.track-easing:focus { outline: none; border-color: var(--accent); }
+
+.lane {
+  position: relative;
+  height: 18px;
+  border-radius: 99px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  cursor: crosshair;
+}
+/* Numeric tracks get a tall lane so their dots' height encodes the value
+   (max at the top), the axis a vertical drag edits. */
+.lane.numeric {
+  height: 64px;
+  border-radius: 8px;
+}
+.kf {
+  position: absolute;
+  top: 50%;
+  width: 10px; height: 10px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--panel-2);
+  box-shadow: 0 0 0 1px var(--accent);
+  cursor: grab;
+  outline: none;
+}
+.kf:focus { box-shadow: 0 0 0 2px var(--accent); }
+.kf:active { cursor: grabbing; }
+/* The selected keyframe: read as a "target" so the row's value input / delete
+   button visibly belong to it. A soft translucent glow (the old accent-soft)
+   was too faint to spot at a glance, while a solid ring widened the dot's
+   footprint and hid the lane (and its curve) underneath. So the selection
+   keeps the dot at its normal size and instead adds a crisp, thin solid accent
+   ring at the rim -- unmistakable -- ringed by a translucent halo that lets
+   the lane and neighboring dots show through. */
+.kf.sel {
+  background: var(--accent-ink);
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 0 7px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+.track.edit .lane { border-color: var(--accent); }
+
+/* The easing curve drawn between keyframes in a numeric lane: an SVG overlay
+   stretched across the lane whose stroke sits at the value each time eases to
+   and whose area under the curve is filled to the lane's bottom by default.
+   vector-effect keeps the stroke a constant screen width despite the
+   preserveAspectRatio="none" stretch. The .kf-no-curve / .kf-no-fill classes
+   on the timeline come from the keyframe settings; the svg is always built and
+   merely hidden here so toggling needs no repaint of the dots. */
+.kf-curve-svg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  overflow: visible;
+}
+.kf-curve-fill { fill: var(--accent-soft); }
+.kf-curve-line {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+  vector-effect: non-scaling-stroke;
+}
+.timeline.kf-no-curve .kf-curve-svg { display: none; }
+.timeline.kf-no-fill .kf-curve-fill { display: none; }
+
+/* Timeline ruler: a dim 1px hairline inside the lane at each labeled time
+   (0, 0.25, 0.5, 0.75, 1) plus a scale of labels directly under the lane --
+   0.0 flush left, 1.0 flush right, the quarters centered. A positional
+   reference for landing keyframes at a time. Hides via the keyframe settings'
+   "show timeline ruler" toggle (a .kf-no-ticks class on the timeline). */
+.lane-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-50%);
+  background: color-mix(in srgb, var(--line-2) 60%, transparent);
+  pointer-events: none;
+}
+.lane-ruler {
+  position: relative;
+  height: 0.85rem;
+  margin-top: 0.1rem;
+  font: 0.55rem/1 var(--mono);
+  color: var(--faint);
+  user-select: none;
+  pointer-events: none;
+}
+.lane-ruler-label { position: absolute; top: 0; }
+.timeline.kf-no-ticks .lane-tick,
+.timeline.kf-no-ticks .lane-ruler { display: none; }
+
+/* The edit row under a numeric track's lane: a precise value input for the
+   selected keyframe and a visible delete (x) button. Hidden until a dot on
+   that track is selected (the row carries .edit via its parent .track), and
+   always hidden on touch where the timeline is read-only. */
+.kf-edit-row {
+  display: none;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.25rem 0 0;
+  font: 0.68rem/1 var(--mono);
+  color: var(--faint);
+}
+.track.edit .kf-edit-row { display: flex; }
+.kf-edit-label { text-transform: none; letter-spacing: 0; }
+.kf-value-input {
+  width: 6rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.72rem/1.2 var(--mono);
+}
+.kf-value-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+/* The selected keyframe's time input: the same precise-field treatment the
+   value input gets, sized for a 0..1 fraction. Clamps are on the element
+   (min/max) and re-enforced in JS on every edit. */
+.kf-time-input {
+  width: 4.2rem;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.72rem/1.2 var(--mono);
+}
+.kf-time-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.kf-del {
+  padding: 0.2rem 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.72rem/1 var(--sans);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.kf-del:hover:not(:disabled) { color: var(--ink); border-color: var(--accent); }
+.kf-del:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.anim-empty {
+  margin: 0.3rem 0;
+  font: 0.74rem/1.5 var(--mono);
+  color: var(--faint);
+  text-align: center;
+}
+
+/* Transport + overlays stay in place but are now visually grouped under
+    explicit "Playback" and "Motion overlays" section headings, so the
+    animator reads as labeled sections instead of two dashed rows. The
+    heading carries the top border that used to live on the block itself;
+    the block sits below it without its own separator. */
+.anim-section-head {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--line);
+}
+.anim-section-head .label { padding: 0; }
+
+/* Transport row: play/pause, loop, frames, fps, hold, easing. */
+.transport {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+.tp {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--muted);
+  font: 500 0.74rem/1 var(--mono);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.tp:hover { color: var(--ink); border-color: var(--accent); }
+.tp.toggle[aria-pressed="true"] {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+/* The play / pause transport is a compact icon button: two swapped SVG glyphs
+   (a play triangle, two pause bars), toggled by the .playing class that
+   explore-animation.js sets on start/stop. The face stays icon-only so the
+   clock row reads tight; the title tooltip still explains it. */
+.tp#tp-play {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  padding: 0.28rem;
+}
+.tp#tp-play .ico { display: flex; width: 100%; height: 100%; }
+.tp#tp-play .ico.pause { display: none; }
+.tp#tp-play.playing .ico.play { display: none; }
+.tp#tp-play.playing .ico.pause { display: flex; }
+.tp-field {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font: 0.68rem/1 var(--mono);
+  color: var(--faint);
+}
+.tp-field input, .tp-field .tp-select {
+  width: 4.5rem;
+  padding: 0.18rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.72rem/1.2 var(--mono);
+}
+.tp-field .tp-select { width: auto; cursor: pointer; }
+.tp-field input:focus, .tp-field .tp-select:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+/* Overlay checkboxes + their per-overlay option rows. The "Motion overlays"
+    section heading lives above this block now, so the block no longer
+    carries its own top border or the inline "Overlays" label. */
+.overlays {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.7rem;
+}
+.ov-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: 0.72rem/1 var(--mono);
+  color: var(--muted);
+  cursor: pointer;
+}
+.ov-toggle input { margin: 0; }
+.ov-opts {
+  display: none;
+  align-items: center;
+  gap: 0.35rem;
+  font: 0.68rem/1 var(--mono);
+  color: var(--faint);
+}
+.ov-opts.on { display: inline-flex; }
+.ov-opts input {
+  width: 4.5rem;
+  padding: 0.18rem 0.3rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--ink);
+  font: 0.72rem/1.2 var(--mono);
+}
+.ov-opts input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* Thin pre-render progress bar pinned to the top of the stage, the same
+   rhythm as the header's cold-load bar. Hidden unless a build is in flight. */
+.anim-progress {
+  position: absolute;
+  left: 0.6rem;
+  right: 0.6rem;
+  bottom: 0.6rem;
+  height: 3px;
+  border-radius: 99px;
+  background: var(--line);
+  overflow: hidden;
+  display: none;
+  z-index: 4;
+}
+.anim-progress.on { display: block; }
+.anim-progress > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width 0.15s ease;
+}
+
+/* Export-in-progress overlay: a small centered pill shown while a slow export
+   (PNG / GIF) is running in Pyodide. The whole page is main-thread-blocked
+   during those calls, so the pill tells the user work is happening instead of
+   leaving a frozen page that reads as hung. The spinner is a compositor-driven
+   transform animation, which keeps turning even while the synchronous Python
+   call occupies the main thread. */
+.exporting {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 1.1rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  font: 500 0.78rem/1 var(--sans);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.exporting.on {
+  opacity: 1;
+  display: flex;
+}
+.exporting-spin {
+  width: 0.95rem;
+  height: 0.95rem;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: exporting-spin 0.7s linear infinite;
+}
+@keyframes exporting-spin { to { transform: rotate(360deg); } }
+
+/* The export buttons themselves say "exporting…" while a job runs, so the
+   row stays the source of truth even though the whole page is busy. */
+.copy.export.busy { cursor: wait; }
+
+/* Step marker on discrete (bool / Literal / str) tracks: the value holds then
+   snaps at the next keyframe rather than easing, so a small stair glyph makes
+   the behavior visible without surprising a user who expects a smooth sweep. */
+.step-mark {
+  display: inline-flex;
+  align-items: center;
+  height: 1em;
+  margin-left: 0.1rem;
+  padding: 0 0.25rem;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  font: 0.6rem/1 var(--mono);
+  color: var(--faint);
+  background: var(--panel);
+  user-select: none;
+  vertical-align: middle;
+}
+
+/* Keyframe settings: a small gear on the right of the "Keyframes" heading
+   opens a popover of persisted keyframe preferences -- axis-lock, easing-curve
+   visibility, curve fill, timeline ruler. The gear is a quiet icon button; the
+   popover drops down under it as a card of checkbox rows. */
+.kf-head { position: relative; display: flex; align-items: center; justify-content: space-between; }
+.kf-head .label { padding-bottom: 0.1rem; }
+.kf-gear {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--faint);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+.kf-gear:hover, .kf-gear[aria-expanded="true"] { color: var(--accent-ink); border-color: var(--accent); background: var(--accent-soft); }
+.kf-gear:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.kf-set-popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 40;
+  display: none;
+  flex-direction: column;
+  gap: 0.3rem;
+  min-width: 15rem;
+  padding: 0.55rem 0.6rem;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r);
+  background: var(--panel);
+  box-shadow: var(--shadow);
+}
+.kf-set-popover.open { display: flex; }
+.kf-set-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.15rem 0.1rem;
+  font: 0.74rem/1.3 var(--sans);
+  color: var(--muted);
+  cursor: pointer;
+}
+.kf-set-row input { margin: 0; accent-color: var(--accent); cursor: pointer; }
+.kf-set-row:hover { color: var(--ink); }
+
+/* Per-track "+" button: drops a single keyframe at the scrubber's time. Sits
+   beside the easing dropdown so the row reads `[name] [step] [+] [easing]`.
+   Large enough to be the obvious per-track affordance, quiet enough not to
+   fight the easing dropdown's select arrow. */
+.kf-add-one {
+  flex: none;
+  width: 1.4rem;
+  height: 1.4rem;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--panel);
+  color: var(--accent-ink);
+  font: 700 0.85rem/1 var(--sans);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.kf-add-one:hover { border-color: var(--accent); background: var(--accent-soft); }
+.kf-add-one:focus { outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.kf-add-one:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Empty-state hint card: shown when the animator opens with no keyframes on any
+   track. A centered, dashed card carries the scrub -> slider -> "Set keyframes
+   for all params" loop. It disappears the moment any track has >=1 keyframe
+   (paintTimeline swaps it for the real track rows). Mirrors the
+   .placeholder-note rhythm. */
+.anim-empty-card {
+  margin: 0.4rem 0 0.8rem;
+  padding: 0.7rem 0.85rem;
+  border: 1px dashed var(--line);
+  border-radius: var(--r);
+  background: var(--panel-2);
+  font: 0.74rem/1.5 var(--mono);
+  color: var(--muted);
+  text-align: center;
+}
+
+/* Keyframe dots are created with the per-track "+" and the "Set keyframes for
+   all params" button; a dot is then selected with a click and dragged to move
+   it (numeric tracks drag both time and value). The lane carries no implicit
+   drop affordance. */
+
+/* On touch devices the timeline is read-only: scrub and play work, but
+   keyframe editing (drag, drop, delete, per-track easing) is hidden so a
+   finger does not fight a fat-finger drag. A hint says so up front. */
+.timeline.touch .lane { cursor: default; }
+.timeline.touch .kf { cursor: default; pointer-events: none; }
+.timeline.touch .track-easing { display: none; }
+.timeline.touch .kf-add-one { display: none; }
+.timeline.touch .kf-edit-row { display: none; }
+.touch-hint {
+  margin: 0.2rem 0 0;
+  font: 0.68rem/1.4 var(--mono);
+  color: var(--faint);
+}
+.touch-hint code { font-family: var(--mono); }

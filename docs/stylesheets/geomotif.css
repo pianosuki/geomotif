@@ -38,7 +38,11 @@
   white-space: normal;
 }
 
-/* The README's image strip, reused on the landing page. */
+/* The README's image strip, reused on the landing page. The flex defaults make
+ * each .motif (width: 100% with a 320px cap) want to stretch to its max-width,
+ * which turns a wrapped row of thumbnails into a stack that takes the whole
+ * page. Fix each image to a fixed 140px column so the row wraps in place.
+ */
 .strip {
   display: flex;
   flex-wrap: wrap;
@@ -47,7 +51,86 @@
   margin: 1.5rem 0;
 }
 
+/* Markdown wraps each image line (and everything else) in a <p>, so the flex
+   children of .strip are actually one <p> per row, not the images -- and the
+   <p> stretches full width, stacking the imgs vertically. Making the <p>
+   layout-transparent (display: contents) lets the imgs become the flex items
+   the width-fixed rule below addresses. */
+.strip p {
+  display: contents;
+}
+
 .strip img {
+  flex: 0 0 140px;
   width: 140px;
   height: 140px;
+}
+
+.strip .motif {
+  max-width: none;
+  width: 140px;
+}
+
+/* A centered row for the call-to-action buttons on the landing and explore
+ * pages. The .md-button is inline-block and left-aligned by the surrounding
+ * paragraph; centering the row (with a little vertical rhythm) fixes that. */
+.cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin: 1.5rem 0;
+}
+
+/* The "explore" pill in the Material header — a quiet indigo-accented anchor
+ * injected beside the theme toggle by docs/overrides/partials/header.html.
+ * Styled to read as a primary call-to-action without competing with the
+ * wordmark: pill-shaped, indigo border, transparent fill in light mode so
+ * it sits in the header's rhythm the way the theme toggle does. */
+.md-header__explore {
+  display: inline-flex;
+  align-items: center;
+  height: 2.2rem;
+  padding: 0 0.85rem;
+  border-radius: 99px;
+  border: 1px solid var(--md-accent-fg-color, #4f46e5);
+  color: var(--md-accent-fg-color, #4f46e5);
+  background: transparent;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  text-decoration: none;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+/* Material's `.md-header__button:not([hidden]) { display: inline-block }` has
+   higher specificity than `.md-header__explore` alone, so the pill's own
+   inline-flex centering was being overridden and the text sat on the inline
+   block's line box (off-vertical-center). Re-declaring the pair here --
+   same specificity as Material's selector, later in the cascade -- restores
+   the flex centering and gives the pill a stable box. */
+.md-header__button.md-header__explore {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  height: 2.2rem;
+  margin: 0.2rem;
+  padding: 0 0.85rem;
+  box-sizing: border-box;
+}
+/* On hover the pill fills with the accent. Material's own
+ * `.md-header__button:hover` also repaints the *text* accent-coloured, and
+ * it wins the tie on color -- equal specificity, later in the cascade -- so
+ * without this re-declaration the label would be accent-on-accent and read
+ * as a blank blue pill. Qualifying both classes beats that rule and keeps
+ * the label readable against the filled pill. */
+.md-header__button.md-header__explore:hover {
+  background: var(--md-accent-fg-color, #4f46e5);
+  color: var(--md-default-bg, #ffffff);
+}
+/* In dark mode the indigo accent lightens; the hover inversion still reads. */
+[data-md-color-scheme="slate"] .md-header__explore {
+  border-color: var(--md-accent-fg-color, #818cf8);
+  color: var(--md-accent-fg-color, #818cf8);
 }

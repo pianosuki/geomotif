@@ -5,6 +5,7 @@ Everything here is motif-agnostic. Concrete geometry lives in
 """
 
 from .motif import Distribution, Motif, SupportsBuild
+from .range import Range
 from .sampling import ArcTable, Placement, densify, resample, resample_path, samples_for_turns
 from .spacing import (
     CircularSpacing,
@@ -60,6 +61,7 @@ __all__ = [
     "Point",
     "PowerSpacing",
     "QuadraticSpacing",
+    "Range",
     "ReversedSpacing",
     "SineSpacing",
     "SmoothstepSpacing",

@@ -197,7 +197,7 @@ design = motif.generate(2000)  # ...at whatever resolution you want today
 
 ```json
 {
-  "geomotif": "1.2.2",
+  "geomotif": "1.3.0",
   "motif": "spiral.fibonacci",
   "params": {
     "quarters": 9,

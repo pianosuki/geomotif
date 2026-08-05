@@ -59,13 +59,19 @@ docs-serve: ## Serve the documentation at http://127.0.0.1:8000 with live reload
 	$(UV) run --group docs mkdocs serve
 
 .PHONY: docs-gen
-docs-gen: ## Regenerate the derived docs (reference, gallery, catalog, README images)
+docs-gen: ## Regenerate the derived docs (reference, gallery, catalog, README images, explore catalog)
+	$(UV) run --group docs python tools/gendocs.py
+
+.PHONY: explore-catalog
+explore-catalog: ## Regenerate only the explore catalog.json (docs/assets/explore/catalog.json)
 	$(UV) run --group docs python tools/gendocs.py
 
 .PHONY: docs-check
 docs-check: docs-gen ## Fail if the committed generated docs are out of date
 	@# --porcelain rather than `git diff --exit-code`, so that a *new* generated
-	@# file -- an added motif's image -- counts as drift too.
+	@# file -- an added motif's image -- counts as drift too. The explore
+	@# catalog.json under docs/assets/explore/ is committed too, so a stale
+	@# explorer catalog is caught the same way a stale catalog.md is.
 	@drift=$$(git status --porcelain -- docs/catalog.md docs/assets); \
 	if [ -n "$$drift" ]; then \
 		echo "$$drift"; \
@@ -74,6 +80,31 @@ docs-check: docs-gen ## Fail if the committed generated docs are out of date
 		echo "Run 'make docs-gen' and commit the result."; \
 		exit 1; \
 	fi
+
+.PHONY: explore-stage
+explore-stage: build docs ## Build the wheel and stage the explorer SPA + wheel into site/explore/ (local mirror of CI)
+	@# mkdocs already copied docs/assets/explore/* to site/assets/explore/,
+	@# but the SPA's index.html loads its assets relative to its own URL, so
+	@# they must sit beside it under site/explore/. The wheel name carries
+	@# catalog.geomotif's version, so app.js (which derives WHEEL_URL from
+	@# that field) stays in lockstep with the build automatically.
+	@mkdir -p site/explore
+	@cp dist/geomotif-*-py3-none-any.whl site/explore/
+	@cp docs/assets/explore/index.html \
+	    docs/assets/explore/app.css \
+	    docs/assets/explore/app.js \
+	    docs/assets/explore/explore-bootstrap.js \
+	    docs/assets/explore/explore-pybridge.js \
+	    docs/assets/explore/explore-grid.js \
+	    docs/assets/explore/explore-view.js \
+	    docs/assets/explore/explore-fragment.js \
+	    docs/assets/explore/explore-controls.js \
+	    docs/assets/explore/explore-catalog.js \
+	    docs/assets/explore/explore-animation.js \
+	    docs/assets/explore/explore-mode.js \
+	    docs/assets/explore/lz-string.js \
+	    docs/assets/explore/catalog.json \
+	    site/explore/
 
 .PHONY: build
 build: ## Build the sdist and wheel into dist/

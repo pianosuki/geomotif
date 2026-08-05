@@ -23,6 +23,12 @@ Between them those two cases cover every builtin motif except the two whose
 parameter *is* a Python function: a motif defined by code cannot be rebuilt from
 data, and asking for its spec says so rather than writing a file that will not
 load.
+
+An optional top-level :data:`ANIMATION_KEY` (``"animation"``) carries the
+recipe for a moving picture -- the same JSON the CLI's ``--animation`` flag
+reads and the web explorer encodes into a share URL. A spec without it is a
+still, and :func:`from_spec` ignores the key when building the motif, so an
+old spec keeps loading unchanged.
 """
 
 from __future__ import annotations
@@ -47,6 +53,7 @@ if TYPE_CHECKING:
     from ..core.motif import Motif
 
 __all__ = [
+    "ANIMATION_KEY",
     "PARAMS_KEY",
     "TYPE_KEY",
     "VERSION_KEY",
@@ -72,11 +79,22 @@ PARAMS_KEY = "params"
 #: the class to rebuild it with.
 TYPE_KEY = "$type"
 
+#: An optional top-level key carrying the animation recipe, when the spec
+#: describes a moving picture rather than a still. The value is a mapping
+#: ``{"type": "keyframes", "tracks": {...}, "frames": N, "fps": X,
+#: "hold": K, "easing": "...", "overlay": [...]}`` -- the same JSON the CLI's
+#: ``--animation`` flag reads and the web explorer encodes into a share URL.
+#: Old specs without it still load as stills: :func:`from_spec` builds the
+#: motif and ignores the key, which is what keeps the addition non-breaking.
+ANIMATION_KEY = "animation"
+
 #: A design's styles, written beside its parameters rather than among them.
 _STYLE_KEYS = (PATH_STYLE_KEY, POINT_STYLE_KEY)
 
 
-def to_spec(source: SupportsBuild | Design) -> dict[str, object]:
+def to_spec(
+    source: SupportsBuild | Design, *, animation: Mapping[str, object] | None = None
+) -> dict[str, object]:
     """Return the JSON-ready recipe for a motif, or for the design it built.
 
     Parameters
@@ -84,12 +102,18 @@ def to_spec(source: SupportsBuild | Design) -> dict[str, object]:
     source : Motif or Design
         A motif, or any design whose :attr:`~geomotif.Design.meta` records the
         motif that produced it -- which every builtin motif's does.
+    animation : mapping, optional
+        An animation recipe to carry alongside the still, so a moving picture
+        round-trips through the same file the CLI's ``--animation`` flag reads.
+        The value is written verbatim under :data:`ANIMATION_KEY`; a still
+        spec simply omits the key.
 
     Returns
     -------
     dict
         ``{"geomotif": version, "motif": name, "params": {...}}``, holding only
-        JSON types and ready for :func:`json.dumps`.
+        JSON types and ready for :func:`json.dumps`. When ``animation`` is
+        given, an ``"animation"`` key sits beside them.
 
     Raises
     ------
@@ -126,6 +150,8 @@ def to_spec(source: SupportsBuild | Design) -> dict[str, object]:
     for key in _STYLE_KEYS:
         if key in live:
             blob[key] = _encode(live[key], where=key)
+    if animation is not None:
+        blob[ANIMATION_KEY] = dict(animation)
     return blob
 
 

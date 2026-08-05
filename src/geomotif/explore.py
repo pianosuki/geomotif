@@ -192,10 +192,18 @@ def _default_for(param: ParamInfo, info: MotifInfo) -> object:
 
 
 def _values_for(param: ParamInfo, info: MotifInfo, steps: int) -> Sequence[object]:
-    """Return the values to try for one parameter, or ``[]`` if it has no axis."""
+    """Return the values to try for one parameter, or ``[]`` if it has no axis.
+
+    A parameter that declared a :class:`~geomotif.Range` on its field metadata
+    is swept across that range -- the motif's own bound, not a guess. Anything
+    without one falls back to the ``_SPREAD`` heuristic around the default, so
+    the page is usable even before every motif is curated.
+    """
     base = _default_for(param, info)
     if param.annotation == "bool":
         return [False, True]
+    if param.min is not None and param.max is not None:
+        return _ranged(param, base, steps)
     # A slider needs somewhere to start. A number whose default is None -- the
     # adaptive `resolution` every parametric motif carries -- gives no clue what
     # scale it lives at, and guessing produces a slider from 1 to 2.
@@ -206,6 +214,39 @@ def _values_for(param: ParamInfo, info: MotifInfo, steps: int) -> Sequence[objec
             return _floats(float(base), steps)
         case _:
             return []
+
+
+def _ranged(param: ParamInfo, base: object, steps: int) -> Sequence[object]:
+    """Return values across a declared ``Range``, including the motif's default.
+
+    An integer parameter with a ``step`` is walked in whole steps so the slider
+    never offers a fractional petal count; a float is spaced linearly across
+    the range, which is the honest shape of a bound the motif itself declared
+    (the geometric ``_SPREAD`` spread is for guessed ranges, where doubling is
+    the same size of change as halving).
+    """
+    # ``_values_for`` only routes here when both bounds are set, so neither is
+    # None at this point; narrowing them locally keeps the call site readable.
+    low = float(param.min)  # type: ignore[arg-type]
+    high = float(param.max)  # type: ignore[arg-type]
+    if param.annotation in ("int", "int | None") and param.step is not None:
+        # Walk in whole steps so the slider never offers a fractional count, but
+        # subsample to ``steps`` values when the range is wider than that -- a
+        # 1-50 range with 7 steps gives 7 evenly-spaced integers, not 50.
+        step = max(1, round(param.step))
+        start = round(low)
+        stop = round(high)
+        every = list(range(start, stop + 1, step)) or [start]
+        if len(every) > steps:
+            span = len(every) - 1
+            every = [every[round(span * i / (steps - 1))] for i in range(steps)]
+        if isinstance(base, int):
+            every = sorted(set(every) | {base})
+        return every
+    grid = [round(low + (high - low) * i / (steps - 1), 6) for i in range(steps)]
+    if isinstance(base, int | float):
+        grid = sorted(set(grid) | {float(base)})
+    return grid
 
 
 def _integers(base: int, steps: int) -> Sequence[object]:

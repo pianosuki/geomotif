@@ -4,6 +4,102 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] — 2026-08-04
+
+The explore overhaul ships: a web explorer for every motif in the catalog,
+`keyframes` growing `geomotif.animate` into a general multi-parameter
+primitive that spec files and the CLI both speak, and parameter ranges
+moving from guessed to declared so every consumer reads the same bound.
+
+### Added
+
+- **`catalog.json`, the registry serialized for the web explorer.**
+  `tools/gendocs.py` now emits `docs/assets/explore/catalog.json` alongside
+  `catalog.md`: every registered motif's name, family, summary, full doc,
+  availability, registered example, and parameters — including the `Range`
+  bounds and the `Literal` choices a dropdown would offer. The web explorer
+  (landing in 1.3.0) reads this once at load time and builds its controls
+  from it, so the page needs no server and no Python. Committed like
+  `catalog.md`, with a matching freshness test in `test_gendocs.py` and a
+  `make explore-catalog` target; the existing `make docs-check` catches
+  drift because it already watches `docs/assets`.
+
+- **`Range`, a min/max/step helper for motif parameters.** A new
+  `geomotif.core.range.Range` maps cleanly onto `dataclasses.field`'s
+  `metadata=` argument (the same route `help` text already takes), so a
+  parameter declares its bound next to its default in one line:
+  `n: int = field(default=5, metadata=Range(1, 50, step=1))`. `Range` is a
+  frozen `Mapping`, so the keys are additive — a field that carries one
+  carries both `help` and `Range`, and a parameter without a `Range` still
+  falls back to the heuristic. Exported from `geomotif` and
+  `geomotif.core`.
+- **`ParamInfo.min`, `.max`, `.step`.** `registry.describe()` now reports
+  the declared range alongside the default and the help text, so the CLI,
+  the docs, the gallery and the web explorer all read the same bound. The
+  three are `None` when a motif has not declared a bound, in which case a
+  consumer falls back to its own heuristic rather than guessing zero.
+- **Curated ranges for the most-used motifs.** The polar, harmonic, spiral,
+  fractal, curve and primitive families now declare `Range` on every
+  numeric parameter a slider can move — petal counts, depths, scales,
+  radii, side counts and point counts. Motifs without a natural bound keep
+  the heuristic, so the catalog is usable even before every motif is
+  curated.
+
+- **`keyframes`, a multi-parameter animation primitive in `geomotif.animate`.**
+  Where `sweep` varies one parameter across a list of values, `keyframes`
+  varies several at once, each across its own time points in `[0, 1]`:
+  `keyframes(Rose(), {"n": [(0.0, 3), (1.0, 9)]}, frames=48)`. Numeric
+  parameters interpolate component-wise with an easing curve from
+  `geomotif.core.spacing` (`linear`, `quadratic`, `cubic`, `sinusoidal`,
+  `exponential`, `circular`, with a `name:mode` suffix for ease-out variants);
+  `bool`, `Literal` and `str` parameters step at the next keyframe; integer
+  parameters round and deduplicate, so adjacent frames that round to the same
+  value share one built `Design`. Per-track easing overrides the global one.
+  An eased value a motif rejects falls back to the last frame that built, with
+  a `keyframes_fallback` note in its metadata. A small `compose(motions,
+  frames)` helper chains `draw_on_overlay` / `spin_overlay` post-passes onto a
+  run of frames, so a Hilbert curve can draw itself on while its `depth`
+  sweeps. This is the primitive the 1.3.0 web explorer's animation editor is
+  built on, so an animation shared from the browser reproduces in the CLI
+  byte-for-byte.
+- **`animation` key in spec files.** `io/spec.py` learns an optional top-level
+  `animation` key carrying the recipe for a moving picture: `{"type":
+  "keyframes", "tracks": {...}, "frames": N, "fps": X, "hold": K, "easing":
+  "...", "overlay": [...]}` -- the same JSON the CLI's `--animation` flag reads
+  and the web explorer encodes into a share URL. `to_spec` takes an optional
+  `animation=` mapping; `from_spec` ignores the key when building the still
+  motif, so an old spec keeps loading unchanged.
+- **`geomotif render --animation spec.json`.** The new flag reads a full spec
+  (motif + params + `animation`), runs the `keyframes` primitive, applies any
+  `overlay` post-passes, and writes a `.gif` through the existing pure-stdlib
+  writer. The recipe's `fps` is authoritative, so a shared animation plays at
+  the same speed on the command line as in the browser. Mutually exclusive
+  with a positional motif name and `--spec`.
+- **The explorer is staged into the deployed site.** The Pages build now builds
+  the geomotif wheel and copies it, alongside the SPA sources, into
+  `site/explore/`, so the explorer served at `/geomotif/explore/` loads the
+  matching-pinned wheel — `app.js` derives `WHEEL_URL` from `catalog.geomotif`,
+  so the build and the runtime stay in lockstep automatically. A new
+  `make explore-stage` target mirrors CI locally: it builds the wheel, runs
+  the docs build, and stages the SPA + wheel into `site/explore/`.
+
+- **An Explore landing page in the docs nav.** `docs/explore.md` is a
+  short page that explains what the web explorer is — still and animation
+  modes, live command line, share URL, SVG/PNG/spec/GIF export, zoom/pan,
+  theme toggles — and points into the SPA with a call-to-action button.
+  The Material nav gains an **Explore** entry beside **Contributing**, so
+  the boundary between the written docs and the web app is explicit and
+  the explorer is one click from the home page.
+
+### Changed
+
+- **`geomotif explore` sweeps a declared range when there is one.** A
+  parameter with a `Range` is now sampled across that range (in whole steps
+  for an integer with a `step`, linearly for a float) rather than around its
+  default with the `_SPREAD` heuristic. The heuristic stays as the fallback
+  for parameters without a declared range, so pages that worked before keep
+  working.
+
 ## [1.2.2] — 2026-08-02
 
 The documentation release: a pass over the guides against the code, fixing
@@ -730,6 +826,7 @@ this name or number; `geomotif` 1.0.0 is the first release of anything.
 - Optional matplotlib helpers (`geomotif.plotting`) behind the `plot` extra.
 - `geomotif-demo` console command / `python -m geomotif` showcase.
 
+[1.3.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.3.0
 [1.2.2]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.2
 [1.2.1]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.1
 [1.2.0]: https://github.com/pianosuki/geomotif/releases/tag/v1.2.0

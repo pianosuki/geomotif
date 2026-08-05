@@ -19,6 +19,10 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="MIT license"></a>
 </p>
 
+<p align="center">
+  <a href="https://pianosuki.github.io/geomotif/explore/"><strong>Open the explore stage &rarr;</strong></a>
+</p>
+
 ```bash
 pip install geomotif
 ```
@@ -255,7 +259,7 @@ hand, and it is a great deal smaller — a mandala's recipe is 1.5 KB against
 
 ```json
 {
-  "geomotif": "1.2.2",
+  "geomotif": "1.3.0",
   "motif": "spiral.fibonacci",
   "params": { "quarters": 9, "size": 10.0 }
 }

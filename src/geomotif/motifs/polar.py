@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING, ClassVar, override
 
 from ..bases import ParametricMotif, PolarMotif, PolygonMotif
 from ..core.motif import Motif
+from ..core.range import Range
 from ..core.registry import register, spec
 from ..core.types import Design
 from ._common import polar_point
@@ -88,9 +89,9 @@ class Rose(ParametricMotif):
 
     closed: ClassVar[bool] = True
 
-    n: int = 5
-    d: int = 1
-    size: float = 100.0
+    n: int = field(default=5, metadata=Range(1, 24, step=1))
+    d: int = field(default=1, metadata=Range(1, 12, step=1))
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -151,9 +152,9 @@ class MaurerRose(PolygonMotif):
         Where the petals meet.
     """
 
-    n: int = 6
-    degrees: int = 71
-    size: float = 100.0
+    n: int = field(default=6, metadata=Range(1, 24, step=1))
+    degrees: int = field(default=71, metadata=Range(1, 180, step=1))
+    size: float = field(default=100.0, metadata=Range(10.0, 400.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -205,11 +206,11 @@ class Lissajous(ParametricMotif):
     domain: ClassVar[tuple[float, float]] = (0.0, math.tau)
     closed: ClassVar[bool] = True
 
-    a: int = 3
-    b: int = 2
-    delta: float = math.pi / 2.0
-    width: float = 200.0
-    height: float = 200.0
+    a: int = field(default=3, metadata=Range(1, 16, step=1))
+    b: int = field(default=2, metadata=Range(1, 16, step=1))
+    delta: float = field(default=math.pi / 2.0, metadata=Range(0.0, math.tau))
+    width: float = field(default=200.0, metadata=Range(20.0, 600.0))
+    height: float = field(default=200.0, metadata=Range(20.0, 600.0))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:
@@ -413,9 +414,9 @@ class Phyllotaxis(Motif):
         Middle of the head.
     """
 
-    count: int = 500
-    spacing: float = 8.0
-    angle: float = GOLDEN_ANGLE
+    count: int = field(default=500, metadata=Range(1, 2000, step=1))
+    spacing: float = field(default=8.0, metadata=Range(1.0, 50.0))
+    angle: float = field(default=GOLDEN_ANGLE, metadata=Range(0.0, math.tau))
     center: Point = (0.0, 0.0)
 
     def __post_init__(self) -> None:

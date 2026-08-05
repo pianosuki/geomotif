@@ -33,6 +33,7 @@ from types import MappingProxyType
 from typing import TYPE_CHECKING, ClassVar, override
 
 from ..core.motif import Motif
+from ..core.range import Range
 from ..core.registry import spec
 from ..core.types import Design, Path
 
@@ -94,11 +95,11 @@ class LSystemMotif(Motif, ABC):
     closed: ClassVar[bool] = False
 
     #: Number of rewriting rounds.
-    depth: int = field(default=4, kw_only=True)
+    depth: int = field(default=4, metadata=Range(1, 7, step=1), kw_only=True)
     #: Length of one forward move.
-    step: float = field(default=1.0, kw_only=True)
+    step: float = field(default=1.0, metadata=Range(0.1, 50.0), kw_only=True)
     #: Initial heading, in radians, counter-clockwise from the x-axis.
-    start_angle: float = field(default=0.0, kw_only=True)
+    start_angle: float = field(default=0.0, metadata=Range(0.0, math.tau), kw_only=True)
 
     def expand(self) -> str:
         """Return the axiom rewritten :attr:`depth` times.

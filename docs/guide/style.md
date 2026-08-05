@@ -101,7 +101,7 @@ to the motif:
 
 ```json
 {
-  "geomotif": "1.2.2",
+  "geomotif": "1.3.0",
   "motif": "circle",
   "params": {"radius": 120.0},
   "path-style": [{"$type": "geomotif.core.style.Style", "layer": "pen1", ...}]
